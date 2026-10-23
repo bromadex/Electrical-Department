@@ -78,3 +78,26 @@ select public.fn_notify(
   'Welcome to Bravura Electrical', 'This is a test notification from seed.sql.', null
 )
 from public.sites s where s.code = 'KAM';
+
+-- Sample jobs at Kamativi in different states.
+insert into public.jobs (site_id, area_id, code, title, description, priority, status,
+  waiting_reason, due_at, created_by, assignee_id, taken_at, created_at)
+select s.id, a.id, public.next_code(s.id, 'J'), j.title, j.descr, j.priority, j.status,
+  j.waiting, now() + j.due, '10000000-0000-0000-0000-000000000002'::uuid,
+  j.assignee, case when j.assignee is null then null else now() end, now() - j.age
+from public.sites s
+join (values
+  ('Replace isolator on MCC panel 3', 'Isolator handle broken; panel is live.', 'urgent', 'open',
+    null, interval '4 hours', null::uuid, 'Plant – MCC room', interval '2 hours'),
+  ('Flickering lights in Block C corridor', null, 'normal', 'taken',
+    null, interval '2 days', '10000000-0000-0000-0000-000000000003'::uuid, 'Camp – Block C', interval '1 day'),
+  ('Crusher motor overheating', 'Trips after ~40 minutes under load.', 'urgent', 'in_progress',
+    null, interval '-3 hours', '10000000-0000-0000-0000-000000000003'::uuid, 'Plant – Crusher', interval '6 hours'),
+  ('Workshop socket outlets not working', null, 'low', 'waiting',
+    'Waiting for 16A breakers from Harare', interval '5 days', '10000000-0000-0000-0000-000000000003'::uuid,
+    'Workshop', interval '3 days'),
+  ('Install floodlight at gate', null, 'normal', 'open',
+    null, null, null::uuid, null, interval '30 minutes')
+) as j (title, descr, priority, status, waiting, due, assignee, area, age) on true
+left join public.areas a on a.site_id = s.id and a.name = j.area
+where s.code = 'KAM';

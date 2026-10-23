@@ -57,8 +57,70 @@ class Outbox extends Table {
   Set<Column> get primaryKey => {clientRef};
 }
 
+/// Jobs at the user's sites (API.md section 7). `pending` marks rows changed
+/// on this device that the server has not confirmed yet.
+class LocalJobs extends Table {
+  TextColumn get id => text()();
+  TextColumn get siteId => text()();
+  TextColumn get areaId => text().nullable()();
+  TextColumn get code => text().nullable()();
+  TextColumn get title => text()();
+  TextColumn get description => text().nullable()();
+  TextColumn get priority => text()();
+  TextColumn get status => text()();
+  TextColumn get waitingReason => text().nullable()();
+  DateTimeColumn get dueAt => dateTime().nullable()();
+  RealColumn get lat => real().nullable()();
+  RealColumn get lng => real().nullable()();
+  TextColumn get createdBy => text().nullable()();
+  TextColumn get assigneeId => text().nullable()();
+  DateTimeColumn get closedAt => dateTime().nullable()();
+  TextColumn get closeNote => text().nullable()();
+  TextColumn get recurrenceId => text().nullable()();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+  BoolColumn get pending => boolean().withDefault(const Constant(false))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Names of people, for showing who posted or holds a job.
+class LocalPeople extends Table {
+  TextColumn get id => text()();
+  TextColumn get fullName => text()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Files waiting to be uploaded to storage; sent before outbox actions.
+@DataClassName('PendingUpload')
+class PendingUploads extends Table {
+  TextColumn get id => text()();
+  TextColumn get bucket => text()();
+  TextColumn get path => text()();
+  BlobColumn get bytes => blob()();
+  TextColumn get contentType => text()();
+  IntColumn get tries => integer().withDefault(const Constant(0))();
+  TextColumn get lastError => text().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 @DriftDatabase(
-  tables: [LocalProfiles, LocalPermissions, LocalSites, LocalAreas, Outbox],
+  tables: [
+    LocalProfiles,
+    LocalPermissions,
+    LocalSites,
+    LocalAreas,
+    Outbox,
+    LocalJobs,
+    LocalPeople,
+    PendingUploads,
+  ],
 )
 class LocalDb extends _$LocalDb {
   LocalDb([QueryExecutor? executor])
@@ -74,7 +136,18 @@ class LocalDb extends _$LocalDb {
       );
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        await m.createTable(localJobs);
+        await m.createTable(localPeople);
+        await m.createTable(pendingUploads);
+      }
+    },
+  );
 
   /// Replaces the cached session data in one transaction.
   Future<void> replaceSession({

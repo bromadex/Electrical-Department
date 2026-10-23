@@ -21,6 +21,15 @@ class AppError implements Exception {
       return AppError('SERVER', error.message);
     }
     if (error is AuthException) return AppError('AUTH', error.message);
+    if (error is StorageException) {
+      final status = int.tryParse(error.statusCode ?? '');
+      if (status == 401 || status == 403) {
+        return AppError('NOT_ALLOWED', error.message);
+      }
+      if (status != null && status >= 400 && status < 500) {
+        return AppError('SERVER', error.message);
+      }
+    }
     return const AppError(network, 'Could not reach the server.');
   }
 

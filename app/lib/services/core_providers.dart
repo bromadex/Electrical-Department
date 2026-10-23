@@ -24,6 +24,23 @@ final outboxProvider = Provider<OutboxService>((ref) {
   return OutboxService(
     ref.watch(localDbProvider),
     (fn, params) => client.rpc(fn, params: params),
+    (bucket, path, bytes, contentType) async {
+      try {
+        await client.storage
+            .from(bucket)
+            .uploadBinary(
+              path,
+              bytes,
+              fileOptions: FileOptions(contentType: contentType),
+            );
+      } on StorageException catch (e) {
+        // Already uploaded on an earlier try whose reply was lost.
+        if (e.statusCode == '409' || e.message.contains('already exists')) {
+          return;
+        }
+        rethrow;
+      }
+    },
   );
 });
 
