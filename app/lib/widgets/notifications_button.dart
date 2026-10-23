@@ -5,10 +5,14 @@ import 'package:go_router/go_router.dart';
 
 import '../services/notifications_controller.dart';
 import '../theme/tokens.dart';
+import '../ui/surfaces.dart';
 
 /// Bell with an unread badge that pops when the count changes.
 class NotificationsButton extends ConsumerWidget {
-  const NotificationsButton({super.key});
+  const NotificationsButton({super.key, this.glass = false});
+
+  /// Desktop header style: square glass button.
+  final bool glass;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -25,8 +29,18 @@ class NotificationsButton extends ConsumerWidget {
           .then()
           .shake(hz: 3, rotation: 0.06, duration: 400.ms);
     }
+    final tooltip = unread == 0
+        ? 'Notifications'
+        : '$unread unread notifications';
+    if (glass) {
+      return GlassIconButton(
+        tooltip: tooltip,
+        onPressed: () => context.push('/notifications'),
+        icon: badge,
+      );
+    }
     return IconButton(
-      tooltip: unread == 0 ? 'Notifications' : '$unread unread notifications',
+      tooltip: tooltip,
       onPressed: () => context.push('/notifications'),
       icon: badge,
     );

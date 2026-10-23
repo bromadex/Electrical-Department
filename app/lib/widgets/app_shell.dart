@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -6,6 +7,7 @@ import '../config/env.dart';
 import '../router.dart';
 import '../services/core_providers.dart';
 import '../services/session_controller.dart';
+import '../theme/theme_mode.dart';
 import '../theme/tokens.dart';
 import '../ui/bits.dart';
 import '../ui/motion.dart';
@@ -15,8 +17,8 @@ import 'notifications_button.dart';
 import 'site_picker.dart';
 import 'sync_banner.dart';
 
-/// Phone: floating glass tab bar. Wider screens: collapsible sidebar.
-/// Shows account problems instead of the tabs.
+/// Phone: iOS-style large title and floating glass tab bar.
+/// Wider screens: floating capsule menu beside a large glass window.
 class AppShell extends ConsumerWidget {
   const AppShell({super.key, required this.shell, required this.children});
 
@@ -26,6 +28,9 @@ class AppShell extends ConsumerWidget {
   /// Height reserved at the bottom for the floating tab bar on phones.
   static const phoneBarSpace = 96.0;
 
+  /// Height of the phone top bar below the status bar.
+  static const phoneTopBar = 60.0;
+
   final StatefulNavigationShell shell;
   final List<Widget> children;
 
@@ -33,66 +38,112 @@ class AppShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(sessionProvider);
     final phone = MediaQuery.sizeOf(context).width < phoneMaxWidth;
+    final title = shellTabs[shell.currentIndex].label;
 
-    void go(int i) =>
-        shell.goBranch(i, initialLocation: i == shell.currentIndex);
+    void go(int i) {
+      HapticFeedback.selectionClick();
+      shell.goBranch(i, initialLocation: i == shell.currentIndex);
+    }
 
     final content = _AccountGate(
       session: session,
       child: _AnimatedBranches(index: shell.currentIndex, children: children),
     );
 
-    final main = Stack(
-      children: [
-        Positioned.fill(
-          child: MediaQuery(
-            data: MediaQuery.of(context).copyWith(
-              padding: MediaQuery.paddingOf(context).copyWith(
-                top: MediaQuery.paddingOf(context).top + 64,
-                bottom:
-                    MediaQuery.paddingOf(context).bottom +
-                    (phone ? phoneBarSpace : 0),
+    if (phone) {
+      final inset = MediaQuery.paddingOf(context);
+      return Scaffold(
+        backgroundColor: Colors.transparent,
+        body: MeshBackground(
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: MediaQuery(
+                  data: MediaQuery.of(context).copyWith(
+                    padding: inset.copyWith(
+                      top: inset.top + phoneTopBar,
+                      bottom: inset.bottom + phoneBarSpace,
+                    ),
+                  ),
+                  child: content,
+                ),
               ),
-            ),
-            child: content,
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: _PhoneTopBar(title: title),
+              ),
+              Positioned(
+                top: inset.top + phoneTopBar,
+                left: 0,
+                right: 0,
+                child: const SyncBanner(),
+              ),
+              Positioned(
+                left: Space.md,
+                right: Space.md,
+                bottom: inset.bottom + Space.sm,
+                child: _FloatingTabBar(index: shell.currentIndex, onTap: go),
+              ),
+            ],
           ),
         ),
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          child: _TopBar(title: shellTabs[shell.currentIndex].label),
-        ),
-        Positioned(
-          top: MediaQuery.paddingOf(context).top + 64,
-          left: 0,
-          right: 0,
-          child: const SyncBanner(),
-        ),
-        if (phone)
-          Positioned(
-            left: Space.md,
-            right: Space.md,
-            bottom: MediaQuery.paddingOf(context).bottom + Space.md,
-            child: _FloatingTabBar(index: shell.currentIndex, onTap: go),
-          ),
-      ],
-    );
+      );
+    }
 
     return Scaffold(
-      body: phone
-          ? main
-          : Row(
+      backgroundColor: Colors.transparent,
+      body: MeshBackground(
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(Space.lg),
+            child: Row(
               children: [
-                _Sidebar(index: shell.currentIndex, onTap: go),
-                Expanded(child: main),
+                Center(
+                  child: _NavCapsule(index: shell.currentIndex, onTap: go),
+                ),
+                const SizedBox(width: Space.lg),
+                Expanded(
+                  child: GlassSurface(
+                    radius: 34,
+                    child: Column(
+                      children: [
+                        _WindowHeader(title: title),
+                        Expanded(
+                          child: Stack(
+                            children: [
+                              Positioned.fill(
+                                child: MediaQuery.removePadding(
+                                  context: context,
+                                  removeTop: true,
+                                  removeBottom: true,
+                                  child: content,
+                                ),
+                              ),
+                              const Positioned(
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                child: SyncBanner(),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ],
             ),
+          ),
+        ),
+      ),
     );
   }
 }
 
-/// Keeps every tab alive and cross-fades between them (fade-through).
+/// Keeps every tab alive and cross-fades between them.
 class _AnimatedBranches extends StatelessWidget {
   const _AnimatedBranches({required this.index, required this.children});
 
@@ -111,9 +162,9 @@ class _AnimatedBranches extends StatelessWidget {
             child: AnimatedOpacity(
               opacity: i == index ? 1 : 0,
               duration: d,
-              curve: i == index ? const Interval(0.35, 1) : Curves.easeOut,
-              child: AnimatedScale(
-                scale: i == index ? 1 : 0.985,
+              curve: i == index ? const Interval(0.3, 1) : Curves.easeOut,
+              child: AnimatedSlide(
+                offset: i == index ? Offset.zero : const Offset(0, 0.015),
                 duration: d,
                 curve: Motion.emphasized,
                 child: TickerMode(enabled: i == index, child: children[i]),
@@ -125,8 +176,52 @@ class _AnimatedBranches extends StatelessWidget {
   }
 }
 
-class _TopBar extends StatelessWidget {
-  const _TopBar({required this.title});
+class _TitleText extends StatelessWidget {
+  const _TitleText({required this.title, required this.style});
+
+  final String title;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: Motion.of(context, Motion.medium),
+      switchInCurve: Motion.emphasized,
+      transitionBuilder: (child, a) => FadeTransition(
+        opacity: a,
+        child: SlideTransition(
+          position: Tween(
+            begin: const Offset(0, 0.3),
+            end: Offset.zero,
+          ).animate(a),
+          child: child,
+        ),
+      ),
+      layoutBuilder: (current, previous) => Stack(
+        alignment: Alignment.centerLeft,
+        children: [...previous, ?current],
+      ),
+      child: Row(
+        key: ValueKey(title),
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(title, style: style),
+          if (!Env.isProd) ...[
+            const SizedBox(width: Space.xs),
+            Pill(
+              label: Env.flavor.toUpperCase(),
+              color: BrandColors.warning,
+              dense: true,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _PhoneTopBar extends StatelessWidget {
+  const _PhoneTopBar({required this.title});
 
   final String title;
 
@@ -136,46 +231,17 @@ class _TopBar extends StatelessWidget {
     final top = MediaQuery.paddingOf(context).top;
     return GlassSurface(
       radius: 0,
-      blur: 20,
-      opacity: theme.brightness == Brightness.dark ? 0.7 : 0.78,
+      blur: 30,
       child: Padding(
         padding: EdgeInsets.fromLTRB(Space.md + 4, top, Space.xs, 0),
         child: SizedBox(
-          height: 64,
+          height: AppShell.phoneTopBar,
           child: Row(
             children: [
               Expanded(
-                child: AnimatedSwitcher(
-                  duration: Motion.of(context, Motion.medium),
-                  switchInCurve: Motion.emphasized,
-                  transitionBuilder: (child, a) => FadeTransition(
-                    opacity: a,
-                    child: SlideTransition(
-                      position: Tween(
-                        begin: const Offset(0, 0.25),
-                        end: Offset.zero,
-                      ).animate(a),
-                      child: child,
-                    ),
-                  ),
-                  layoutBuilder: (current, previous) => Stack(
-                    alignment: Alignment.centerLeft,
-                    children: [...previous, ?current],
-                  ),
-                  child: Row(
-                    key: ValueKey(title),
-                    children: [
-                      Text(title, style: theme.textTheme.headlineSmall),
-                      if (!Env.isProd) ...[
-                        const SizedBox(width: Space.xs),
-                        Pill(
-                          label: Env.flavor.toUpperCase(),
-                          color: BrandColors.warning,
-                          dense: true,
-                        ),
-                      ],
-                    ],
-                  ),
+                child: _TitleText(
+                  title: title,
+                  style: theme.textTheme.headlineMedium?.copyWith(fontSize: 30),
                 ),
               ),
               const SitePicker(),
@@ -184,6 +250,234 @@ class _TopBar extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _WindowHeader extends ConsumerWidget {
+  const _WindowHeader({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        Space.xl,
+        Space.lg,
+        Space.lg,
+        Space.sm,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _TitleText(
+              title: title,
+              style: theme.textTheme.headlineMedium,
+            ),
+          ),
+          const SitePicker(large: true),
+          const SizedBox(width: Space.sm),
+          const NotificationsButton(glass: true),
+          const SizedBox(width: Space.sm),
+          const _ProfileChip(),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileChip extends ConsumerWidget {
+  const _ProfileChip();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final g = Glass.of(context);
+    final profile = ref.watch(sessionProvider.select((s) => s.profile));
+    final email = ref.read(supabaseProvider).auth.currentUser?.email ?? '';
+    final name = (profile?.fullName.isNotEmpty ?? false)
+        ? profile!.fullName
+        : email;
+    final mode = ref.watch(themeModeProvider);
+
+    return PopupMenuButton<String>(
+      tooltip: 'Account',
+      offset: const Offset(0, 60),
+      onSelected: (v) {
+        switch (v) {
+          case 'system':
+            ref.read(themeModeProvider.notifier).set(ThemeMode.system);
+          case 'light':
+            ref.read(themeModeProvider.notifier).set(ThemeMode.light);
+          case 'dark':
+            ref.read(themeModeProvider.notifier).set(ThemeMode.dark);
+          case 'more':
+            context.go('/more');
+          case 'signout':
+            ref.read(authUserIdProvider.notifier).signOut();
+        }
+      },
+      itemBuilder: (_) => [
+        const PopupMenuItem(
+          value: 'more',
+          child: ListTile(
+            leading: Icon(Icons.person_outline_rounded),
+            title: Text('Profile'),
+          ),
+        ),
+        const PopupMenuDivider(),
+        for (final (m, label, icon) in [
+          (ThemeMode.system, 'System', Icons.brightness_auto_outlined),
+          (ThemeMode.light, 'Light', Icons.light_mode_outlined),
+          (ThemeMode.dark, 'Dark', Icons.dark_mode_outlined),
+        ])
+          PopupMenuItem(
+            value: m.name,
+            child: ListTile(
+              leading: Icon(icon),
+              title: Text(label),
+              trailing: m == mode ? const Icon(Icons.check_rounded) : null,
+            ),
+          ),
+        const PopupMenuDivider(),
+        const PopupMenuItem(
+          value: 'signout',
+          child: ListTile(
+            leading: Icon(Icons.logout_rounded),
+            title: Text('Sign out'),
+          ),
+        ),
+      ],
+      child: Container(
+        height: 48,
+        padding: const EdgeInsets.fromLTRB(6, 6, 12, 6),
+        decoration: BoxDecoration(
+          color: g.fill,
+          borderRadius: BorderRadius.circular(Radii.md),
+          border: Border.all(color: g.border),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AppAvatar(name: name, size: 36),
+            const SizedBox(width: Space.sm),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 180),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    style: theme.textTheme.labelLarge,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    email,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: Space.xs),
+            Icon(
+              Icons.expand_more_rounded,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Vertical floating capsule of icons (desktop navigation).
+class _NavCapsule extends StatelessWidget {
+  const _NavCapsule({required this.index, required this.onTap});
+
+  final int index;
+  final ValueChanged<int> onTap;
+
+  static const _item = 56.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const BrandLogo(width: 64),
+        const SizedBox(height: Space.lg),
+        GlassSurface(
+          radius: 40,
+          padding: const EdgeInsets.all(8),
+          child: SizedBox(
+            width: _item,
+            height: _item * shellTabs.length,
+            child: Stack(
+              children: [
+                AnimatedPositioned(
+                  duration: Motion.of(context, Motion.slow),
+                  curve: Motion.spring,
+                  top: index * _item,
+                  left: 0,
+                  width: _item,
+                  height: _item,
+                  child: Container(
+                    margin: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: BrandColors.brandGradient,
+                      boxShadow: [
+                        BoxShadow(
+                          color: BrandColors.maroon.withValues(alpha: 0.45),
+                          blurRadius: 16,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Column(
+                  children: [
+                    for (var i = 0; i < shellTabs.length; i++)
+                      Tooltip(
+                        message: shellTabs[i].label,
+                        preferBelow: false,
+                        child: Pressable(
+                          onTap: () => onTap(i),
+                          scale: 0.88,
+                          child: SizedBox.square(
+                            dimension: _item,
+                            child: AnimatedSwitcher(
+                              duration: Motion.of(context, Motion.medium),
+                              child: Icon(
+                                i == index
+                                    ? shellTabs[i].selectedIcon
+                                    : shellTabs[i].icon,
+                                key: ValueKey(i == index),
+                                color: i == index
+                                    ? Colors.white
+                                    : scheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -199,16 +493,19 @@ class _FloatingTabBar extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(Radii.xl),
+        borderRadius: BorderRadius.circular(34),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.12),
+            color: Colors.black.withValues(alpha: 0.25),
             blurRadius: 30,
             offset: const Offset(0, 12),
           ),
         ],
       ),
       child: GlassSurface(
+        radius: 34,
+        blur: 30,
+        strong: true,
         padding: const EdgeInsets.all(6),
         child: SizedBox(
           height: 60,
@@ -227,8 +524,8 @@ class _FloatingTabBar extends StatelessWidget {
                     child: Container(
                       margin: const EdgeInsets.symmetric(horizontal: 3),
                       decoration: BoxDecoration(
-                        color: scheme.primary.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(Radii.lg),
+                        color: scheme.primary.withValues(alpha: 0.16),
+                        borderRadius: BorderRadius.circular(28),
                       ),
                     ),
                   ),
@@ -275,7 +572,7 @@ class _TabItem extends StatelessWidget {
       label: tab.label,
       child: Pressable(
         onTap: onTap,
-        scale: 0.9,
+        scale: 0.86,
         child: Container(
           color: Colors.transparent,
           child: Column(
@@ -289,7 +586,7 @@ class _TabItem extends StatelessWidget {
                   selected ? tab.selectedIcon : tab.icon,
                   key: ValueKey(selected),
                   color: color,
-                  size: 24,
+                  size: 25,
                 ),
               ),
               const SizedBox(height: 3),
@@ -297,268 +594,12 @@ class _TabItem extends StatelessWidget {
                 duration: Motion.of(context, Motion.medium),
                 style: TextStyle(
                   fontFamily: 'Inter',
-                  fontSize: 11,
+                  fontSize: 10.5,
                   fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                   color: color,
                 ),
                 child: Text(tab.label),
               ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _Sidebar extends ConsumerStatefulWidget {
-  const _Sidebar({required this.index, required this.onTap});
-
-  final int index;
-  final ValueChanged<int> onTap;
-
-  @override
-  ConsumerState<_Sidebar> createState() => _SidebarState();
-}
-
-class _SidebarState extends ConsumerState<_Sidebar> {
-  bool? _expanded;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final expanded = _expanded ?? MediaQuery.sizeOf(context).width >= 1100;
-    final profile = ref.watch(sessionProvider.select((s) => s.profile));
-    final email = ref.read(supabaseProvider).auth.currentUser?.email ?? '';
-    final name = (profile?.fullName.isNotEmpty ?? false)
-        ? profile!.fullName
-        : email;
-
-    return AnimatedContainer(
-      duration: Motion.of(context, Motion.medium),
-      curve: Motion.emphasized,
-      width: expanded ? 256 : 84,
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerLow,
-        border: Border(
-          right: BorderSide(
-            color: scheme.outlineVariant.withValues(alpha: 0.4),
-          ),
-        ),
-      ),
-      child: SafeArea(
-        right: false,
-        child: Padding(
-          padding: const EdgeInsets.all(Space.sm),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SizedBox(
-                height: 56,
-                child: Row(
-                  children: [
-                    const SizedBox(width: 6),
-                    const BrandLogo(width: 44),
-                    if (expanded)
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.only(left: Space.sm),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Bravura',
-                                style: theme.textTheme.titleMedium,
-                                overflow: TextOverflow.fade,
-                                softWrap: false,
-                              ),
-                              Text(
-                                'Electrical',
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: scheme.onSurfaceVariant,
-                                ),
-                                overflow: TextOverflow.fade,
-                                softWrap: false,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: Space.lg),
-              for (var i = 0; i < shellTabs.length; i++)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: _SideItem(
-                    tab: shellTabs[i],
-                    selected: i == widget.index,
-                    expanded: expanded,
-                    onTap: () => widget.onTap(i),
-                  ),
-                ),
-              const Spacer(),
-              _SideButton(
-                icon: expanded
-                    ? Icons.keyboard_double_arrow_left_rounded
-                    : Icons.keyboard_double_arrow_right_rounded,
-                label: 'Collapse',
-                expanded: expanded,
-                onTap: () => setState(() => _expanded = !expanded),
-              ),
-              const SizedBox(height: Space.xs),
-              Container(
-                padding: const EdgeInsets.all(Space.xs),
-                decoration: BoxDecoration(
-                  color: scheme.surfaceContainerLowest,
-                  borderRadius: BorderRadius.circular(Radii.md),
-                ),
-                child: Row(
-                  children: [
-                    AppAvatar(name: name, size: 40),
-                    if (expanded) ...[
-                      const SizedBox(width: Space.sm),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              name,
-                              style: theme.textTheme.labelLarge,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            Text(
-                              email,
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: scheme.onSurfaceVariant,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        tooltip: 'Sign out',
-                        icon: const Icon(Icons.logout_rounded, size: 20),
-                        onPressed: () =>
-                            ref.read(authUserIdProvider.notifier).signOut(),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SideItem extends StatelessWidget {
-  const _SideItem({
-    required this.tab,
-    required this.selected,
-    required this.expanded,
-    required this.onTap,
-  });
-
-  final ShellTab tab;
-  final bool selected;
-  final bool expanded;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final color = selected ? scheme.primary : scheme.onSurfaceVariant;
-    return Tooltip(
-      message: expanded ? '' : tab.label,
-      child: Pressable(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: Motion.of(context, Motion.medium),
-          curve: Motion.emphasized,
-          height: 48,
-          padding: const EdgeInsets.symmetric(horizontal: 18),
-          decoration: BoxDecoration(
-            color: selected
-                ? scheme.primary.withValues(alpha: 0.12)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(Radii.md),
-          ),
-          child: Row(
-            children: [
-              Icon(selected ? tab.selectedIcon : tab.icon, color: color),
-              if (expanded) ...[
-                const SizedBox(width: Space.sm),
-                Expanded(
-                  child: Text(
-                    tab.label,
-                    softWrap: false,
-                    overflow: TextOverflow.fade,
-                    style: TextStyle(
-                      color: color,
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                    ),
-                  ),
-                ),
-                AnimatedOpacity(
-                  opacity: selected ? 1 : 0,
-                  duration: Motion.of(context, Motion.medium),
-                  child: Container(
-                    width: 6,
-                    height: 6,
-                    decoration: BoxDecoration(
-                      color: scheme.primary,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SideButton extends StatelessWidget {
-  const _SideButton({
-    required this.icon,
-    required this.label,
-    required this.expanded,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool expanded;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(Radii.md),
-      child: SizedBox(
-        height: 44,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18),
-          child: Row(
-            children: [
-              Icon(icon, size: 20, color: scheme.onSurfaceVariant),
-              if (expanded) ...[
-                const SizedBox(width: Space.sm),
-                Text(label, style: TextStyle(color: scheme.onSurfaceVariant)),
-              ],
             ],
           ),
         ),
@@ -585,12 +626,10 @@ class _AccountGate extends StatelessWidget {
           message: session.error!.message,
         );
       } else if (!session.refreshed) {
-        body = const Center(
+        body = const SizedBox.square(
           key: ValueKey('loading'),
-          child: SizedBox.square(
-            dimension: 28,
-            child: CircularProgressIndicator(strokeWidth: 3),
-          ),
+          dimension: 28,
+          child: CircularProgressIndicator(strokeWidth: 3),
         );
       } else {
         body = const EmptyState(
@@ -612,19 +651,19 @@ class _AccountGate extends StatelessWidget {
     } else {
       body = KeyedSubtree(key: const ValueKey('app'), child: child);
     }
-    if (body.key != const ValueKey('app')) {
-      body = Center(key: body.key, child: body);
-    }
 
+    final isApp = body.key == const ValueKey('app');
     return AnimatedSwitcher(
       duration: Motion.of(context, Motion.slow),
-      child: Padding(
-        key: body.key,
-        padding: body.key == const ValueKey('app')
-            ? EdgeInsets.zero
-            : MediaQuery.paddingOf(context) + const EdgeInsets.all(Space.lg),
-        child: body,
-      ),
+      child: isApp
+          ? body
+          : Padding(
+              key: body.key,
+              padding:
+                  MediaQuery.paddingOf(context) +
+                  const EdgeInsets.all(Space.lg),
+              child: Center(child: body),
+            ),
     );
   }
 }

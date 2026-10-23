@@ -15,7 +15,7 @@ class AppAvatar extends StatelessWidget {
     final parts = name
         .trim()
         .split(RegExp(r'[\s@._-]+'))
-        .where((p) => p.isNotEmpty)
+        .where((p) => p.contains(RegExp(r'[A-Za-z0-9]')))
         .toList();
     if (parts.isEmpty) return '?';
     return parts.take(2).map((p) => p[0].toUpperCase()).join();

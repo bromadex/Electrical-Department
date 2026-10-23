@@ -19,14 +19,15 @@ class PageScroll extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final inset = MediaQuery.paddingOf(context);
+    final side = MediaQuery.sizeOf(context).width >= 720 ? Space.xl : Space.md;
     final list = ListView(
       physics: const AlwaysScrollableScrollPhysics(
         parent: BouncingScrollPhysics(),
       ),
       padding: EdgeInsets.fromLTRB(
-        Space.md,
+        side,
         inset.top + Space.xs,
-        Space.md,
+        side,
         inset.bottom + Space.lg,
       ),
       children: [

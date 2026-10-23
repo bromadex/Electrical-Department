@@ -4,10 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/session_controller.dart';
 import '../theme/tokens.dart';
 import '../ui/motion.dart';
+import '../ui/surfaces.dart';
 
 /// Chip showing the current site; opens a sheet to switch site.
 class SitePicker extends ConsumerWidget {
-  const SitePicker({super.key});
+  const SitePicker({super.key, this.large = false});
+
+  /// Desktop header style: a 48 px glass button with the site name.
+  final bool large;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -17,29 +21,38 @@ class SitePicker extends ConsumerWidget {
     final scheme = Theme.of(context).colorScheme;
     final canSwitch = sites.length > 1;
     final narrow = MediaQuery.sizeOf(context).width < 380;
+    final g = Glass.of(context);
 
     return Pressable(
       onTap: canSwitch ? () => _open(context, ref) : null,
       child: AnimatedContainer(
         duration: Motion.of(context, Motion.medium),
-        padding: const EdgeInsets.fromLTRB(10, 7, 8, 7),
+        height: large ? 48 : null,
+        padding: large
+            ? const EdgeInsets.symmetric(horizontal: 14)
+            : const EdgeInsets.fromLTRB(10, 7, 8, 7),
         decoration: BoxDecoration(
-          color: scheme.surfaceContainerHigh.withValues(alpha: 0.7),
-          borderRadius: BorderRadius.circular(Radii.pill),
+          color: g.fill,
+          border: Border.all(color: g.border),
+          borderRadius: BorderRadius.circular(large ? Radii.md : Radii.pill),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.place_rounded, size: 16, color: scheme.primary),
+            Icon(
+              Icons.place_rounded,
+              size: large ? 20 : 16,
+              color: scheme.primary,
+            ),
             const SizedBox(width: 4),
             AnimatedSwitcher(
               duration: Motion.of(context, Motion.medium),
               child: Text(
                 narrow ? current.code : current.name,
                 key: ValueKey(current.id),
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.w600,
-                  fontSize: 13,
+                  fontSize: large ? 14 : 13,
                 ),
               ),
             ),

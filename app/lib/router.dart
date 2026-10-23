@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -17,18 +17,33 @@ const shellTabs = [
   ShellTab(
     '/board',
     'Board',
-    Icons.dashboard_outlined,
-    Icons.dashboard_rounded,
+    CupertinoIcons.square_grid_2x2,
+    CupertinoIcons.square_grid_2x2_fill,
   ),
-  ShellTab('/chat', 'Chat', Icons.forum_outlined, Icons.forum_rounded),
-  ShellTab('/today', 'Today', Icons.wb_sunny_outlined, Icons.wb_sunny_rounded),
+  ShellTab(
+    '/chat',
+    'Chat',
+    CupertinoIcons.chat_bubble_2,
+    CupertinoIcons.chat_bubble_2_fill,
+  ),
+  ShellTab(
+    '/today',
+    'Today',
+    CupertinoIcons.sun_max,
+    CupertinoIcons.sun_max_fill,
+  ),
   ShellTab(
     '/store',
     'Store',
-    Icons.inventory_2_outlined,
-    Icons.inventory_2_rounded,
+    CupertinoIcons.cube_box,
+    CupertinoIcons.cube_box_fill,
   ),
-  ShellTab('/more', 'More', Icons.person_outline_rounded, Icons.person_rounded),
+  ShellTab(
+    '/more',
+    'More',
+    CupertinoIcons.person_crop_circle,
+    CupertinoIcons.person_crop_circle_fill,
+  ),
 ];
 
 class ShellTab {
@@ -53,16 +68,16 @@ GoRouter buildRouter(WidgetRef ref) {
   };
 
   return GoRouter(
-    initialLocation: '/board',
+    initialLocation: '/today',
     refreshListenable: signedIn,
     redirect: (context, state) {
       final atLogin = state.matchedLocation == '/login';
       if (!signedIn.value) return atLogin ? null : '/login';
-      if (atLogin || state.matchedLocation == '/') return '/board';
+      if (atLogin || state.matchedLocation == '/') return '/today';
       return null;
     },
     routes: [
-      GoRoute(path: '/', redirect: (_, _) => '/board'),
+      GoRoute(path: '/', redirect: (_, _) => '/today'),
       GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
       GoRoute(
         path: '/notifications',

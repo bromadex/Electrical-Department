@@ -1,4 +1,5 @@
 import 'package:animations/animations.dart';
+import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
 
 import 'tokens.dart';
@@ -20,16 +21,16 @@ class AppTheme {
           primary: dark ? BrandColors.blush : BrandColors.maroon,
           onPrimary: dark ? BrandColors.maroonDeep : Colors.white,
           secondary: BrandColors.coral,
-          surface: dark ? const Color(0xFF141113) : const Color(0xFFFCF8F7),
-          surfaceContainerLowest: dark ? const Color(0xFF0F0D0E) : Colors.white,
+          surface: dark ? const Color(0xFF1A070B) : const Color(0xFFFCF3F2),
+          surfaceContainerLowest: dark ? const Color(0xFF14050A) : Colors.white,
           surfaceContainerLow: dark
-              ? const Color(0xFF1A1618)
+              ? const Color(0xFF22090E)
               : const Color(0xFFF8F1F0),
           surfaceContainer: dark
-              ? const Color(0xFF1F1A1C)
+              ? const Color(0xFF2A0E14)
               : const Color(0xFFF3EAE9),
           surfaceContainerHigh: dark
-              ? const Color(0xFF282224)
+              ? const Color(0xFF34131A)
               : const Color(0xFFEDE2E1),
         );
 
@@ -72,14 +73,11 @@ class AppTheme {
       splashFactory: InkSparkle.splashFactory,
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
-          TargetPlatform.android: SharedAxisPageTransitionsBuilder(
-            transitionType: SharedAxisTransitionType.horizontal,
-          ),
-          TargetPlatform.iOS: SharedAxisPageTransitionsBuilder(
-            transitionType: SharedAxisTransitionType.horizontal,
-          ),
+          // iPhone-style: pages slide in from the right, swipe back to go back.
+          TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
           TargetPlatform.linux: FadeThroughPageTransitionsBuilder(),
-          TargetPlatform.macOS: FadeThroughPageTransitionsBuilder(),
+          TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
           TargetPlatform.windows: FadeThroughPageTransitionsBuilder(),
         },
       ),
