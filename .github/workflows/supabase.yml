@@ -1,0 +1,75 @@
+name: Supabase database
+
+# Migrations live in supabase/migrations. Every change is checked against a
+# throwaway local database; merging to main applies it to the real project.
+#
+# Required repo secret:
+#   SUPABASE_DB_URL  Session pooler connection string, e.g.
+#                    postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres
+#                    (URL-encode special characters in the password)
+
+on:
+  pull_request:
+    paths: ["supabase/**", ".github/workflows/supabase.yml"]
+  push:
+    branches: ["**"]
+    paths: ["supabase/**", ".github/workflows/supabase.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SUPABASE_CLI_VERSION: 2.122.0
+
+jobs:
+  validate:
+    name: Validate migrations
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: ${{ env.SUPABASE_CLI_VERSION }}
+
+      - name: Apply migrations to a local database
+        run: supabase db start
+
+      - name: Lint schema
+        run: supabase db lint --local --level warning --fail-on error
+
+      - name: Preview changes for the remote project
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "::warning::SUPABASE_DB_URL secret is not set; skipping remote preview."
+            exit 0
+          fi
+          supabase db push --db-url "$SUPABASE_DB_URL" --dry-run
+
+  deploy:
+    name: Apply migrations to Supabase
+    needs: validate
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: supabase-deploy
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: ${{ env.SUPABASE_CLI_VERSION }}
+
+      - name: Push migrations
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "::error::SUPABASE_DB_URL secret is not set."
+            exit 1
+          fi
+          supabase db push --db-url "$SUPABASE_DB_URL"

@@ -28,6 +28,25 @@ flutter run -d chrome \
 2. Add `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` under **Settings → Environment Variables**.
 3. Deploy. `scripts/vercel-build.sh` installs Flutter and runs `flutter build web`.
 
+## Database (Supabase migrations)
+
+Schema changes are SQL files in `supabase/migrations/`. Create one with
+`supabase migration new <name>`. The `Supabase database` GitHub Actions workflow
+runs whenever anything under `supabase/` changes:
+
+- **Every branch and PR:** applies all migrations to a throwaway local database,
+  lints the schema, and (if the secret is set) prints which migrations the real
+  project would receive.
+- **`main` only:** applies new migrations to the real project.
+
+One-time setup: in Supabase, open **Connect → Session pooler** and copy the
+connection string with your database password filled in (URL-encode any special
+characters). In GitHub, add it under **Settings → Secrets and variables →
+Actions → New repository secret** as `SUPABASE_DB_URL`.
+
+This repo is public, so its Actions logs are public too. The workflow prints
+only migration names, never table data.
+
 ## Branding
 
 The logo is in `assets/branding/`. To regenerate the app and web icons after changing it, run `dart run flutter_launcher_icons`.
