@@ -25,7 +25,7 @@ class SetupRequiredScreen extends StatelessWidget {
                 const SizedBox(height: 8),
                 const Text(
                   'This build has no Supabase settings. Set SUPABASE_URL and '
-                  'SUPABASE_PUBLISHABLE_KEY (as --dart-define values locally, or as '
+                  'SUPABASE_ANON_KEY (as --dart-define values locally, or as '
                   'environment variables on Vercel) and rebuild.',
                   textAlign: TextAlign.center,
                 ),

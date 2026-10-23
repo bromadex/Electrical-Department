@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
+import 'screens/notifications_screen.dart';
 
 GoRouter buildRouter(GoTrueClient auth) {
   return GoRouter(
@@ -21,6 +22,10 @@ GoRouter buildRouter(GoTrueClient auth) {
     routes: [
       GoRoute(path: '/', builder: (_, _) => const HomeScreen()),
       GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
+      GoRoute(
+        path: '/notifications',
+        builder: (_, _) => const NotificationsScreen(),
+      ),
     ],
   );
 }

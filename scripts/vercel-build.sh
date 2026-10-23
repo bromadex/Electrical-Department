@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Builds the Flutter web app on Vercel, whose build image has no Flutter SDK.
-# Set SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY in the Vercel project's environment variables.
+# Set SUPABASE_URL and SUPABASE_ANON_KEY in the Vercel project's environment variables.
 set -euo pipefail
 
 FLUTTER_VERSION="${FLUTTER_VERSION:-3.47.7}"
@@ -16,4 +16,4 @@ flutter config --no-analytics >/dev/null
 flutter pub get
 flutter build web --release \
   --dart-define=SUPABASE_URL="${SUPABASE_URL:-}" \
-  --dart-define=SUPABASE_PUBLISHABLE_KEY="${SUPABASE_PUBLISHABLE_KEY:-}"
+  --dart-define=SUPABASE_ANON_KEY="${SUPABASE_ANON_KEY:-}"

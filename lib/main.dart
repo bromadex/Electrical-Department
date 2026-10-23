@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'config/env.dart';
+import 'data/local_db.dart';
 import 'router.dart';
 import 'screens/setup_required_screen.dart';
+import 'services/app_services.dart';
 import 'theme/app_theme.dart';
 
 Future<void> main() async {
@@ -16,13 +18,16 @@ Future<void> main() async {
 
   await Supabase.initialize(
     url: Env.supabaseUrl,
-    publishableKey: Env.supabasePublishableKey,
+    publishableKey: Env.supabaseAnonKey,
   );
-  runApp(const ElectricalDepartmentApp());
+  final services = AppServices(Supabase.instance.client, LocalDb())..start();
+  runApp(ElectricalDepartmentApp(services: services));
 }
 
 class ElectricalDepartmentApp extends StatefulWidget {
-  const ElectricalDepartmentApp({super.key});
+  const ElectricalDepartmentApp({super.key, required this.services});
+
+  final AppServices services;
 
   @override
   State<ElectricalDepartmentApp> createState() =>
@@ -30,16 +35,19 @@ class ElectricalDepartmentApp extends StatefulWidget {
 }
 
 class _ElectricalDepartmentAppState extends State<ElectricalDepartmentApp> {
-  final _router = buildRouter(Supabase.instance.client.auth);
+  late final _router = buildRouter(widget.services.client.auth);
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp.router(
-      title: 'Bravura Electrical',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.light(),
-      darkTheme: AppTheme.dark(),
-      routerConfig: _router,
+    return AppScope(
+      services: widget.services,
+      child: MaterialApp.router(
+        title: 'Bravura Electrical',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.light(),
+        darkTheme: AppTheme.dark(),
+        routerConfig: _router,
+      ),
     );
   }
 }
