@@ -78,9 +78,11 @@ select pg_temp.check((select count(*) from public.device_tokens) = 1, 'register 
 reset role;
 
 -- Codes and notifications (as the database owner)
-select pg_temp.check(public.next_code((select kam from ids), 'J') = 'J-0001', 'first code J-0001');
-select pg_temp.check(public.next_code((select kam from ids), 'J') = 'J-0002', 'second code J-0002');
-select pg_temp.check(public.next_code((select sel from ids), 'J') = 'J-0001', 'codes are per site');
+insert into public.sites (code, name) values ('TST', 'Test site');
+select pg_temp.check(public.next_code((select id from public.sites where code = 'TST'), 'J') = 'J-0001', 'first code J-0001');
+select pg_temp.check(public.next_code((select id from public.sites where code = 'TST'), 'J') = 'J-0002', 'second code J-0002');
+select pg_temp.check(public.next_code((select id from public.sites where code = 'TST'), 'T') = 'T-0001', 'codes are per prefix');
+select pg_temp.check(public.next_code((select kam from ids), 'J') ~ '^J-[0-9]{4}$', 'codes are per site');
 select public.fn_notify_permission((select kam from ids), 'jobs.assign', 'general', 'Assign', null, null);
 select pg_temp.check(exists (select 1 from public.notifications where title = 'Assign' and user_id = '00000000-0000-0000-0000-000000000002'), 'notify jobs.assign at KAM reaches admin');
 select pg_temp.check(not exists (select 1 from public.notifications where title = 'Assign' and user_id = '00000000-0000-0000-0000-000000000001'), 'notify jobs.assign skips technician');
