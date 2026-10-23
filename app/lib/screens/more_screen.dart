@@ -6,107 +6,249 @@ import '../config/env.dart';
 import '../services/core_providers.dart';
 import '../services/notifications_controller.dart';
 import '../services/session_controller.dart';
+import '../theme/theme_mode.dart';
+import '../theme/tokens.dart';
+import '../ui/bits.dart';
+import '../ui/motion.dart';
+import '../ui/page.dart';
+import '../ui/surfaces.dart';
 
 class MoreScreen extends ConsumerWidget {
   const MoreScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final session = ref.watch(sessionProvider);
     final unread = ref.watch(notificationsProvider.select((s) => s.unread));
+    final mode = ref.watch(themeModeProvider);
     final profile = session.profile;
     final email = ref.read(supabaseProvider).auth.currentUser?.email ?? '';
+    final name = (profile?.fullName.isNotEmpty ?? false)
+        ? profile!.fullName
+        : email;
     final homeSite = session.siteById(profile?.homeSiteId);
-    final theme = Theme.of(context);
+    final codes = session.perms.codes.toList()..sort();
 
-    return RefreshIndicator(
+    return PageScroll(
+      maxWidth: 720,
       onRefresh: ref.read(sessionProvider.notifier).refresh,
-      child: ListView(
-        children: [
-          ListTile(
-            leading: CircleAvatar(
-              child: Text(_initials(profile?.fullName ?? email)),
-            ),
-            title: Text(
-              (profile?.fullName.isNotEmpty ?? false)
-                  ? profile!.fullName
-                  : email,
-            ),
-            subtitle: Text(
-              [
-                email,
-                if (homeSite != null) 'Home site: ${homeSite.name}',
-              ].join('\n'),
-            ),
-            isThreeLine: homeSite != null,
-          ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.notifications_outlined),
-            title: const Text('Notifications'),
-            trailing: unread > 0 ? Badge(label: Text('$unread')) : null,
-            onTap: () => context.push('/notifications'),
-          ),
-          ExpansionTile(
-            leading: const Icon(Icons.location_city_outlined),
-            title: const Text('My sites'),
+      children: [
+        SurfaceCard(
+          gradient: BrandColors.brandGradient,
+          padding: const EdgeInsets.all(Space.lg),
+          child: Row(
             children: [
-              for (final site in session.mySites)
-                ListTile(
-                  dense: true,
-                  leading: CircleAvatar(
-                    radius: 14,
-                    child: Text(
-                      site.code,
-                      style: const TextStyle(fontSize: 10),
-                    ),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.5),
+                    width: 3,
                   ),
-                  title: Text(site.name),
-                  subtitle: Text('${session.areasAt(site.id).length} areas'),
                 ),
-            ],
-          ),
-          ExpansionTile(
-            leading: const Icon(Icons.verified_user_outlined),
-            title: const Text('My permissions'),
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                child: Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
+                child: AppAvatar(name: name, size: 64),
+              ),
+              const SizedBox(width: Space.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    for (final code in session.perms.codes.toList()..sort())
-                      Chip(
-                        label: Text(code),
-                        visualDensity: VisualDensity.compact,
+                    Text(
+                      name,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        color: Colors.white,
                       ),
+                    ),
+                    Text(
+                      email,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.8),
+                      ),
+                    ),
+                    if (homeSite != null) ...[
+                      const SizedBox(height: Space.xs),
+                      Text(
+                        'Home site · ${homeSite.name}',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.9),
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
             ],
           ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.logout),
-            title: const Text('Sign out'),
-            onTap: () => ref.read(authUserIdProvider.notifier).signOut(),
+        ).entrance(context),
+
+        const SectionHeader('Appearance'),
+        SurfaceCard(
+          child: Row(
+            children: [
+              Icon(Icons.palette_outlined, color: scheme.primary),
+              const SizedBox(width: Space.sm),
+              const Expanded(child: Text('Theme')),
+              SegmentedButton<ThemeMode>(
+                showSelectedIcon: false,
+                segments: const [
+                  ButtonSegment(
+                    value: ThemeMode.system,
+                    icon: Icon(Icons.brightness_auto_outlined, size: 18),
+                    tooltip: 'System',
+                  ),
+                  ButtonSegment(
+                    value: ThemeMode.light,
+                    icon: Icon(Icons.light_mode_outlined, size: 18),
+                    tooltip: 'Light',
+                  ),
+                  ButtonSegment(
+                    value: ThemeMode.dark,
+                    icon: Icon(Icons.dark_mode_outlined, size: 18),
+                    tooltip: 'Dark',
+                  ),
+                ],
+                selected: {mode},
+                onSelectionChanged: (s) =>
+                    ref.read(themeModeProvider.notifier).set(s.first),
+              ),
+            ],
           ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text(
-              'Bravura Electrical · ${Env.flavor}',
-              style: theme.textTheme.bodySmall,
-              textAlign: TextAlign.center,
+        ).entrance(context, index: 1),
+
+        const SectionHeader('Account'),
+        SurfaceCard(
+          padding: const EdgeInsets.symmetric(vertical: Space.xs),
+          child: Column(
+            children: [
+              _Row(
+                icon: Icons.notifications_none_rounded,
+                title: 'Notifications',
+                trailing: unread > 0
+                    ? Badge(label: Text('$unread'))
+                    : const Icon(Icons.chevron_right_rounded),
+                onTap: () => context.push('/notifications'),
+              ),
+              _Row(
+                icon: Icons.place_outlined,
+                title: 'My sites',
+                subtitle: session.mySites.map((s) => s.code).join(' · '),
+                onTap: () => _sheet(
+                  context,
+                  'My sites',
+                  Column(
+                    children: [
+                      for (final s in session.mySites)
+                        ListTile(
+                          leading: Pill(label: s.code),
+                          title: Text(s.name),
+                          subtitle: Text(
+                            '${session.areasAt(s.id).length} areas',
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              _Row(
+                icon: Icons.verified_user_outlined,
+                title: 'My permissions',
+                subtitle: '${codes.length} granted',
+                onTap: () => _sheet(
+                  context,
+                  'My permissions',
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [for (final c in codes) Pill(label: c)],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ).entrance(context, index: 2),
+
+        const SizedBox(height: Space.lg),
+        Pressable(
+          onTap: () => ref.read(authUserIdProvider.notifier).signOut(),
+          child: OutlinedButton.icon(
+            onPressed: () => ref.read(authUserIdProvider.notifier).signOut(),
+            style: OutlinedButton.styleFrom(foregroundColor: scheme.error),
+            icon: const Icon(Icons.logout_rounded),
+            label: const Text('Sign out'),
+          ),
+        ).entrance(context, index: 3),
+        Padding(
+          padding: const EdgeInsets.all(Space.lg),
+          child: Text(
+            'Bravura Electrical · ${Env.flavor}',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
             ),
+            textAlign: TextAlign.center,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
-  static String _initials(String name) {
-    final parts = name.trim().split(RegExp(r'[\s@.]+'));
-    return parts.take(2).map((p) => p.isEmpty ? '' : p[0].toUpperCase()).join();
+  void _sheet(BuildContext context, String title, Widget body) {
+    showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      constraints: const BoxConstraints(maxWidth: 560),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, Space.lg),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: Space.md),
+            Flexible(child: SingleChildScrollView(child: body)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Row extends StatelessWidget {
+  const _Row({
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    this.trailing,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final Widget? trailing;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return ListTile(
+      onTap: onTap,
+      leading: Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: scheme.primary.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(Radii.sm),
+        ),
+        child: Icon(icon, color: scheme.primary, size: 20),
+      ),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+      subtitle: subtitle == null || subtitle!.isEmpty ? null : Text(subtitle!),
+      trailing: trailing ?? const Icon(Icons.chevron_right_rounded),
+    );
   }
 }
