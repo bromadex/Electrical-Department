@@ -1,52 +1,106 @@
-# Electrical-Department
+# Bravura Electrical
 
-Bravura Electrical Department app: Flutter (web, Android and iOS), Supabase for sign-in and data, and Vercel to host the web build.
+Android + web app for the Bravura Electrical department, built from one
+Flutter codebase on Supabase. See the build plan for features and roadmap.
 
-## Configuration
-
-The app reads its Supabase settings at build time:
-
-| Variable                   | Value                                              |
-| -------------------------- | -------------------------------------------------- |
-| `SUPABASE_URL`             | `https://<project-ref>.supabase.co`                |
-| `SUPABASE_PUBLISHABLE_KEY` | The project's publishable (`sb_publishable_…`) key |
-
-If these aren't set, the app opens on a "Setup required" screen.
-
-## Run locally
-
-```bash
-flutter pub get
-flutter run -d chrome \
-  --dart-define=SUPABASE_URL=https://<project-ref>.supabase.co \
-  --dart-define=SUPABASE_PUBLISHABLE_KEY=<publishable-key>
+```
+app/        Flutter app (Android + web)
+supabase/   migrations/, tests/, seed.sql
+API.md      app <-> Supabase contract
 ```
 
-## Deploy to Vercel
+**[API.md](API.md)** lists every table, function, bucket and realtime channel
+the app uses. Update it in the same pull request as the migration or screen
+that changes it.
 
-1. Import this repo as a Vercel project. `vercel.json` sets the build command and output folder.
-2. Add `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` under **Settings → Environment Variables**.
-3. Deploy. `scripts/vercel-build.sh` installs Flutter and runs `flutter build web`.
+## Way of working
 
-## Database (Supabase migrations)
+- One branch per feature (`feat/jobs-board`), pull request into `main`, the
+  other developer reviews before merging.
+- Database changes are new numbered files in `supabase/migrations/`
+  (`0002_jobs.sql` …) with a matching `supabase/tests/0002_jobs_test.sql`.
+  Never edit a migration that has been applied.
+- Merging to `main` applies new migrations to Supabase and deploys the web app.
+  Tagging `v1.2.3` builds the APK.
 
-Schema changes are SQL files in `supabase/migrations/`. Create one with
-`supabase migration new <name>`. The `Supabase database` GitHub Actions workflow
-runs whenever anything under `supabase/` changes:
+## Run the app
 
-- **Every branch and PR:** applies all migrations to a throwaway local database,
-  lints the schema, and (if the secret is set) prints which migrations the real
-  project would receive.
-- **`main` only:** applies new migrations to the real project.
+Copy a config file and fill it in (files in `app/config/` other than the
+examples are not committed):
 
-One-time setup: in Supabase, open **Connect → Session pooler** and copy the
-connection string with your database password filled in (URL-encode any special
-characters). In GitHub, add it under **Settings → Secrets and variables →
-Actions → New repository secret** as `SUPABASE_DB_URL`.
+```bash
+cd app
+cp config/dev.example.json config/dev.json
+flutter pub get
+flutter run -d chrome --dart-define-from-file=config/dev.json
+flutter run --flavor dev --dart-define-from-file=config/dev.json   # Android
+```
 
-This repo is public, so its Actions logs are public too. The workflow prints
-only migration names, never table data.
+Flavors: `dev` installs as "Electrical DEV" (`com.bravura.electrical_department.dev`)
+and shows a DEV label; `prod` installs as "Bravura Electrical". Both can be on
+one phone.
+
+`config/dev.example.json` points at a local Supabase. Start one with Docker:
+
+```bash
+supabase start      # applies migrations and supabase/seed.sql
+```
+
+Seeded test users (password `Passw0rd!`): `admin@bravura.test`,
+`supervisor@bravura.test`, `tech@bravura.test`, `store@bravura.test`.
+
+After changing tables in `app/lib/data/local_db.dart`, run
+`dart run build_runner build`. Generated `*.g.dart` files are committed; CI
+fails if they are stale.
+
+## CI and deploys
+
+| Workflow | When | What |
+| --- | --- | --- |
+| `App` | every push and PR | `flutter analyze`, `flutter test`, format and generated-code checks |
+| `App` | push to `main` | web build deployed to Vercel production |
+| `App` | pull request | web preview deployed to Vercel; link in the run summary |
+| `App` | tag `v*` | release APK attached to a GitHub release (+ Firebase App Distribution) |
+| `Supabase database` | changes under `supabase/` | migrations + SQL tests on a throwaway database; preview of pending migrations |
+| `Supabase database` | push to `main` | new migrations applied to Supabase |
+
+GitHub settings (**Settings → Secrets and variables → Actions**):
+
+| Name | Kind | Value |
+| --- | --- | --- |
+| `SUPABASE_DB_URL` | secret | Session pooler connection string (Supabase **Connect → Session pooler**) |
+| `SUPABASE_URL` | variable | `https://<project-ref>.supabase.co` |
+| `SUPABASE_ANON_KEY` | variable | publishable key (`sb_publishable_…`) |
+| `VERCEL_TOKEN` | secret | Vercel **Account Settings → Tokens** |
+| `VERCEL_ORG_ID` | secret | Vercel team ID (**Team Settings → General**) |
+| `VERCEL_PROJECT_ID` | secret | Vercel **Project Settings → General → Project ID** |
+| `ANDROID_KEYSTORE_BASE64` etc. | secret | optional APK signing key, see `.github/workflows/app.yml` |
+| `FIREBASE_APP_ID`, `FIREBASE_SERVICE_ACCOUNT` | secret | optional, for Firebase App Distribution |
+
+GitHub Actions builds the web app and uploads the finished files to Vercel, so
+Vercel never builds Flutter itself. `vercel.json` turns off Vercel's own Git
+builds; leave the Vercel project's build settings at their defaults.
+
+The repo is public, so Actions logs are public too. Workflows print only
+migration names and deploy URLs, never table data or secrets.
+
+## Users
+
+Accounts are created by an admin, not by sign-up from the app:
+
+1. In Supabase, turn off **Authentication → Sign In / Providers → Allow new users to sign up**.
+2. Add each person under **Authentication → Users → Add user** (tick *Auto Confirm User*).
+   A profile is created automatically.
+3. Give them a role. For the very first admin, run this in the **SQL Editor**:
+
+   ```sql
+   insert into public.user_roles (user_id, role_id, site_id)
+   select u.id, r.id, null            -- null = all sites
+   from auth.users u, public.roles r
+   where u.email = 'you@example.com' and r.name = 'Admin';
+   ```
 
 ## Branding
 
-The logo is in `assets/branding/`. To regenerate the app and web icons after changing it, run `dart run flutter_launcher_icons`.
+The logo is in `app/assets/branding/`. To regenerate the app and web icons
+after changing it, run `dart run flutter_launcher_icons` in `app/`.

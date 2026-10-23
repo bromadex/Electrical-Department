@@ -1,0 +1,40 @@
+name: electrical_department
+description: "Bravura Electrical Department app."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.13.5
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  supabase_flutter: ^2.18.3
+  go_router: ^18.1.1
+  drift: ^2.35.3
+  drift_flutter: ^0.3.1
+  uuid: ^4.6.0
+  flutter_riverpod: ^3.4.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+  drift_dev: ^2.35.2
+  build_runner: ^2.17.1
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/branding/logo.png
+
+flutter_launcher_icons:
+  image_path: assets/branding/icon_bg.png
+  android: true
+  web:
+    generate: true
+    image_path: assets/branding/icon.png
+    background_color: "#FFFFFF"
+    theme_color: "#982329"
