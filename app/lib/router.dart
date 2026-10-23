@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'jobs/job_detail_screen.dart';
 import 'screens/board_screen.dart';
 import 'screens/chat_screen.dart';
 import 'screens/login_screen.dart';
@@ -79,6 +80,10 @@ GoRouter buildRouter(WidgetRef ref) {
     routes: [
       GoRoute(path: '/', redirect: (_, _) => '/today'),
       GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
+      GoRoute(
+        path: '/jobs/:id',
+        builder: (_, s) => JobDetailScreen(id: s.pathParameters['id']!),
+      ),
       GoRoute(
         path: '/notifications',
         builder: (_, _) => const NotificationsScreen(),

@@ -393,6 +393,8 @@ final jobDetailProvider = StreamProvider.autoDispose.family<JobDetail, String>((
 
 final jobHistoryProvider = FutureProvider.autoDispose
     .family<List<Map<String, dynamic>>, String>((ref, id) async {
+      // Reload whenever the job itself changes.
+      ref.watch(jobProvider(id).select((j) => j.value?.updatedAt));
       final rows = await ref
           .watch(supabaseProvider)
           .rpc('fn_job_history', params: {'p_job': id});

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../services/notifications_controller.dart';
 import '../theme/tokens.dart';
@@ -101,7 +102,13 @@ class NotificationsScreen extends ConsumerWidget {
                             child: _NotificationTile(
                               key: ValueKey(n.id),
                               notification: n,
-                              onRead: () => notifier.markRead([n.id]),
+                              onRead: () {
+                                if (!n.isRead) notifier.markRead([n.id]);
+                                final link = n.link;
+                                if (link != null && link.startsWith('job:')) {
+                                  context.push('/jobs/${link.substring(4)}');
+                                }
+                              },
                             ).entrance(context, index: index++),
                           ),
                         ),
@@ -229,7 +236,7 @@ class _NotificationTile extends StatelessWidget {
       ),
     );
 
-    if (!unread) return tile;
+    if (!unread) return GestureDetector(onTap: onRead, child: tile);
     return Dismissible(
       key: ValueKey('dismiss-${notification.id}'),
       direction: DismissDirection.startToEnd,

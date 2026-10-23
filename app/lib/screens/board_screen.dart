@@ -99,12 +99,7 @@ class BoardScreen extends ConsumerWidget {
         ],
     };
 
-    // Job details arrive in the next commit.
-    void open(LocalJob j) => ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(content: Text('${j.code ?? 'Job'}: details are coming next.')),
-      );
+    void open(LocalJob j) => context.push('/jobs/${j.id}');
     Widget card(LocalJob j, {bool showStatus = false}) => JobCard(
       key: ValueKey(j.id),
       job: j,
