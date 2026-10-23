@@ -1,0 +1,194 @@
+name: App
+
+# Checks the Flutter app on every push and PR, deploys the web build to
+# Vercel (production from main, a preview per PR) and builds the Android APK
+# on version tags (v1.2.3).
+#
+# Repository variables (Settings → Secrets and variables → Actions → Variables):
+#   SUPABASE_URL, SUPABASE_ANON_KEY   project URL and publishable key
+# Repository secrets:
+#   VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID      web deploys
+#   ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD,
+#   ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD             APK signing (optional)
+#   FIREBASE_APP_ID, FIREBASE_SERVICE_ACCOUNT           App Distribution (optional)
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+    paths-ignore: ["supabase/**", "**.md"]
+  pull_request:
+    paths-ignore: ["supabase/**", "**.md"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FLUTTER_VERSION: 3.47.7
+  VERCEL_CLI_VERSION: 62.7.0
+
+defaults:
+  run:
+    working-directory: app
+
+jobs:
+  check:
+    name: Analyse and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - run: flutter pub get
+      - name: Generated code is up to date
+        run: |
+          dart run build_runner build --delete-conflicting-outputs
+          git diff --exit-code -- lib
+      - run: dart format --output=none --set-exit-if-changed lib test
+      - run: flutter analyze
+      - run: flutter test
+
+  web:
+    name: Deploy web to Vercel
+    needs: check
+    if: >-
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    env:
+      PROD: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: Build
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::warning::SUPABASE_URL / SUPABASE_ANON_KEY variables are not set; the site will show 'Setup required'."
+          fi
+          flutter pub get
+          flutter build web --release \
+            --dart-define=FLAVOR=$([ "$PROD" = true ] && echo prod || echo preview) \
+            --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+            --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
+
+      - name: Package for Vercel
+        run: |
+          out=../.vercel/output
+          mkdir -p "$out"
+          cp -r build/web "$out/static"
+          cat > "$out/config.json" <<'JSON'
+          {
+            "version": 3,
+            "routes": [
+              {
+                "src": "/(index\\.html|flutter_service_worker\\.js|flutter_bootstrap\\.js|version\\.json)?",
+                "headers": { "Cache-Control": "no-cache" },
+                "continue": true
+              },
+              { "handle": "filesystem" },
+              { "src": "/.*", "dest": "/index.html" }
+            ]
+          }
+          JSON
+
+      - name: Deploy
+        working-directory: .
+        run: |
+          if [ -z "$VERCEL_TOKEN" ] || [ -z "$VERCEL_ORG_ID" ] || [ -z "$VERCEL_PROJECT_ID" ]; then
+            echo "::warning::Vercel secrets are not set; skipping deploy."
+            exit 0
+          fi
+          npm install --global "vercel@$VERCEL_CLI_VERSION"
+          if [ "$PROD" = true ]; then
+            url=$(vercel deploy --prebuilt --prod --yes --token "$VERCEL_TOKEN")
+          else
+            url=$(vercel deploy --prebuilt --yes --token "$VERCEL_TOKEN")
+          fi
+          echo "Deployed to $url"
+          echo "### Web deployed: $url" >> "$GITHUB_STEP_SUMMARY"
+
+  apk:
+    name: Build Android APK
+    needs: check
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: Signing key
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE" ]; then
+            echo "::warning::No signing key secrets; the APK is signed with a debug key."
+            exit 0
+          fi
+          echo "$KEYSTORE" | base64 -d > android/app/release.jks
+          cat > android/key.properties <<EOF
+          storeFile=release.jks
+          storePassword=$STORE_PASSWORD
+          keyAlias=$KEY_ALIAS
+          keyPassword=$KEY_PASSWORD
+          EOF
+
+      - name: Build
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
+        run: |
+          flutter pub get
+          flutter build apk --release --flavor prod \
+            --build-name="${GITHUB_REF_NAME#v}" \
+            --build-number="$GITHUB_RUN_NUMBER" \
+            --dart-define=FLAVOR=prod \
+            --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+            --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
+          mv build/app/outputs/flutter-apk/app-prod-release.apk \
+             "build/bravura-electrical-${GITHUB_REF_NAME}.apk"
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: app/build/bravura-electrical-${{ github.ref_name }}.apk
+
+      - name: Firebase App Distribution
+        env:
+          FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$FIREBASE_APP_ID" ] || [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "::notice::Firebase secrets are not set; skipping App Distribution."
+            exit 0
+          fi
+          echo "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/firebase.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/firebase.json"
+          npx --yes firebase-tools@15.32.1 appdistribution:distribute \
+            "build/bravura-electrical-${GITHUB_REF_NAME}.apk" \
+            --app "$FIREBASE_APP_ID" \
+            --groups electrical-team \
+            --release-notes "${GITHUB_REF_NAME}"

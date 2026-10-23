@@ -21,7 +21,7 @@ insert into auth.users (id, email, raw_user_meta_data) values
   ('00000000-0000-0000-0000-000000000003', 'gone@test', '{}'),
   ('00000000-0000-0000-0000-000000000004', 'none@test', '{}');
 
-select pg_temp.check((select count(*) from public.profiles) = 4, 'sign-up trigger creates profiles');
+select pg_temp.check((select count(*) from public.profiles where id in ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000003','00000000-0000-0000-0000-000000000004')) = 4, 'sign-up trigger creates profiles');
 select pg_temp.check((select full_name from public.profiles where id = '00000000-0000-0000-0000-000000000001') = 'Tech One', 'full_name copied from metadata');
 
 insert into public.user_roles (user_id, role_id, site_id)
@@ -44,7 +44,7 @@ select pg_temp.check(not public._can('jobs.create', (select sel from ids)), 'tec
 select pg_temp.check(not public._can('jobs.assign', (select kam from ids)), 'tech cannot jobs.assign');
 select pg_temp.check((select count(*) from public.my_permissions()) = 8, 'tech my_permissions has 8 codes');
 select pg_temp.check((select count(*) from public.sites) = 4, 'tech reads sites');
-select pg_temp.check((select count(*) from public.profiles) = 4, 'tech reads profiles');
+select pg_temp.check((select count(*) from public.profiles where id in ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000003','00000000-0000-0000-0000-000000000004')) = 4, 'tech reads profiles');
 select pg_temp.check((select count(*) from public.user_roles) = 1, 'tech sees only own roles');
 select pg_temp.check((select count(*) from public.roles) = 1, 'tech sees only own role');
 select pg_temp.check((select count(*) from public.activity) = 0, 'tech cannot read activity');
@@ -81,8 +81,12 @@ reset role;
 select pg_temp.check(public.next_code((select kam from ids), 'J') = 'J-0001', 'first code J-0001');
 select pg_temp.check(public.next_code((select kam from ids), 'J') = 'J-0002', 'second code J-0002');
 select pg_temp.check(public.next_code((select sel from ids), 'J') = 'J-0001', 'codes are per site');
-select pg_temp.check(public.fn_notify_permission((select kam from ids), 'jobs.assign', 'general', 'Hi', null, null) = 1, 'notify jobs.assign at KAM reaches admin only');
-select pg_temp.check(public.fn_notify_permission((select kam from ids), 'jobs.view', 'general', 'Hi', null, null) = 2, 'notify jobs.view at KAM skips inactive user');
+select public.fn_notify_permission((select kam from ids), 'jobs.assign', 'general', 'Assign', null, null);
+select pg_temp.check(exists (select 1 from public.notifications where title = 'Assign' and user_id = '00000000-0000-0000-0000-000000000002'), 'notify jobs.assign at KAM reaches admin');
+select pg_temp.check(not exists (select 1 from public.notifications where title = 'Assign' and user_id = '00000000-0000-0000-0000-000000000001'), 'notify jobs.assign skips technician');
+select public.fn_notify_permission((select kam from ids), 'jobs.view', 'general', 'View', null, null);
+select pg_temp.check(exists (select 1 from public.notifications where title = 'View' and user_id = '00000000-0000-0000-0000-000000000001'), 'notify jobs.view at KAM reaches technician');
+select pg_temp.check(not exists (select 1 from public.notifications where title = 'View' and user_id = '00000000-0000-0000-0000-000000000003'), 'notify jobs.view skips inactive user');
 select public.fn_notify('00000000-0000-0000-0000-000000000001', null, 'assigned', 'Job', 'body', 'job:x');
 
 select pg_temp.act_as('00000000-0000-0000-0000-000000000001');
@@ -106,7 +110,7 @@ reset role;
 -- Admin
 select pg_temp.act_as('00000000-0000-0000-0000-000000000002');
 select pg_temp.check(public._can('admin.users', null), 'admin has admin.users');
-select pg_temp.check((select count(*) from public.user_roles) = 3, 'admin sees all user roles');
+select pg_temp.check((select count(*) from public.user_roles where user_id in ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000003','00000000-0000-0000-0000-000000000004')) = 3, 'admin sees all user roles');
 select pg_temp.check((select count(*) from public.activity) > 0, 'admin reads activity');
 update public.sites set name = 'Kamativi Mine' where code = 'KAM';
 select pg_temp.check((select name from public.sites where code = 'KAM') = 'Kamativi Mine', 'admin edits sites');

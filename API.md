@@ -160,8 +160,14 @@ meetings (section 16); until then nobody can read or write them.
 
 ## 5. App side
 
-- After sign-in: load `profiles` (self), `my_permissions()`, `sites`, `areas`; cache in drift.
+- After sign-in: load `profiles` (self), `my_permissions()`, `sites`, `areas`; cache in drift
+  (`app/lib/services/session_controller.dart`, Riverpod `sessionProvider`).
+- `can(code, siteId)` on `sessionProvider` hides UI; the database still enforces with `_can`.
+- Current site: the one picked in the site picker, else the home site, else the first site
+  the user has a role at (`currentSiteProvider`).
 - Outbox: `outbox(client_ref, action, payload jsonb, tries, last_error, created_at)`; each action maps to one function in this file.
+  Network errors retry (every 30 s and on app resume); `CODE:` errors from the server stop
+  after one try and are shown to the user. Outbox actions so far: `fn_mark_read`, `fn_register_device`.
 - Realtime channels: `notifications:<user_id>` (week 1). Features add theirs here.
 
 ## 6. Feature sections (filled in as features are built)
