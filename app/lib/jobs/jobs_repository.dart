@@ -508,6 +508,7 @@ class JobActions {
     double? lat,
     double? lng,
     List<Uint8List> photos = const [],
+    String? assigneeId,
   }) async {
     final id = _uuid.v4();
     final now = DateTime.now();
@@ -549,6 +550,19 @@ class JobActions {
           flushNow: false,
         );
     await _photos(job, 'before', photos);
+    if (assigneeId != null) {
+      await _patch(
+        id,
+        LocalJobsCompanion(
+          assigneeId: Value(assigneeId),
+          status: const Value('taken'),
+        ),
+      );
+      await _ref.read(outboxProvider).enqueue('fn_assign_job', {
+        'p_job': id,
+        'p_user': assigneeId,
+      }, flushNow: false);
+    }
     unawaited(_flushAndSettle());
     return id;
   }

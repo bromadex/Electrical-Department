@@ -119,6 +119,7 @@ class _JobEditorState extends ConsumerState<_JobEditor> {
   (double, double)? _location;
   bool _locating = false;
   List<Uint8List> _photos = [];
+  String? _assigneeId;
 
   @override
   void dispose() {
@@ -181,6 +182,7 @@ class _JobEditorState extends ConsumerState<_JobEditor> {
         lat: _location?.$1,
         lng: _location?.$2,
         photos: _photos,
+        assigneeId: _assigneeId,
       );
     } else {
       await actions.edit(
@@ -272,6 +274,40 @@ class _JobEditorState extends ConsumerState<_JobEditor> {
                 prefixIcon: Icon(CupertinoIcons.map_pin_ellipse),
               ),
             ),
+          ],
+          if (!editing &&
+              site != null &&
+              session.can('jobs.assign', siteId: site.id)) ...[
+            const _Label('Assign to'),
+            ref
+                .watch(assigneesProvider(site.id))
+                .when(
+                  loading: () => const LinearProgressIndicator(),
+                  error: (_, _) => const Text(
+                    'Connect to pick someone; you can assign it later.',
+                  ),
+                  data: (people) => DropdownButtonFormField<String?>(
+                    initialValue: _assigneeId,
+                    items: [
+                      const DropdownMenuItem(
+                        value: null,
+                        child: Text('Leave on the board for anyone'),
+                      ),
+                      for (final p in people)
+                        DropdownMenuItem(
+                          value: p.id,
+                          child: Text(
+                            '${p.name.isEmpty ? 'Unnamed' : p.name}'
+                            ' · ${p.openJobs} open',
+                          ),
+                        ),
+                    ],
+                    onChanged: (v) => setState(() => _assigneeId = v),
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(CupertinoIcons.person_badge_plus),
+                    ),
+                  ),
+                ),
           ],
           const _Label('Due'),
           Row(
