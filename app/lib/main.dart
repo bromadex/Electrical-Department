@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'config/env.dart';
@@ -9,6 +10,7 @@ import 'router.dart';
 import 'screens/setup_required_screen.dart';
 import 'services/core_providers.dart';
 import 'theme/app_theme.dart';
+import 'theme/theme_mode.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,15 +20,19 @@ Future<void> main() async {
     return;
   }
 
-  await Supabase.initialize(
-    url: Env.supabaseUrl,
-    publishableKey: Env.supabaseAnonKey,
-  );
+  final (_, prefs) = await (
+    Supabase.initialize(
+      url: Env.supabaseUrl,
+      publishableKey: Env.supabaseAnonKey,
+    ),
+    SharedPreferences.getInstance(),
+  ).wait;
   runApp(
     ProviderScope(
       overrides: [
         supabaseProvider.overrideWithValue(Supabase.instance.client),
         localDbProvider.overrideWithValue(LocalDb()),
+        sharedPrefsProvider.overrideWithValue(prefs),
       ],
       child: const ElectricalDepartmentApp(),
     ),
@@ -53,6 +59,8 @@ class _ElectricalDepartmentAppState
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
+      themeMode: ref.watch(themeModeProvider),
+      themeAnimationDuration: const Duration(milliseconds: 400),
       routerConfig: _router,
     );
   }

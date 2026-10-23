@@ -8,11 +8,18 @@ class StoreScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const ComingSoon(
-      icon: Icons.inventory_2_outlined,
+      icon: Icons.inventory_2_rounded,
       title: 'Electrical store',
       phase: 'Phase 4 · weeks 8–10',
       description:
-          'Stock on hand, issues, receipts, material requests and purchases.',
+          'Stock on hand per site, issues to jobs and projects, receipts, '
+          'counts and low-stock alerts.',
+      highlights: [
+        (Icons.qr_code_scanner_rounded, 'Issue & receive'),
+        (Icons.trending_down_rounded, 'Low stock'),
+        (Icons.receipt_long_outlined, 'Material requests'),
+        (Icons.table_chart_outlined, 'BOQ'),
+      ],
     );
   }
 }

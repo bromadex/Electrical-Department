@@ -14,11 +14,21 @@ import 'widgets/app_shell.dart';
 
 /// The bottom-bar / side-menu tabs, in order.
 const shellTabs = [
-  ShellTab('/board', 'Board', Icons.view_kanban_outlined, Icons.view_kanban),
-  ShellTab('/chat', 'Chat', Icons.forum_outlined, Icons.forum),
-  ShellTab('/today', 'Today', Icons.today_outlined, Icons.today),
-  ShellTab('/store', 'Store', Icons.inventory_2_outlined, Icons.inventory_2),
-  ShellTab('/more', 'More', Icons.menu, Icons.menu_open),
+  ShellTab(
+    '/board',
+    'Board',
+    Icons.dashboard_outlined,
+    Icons.dashboard_rounded,
+  ),
+  ShellTab('/chat', 'Chat', Icons.forum_outlined, Icons.forum_rounded),
+  ShellTab('/today', 'Today', Icons.wb_sunny_outlined, Icons.wb_sunny_rounded),
+  ShellTab(
+    '/store',
+    'Store',
+    Icons.inventory_2_outlined,
+    Icons.inventory_2_rounded,
+  ),
+  ShellTab('/more', 'More', Icons.person_outline_rounded, Icons.person_rounded),
 ];
 
 class ShellTab {
@@ -58,8 +68,10 @@ GoRouter buildRouter(WidgetRef ref) {
         path: '/notifications',
         builder: (_, _) => const NotificationsScreen(),
       ),
-      StatefulShellRoute.indexedStack(
-        builder: (context, state, shell) => AppShell(shell: shell),
+      StatefulShellRoute(
+        builder: (context, state, shell) => shell,
+        navigatorContainerBuilder: (context, shell, children) =>
+            AppShell(shell: shell, children: children),
         branches: [
           for (final tab in shellTabs)
             StatefulShellBranch(
