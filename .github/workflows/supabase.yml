@@ -39,6 +39,17 @@ jobs:
       - name: Lint schema
         run: supabase db lint --local --level warning --fail-on error
 
+      - name: Run database tests
+        env:
+          DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: |
+          shopt -s nullglob
+          for f in supabase/tests/*.sql; do
+            echo "::group::$f"
+            psql "$DB_URL" -v ON_ERROR_STOP=1 -q -f "$f"
+            echo "::endgroup::"
+          done
+
       - name: Preview changes for the remote project
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
