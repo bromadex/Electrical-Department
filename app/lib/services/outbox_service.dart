@@ -26,20 +26,11 @@ class OutboxService {
   OutboxService(this._db, this._rpc, [this._upload]);
 
   /// Allowed actions, and whether the outbox adds `p_client_ref` itself.
-  /// Create functions whose id the app needs straight away (jobs, photos,
-  /// comments) get `p_client_ref` from the caller instead.
+  /// Job card changes are not queued: they go straight to the server so its
+  /// timestamps stay true (see jobcards/repository.dart).
   static const actions = <String, bool>{
     'fn_mark_read': false,
     'fn_register_device': false,
-    'fn_create_job': false,
-    'fn_edit_job': false,
-    'fn_take_job': false,
-    'fn_assign_job': false,
-    'fn_set_job_status': false,
-    'fn_close_job': false,
-    'fn_add_job_photo': false,
-    'fn_comment_job': false,
-    'fn_save_recurrence': false,
   };
 
   /// Entries that failed this many times stop retrying and keep their error.
