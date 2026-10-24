@@ -25,11 +25,11 @@ select pg_temp.check((select count(*) from public.profiles where id in ('0000000
 select pg_temp.check((select full_name from public.profiles where id = '00000000-0000-0000-0000-000000000001') = 'Tech One', 'full_name copied from metadata');
 
 insert into public.user_roles (user_id, role_id, site_id)
-select '00000000-0000-0000-0000-000000000001', r.id, s.id from public.roles r, public.sites s where r.name = 'Technician' and s.code = 'KAM';
+select '00000000-0000-0000-0000-000000000001', r.id, s.id from public.roles r, public.sites s where r.name = 'Electrician' and s.code = 'KAM';
 insert into public.user_roles (user_id, role_id, site_id)
-select '00000000-0000-0000-0000-000000000002', r.id, null from public.roles r where r.name = 'Admin';
+select '00000000-0000-0000-0000-000000000002', r.id, null from public.roles r where r.name = 'System Administrator';
 insert into public.user_roles (user_id, role_id, site_id)
-select '00000000-0000-0000-0000-000000000003', r.id, null from public.roles r where r.name = 'Technician';
+select '00000000-0000-0000-0000-000000000003', r.id, null from public.roles r where r.name = 'Electrician';
 update public.profiles set active = false where id = '00000000-0000-0000-0000-000000000003';
 
 create temp table ids as select
@@ -37,12 +37,13 @@ create temp table ids as select
   (select id from public.sites where code = 'SEL') sel;
 grant select on ids to authenticated;
 
--- Technician at KAM
+-- Electrician at KAM
 select pg_temp.act_as('00000000-0000-0000-0000-000000000001');
-select pg_temp.check(public._can('jobs.create', (select kam from ids)), 'tech can jobs.create at KAM');
-select pg_temp.check(not public._can('jobs.create', (select sel from ids)), 'tech cannot jobs.create at SEL');
-select pg_temp.check(not public._can('jobs.assign', (select kam from ids)), 'tech cannot jobs.assign');
-select pg_temp.check((select count(*) from public.my_permissions()) = 8, 'tech my_permissions has 8 codes');
+select pg_temp.check(public._can('jc.register', (select kam from ids)), 'electrician can jc.register at KAM');
+select pg_temp.check(not public._can('jc.register', (select sel from ids)), 'electrician cannot jc.register at SEL');
+select pg_temp.check(not public._can('jc.assign', (select kam from ids)), 'electrician cannot jc.assign');
+select pg_temp.check(not public._can('jobs.create', (select kam from ids)), 'retired jobs.* codes grant nothing');
+select pg_temp.check((select count(*) from public.my_permissions()) = 11, 'electrician my_permissions has 11 codes');
 select pg_temp.check((select count(*) from public.sites) = 4, 'tech reads sites');
 select pg_temp.check((select count(*) from public.profiles where id in ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000003','00000000-0000-0000-0000-000000000004')) = 4, 'tech reads profiles');
 select pg_temp.check((select count(*) from public.user_roles) = 1, 'tech sees only own roles');
@@ -83,12 +84,12 @@ select pg_temp.check(public.next_code((select id from public.sites where code = 
 select pg_temp.check(public.next_code((select id from public.sites where code = 'TST'), 'J') = 'J-0002', 'second code J-0002');
 select pg_temp.check(public.next_code((select id from public.sites where code = 'TST'), 'T') = 'T-0001', 'codes are per prefix');
 select pg_temp.check(public.next_code((select kam from ids), 'J') ~ '^J-[0-9]{4}$', 'codes are per site');
-select public.fn_notify_permission((select kam from ids), 'jobs.assign', 'general', 'Assign', null, null);
-select pg_temp.check(exists (select 1 from public.notifications where title = 'Assign' and user_id = '00000000-0000-0000-0000-000000000002'), 'notify jobs.assign at KAM reaches admin');
-select pg_temp.check(not exists (select 1 from public.notifications where title = 'Assign' and user_id = '00000000-0000-0000-0000-000000000001'), 'notify jobs.assign skips technician');
-select public.fn_notify_permission((select kam from ids), 'jobs.view', 'general', 'View', null, null);
-select pg_temp.check(exists (select 1 from public.notifications where title = 'View' and user_id = '00000000-0000-0000-0000-000000000001'), 'notify jobs.view at KAM reaches technician');
-select pg_temp.check(not exists (select 1 from public.notifications where title = 'View' and user_id = '00000000-0000-0000-0000-000000000003'), 'notify jobs.view skips inactive user');
+select public.fn_notify_permission((select kam from ids), 'jc.assign', 'general', 'Assign', null, null);
+select pg_temp.check(exists (select 1 from public.notifications where title = 'Assign' and user_id = '00000000-0000-0000-0000-000000000002'), 'notify jc.assign at KAM reaches admin');
+select pg_temp.check(not exists (select 1 from public.notifications where title = 'Assign' and user_id = '00000000-0000-0000-0000-000000000001'), 'notify jc.assign skips electrician');
+select public.fn_notify_permission((select kam from ids), 'jc.view', 'general', 'View', null, null);
+select pg_temp.check(exists (select 1 from public.notifications where title = 'View' and user_id = '00000000-0000-0000-0000-000000000001'), 'notify jc.view at KAM reaches electrician');
+select pg_temp.check(not exists (select 1 from public.notifications where title = 'View' and user_id = '00000000-0000-0000-0000-000000000003'), 'notify jc.view skips inactive user');
 select public.fn_notify('00000000-0000-0000-0000-000000000001', null, 'assigned', 'Job', 'body', 'job:x');
 
 select pg_temp.act_as('00000000-0000-0000-0000-000000000001');
@@ -104,7 +105,7 @@ reset role;
 
 -- Inactive user sees nothing
 select pg_temp.act_as('00000000-0000-0000-0000-000000000003');
-select pg_temp.check(not public._can('jobs.view', (select kam from ids)), 'inactive user has no permissions');
+select pg_temp.check(not public._can('jc.view', (select kam from ids)), 'inactive user has no permissions');
 select pg_temp.check((select count(*) from public.my_permissions()) = 0, 'inactive my_permissions empty');
 select pg_temp.check((select count(*) from public.sites) = 0, 'inactive user reads no sites');
 reset role;
@@ -123,7 +124,7 @@ select pg_temp.check((select action from public.activity where table_name = 'use
 reset role;
 
 select pg_temp.act_as('00000000-0000-0000-0000-000000000001');
-select pg_temp.check(not public._can('jobs.view', (select kam from ids)), 'archived role grants nothing');
+select pg_temp.check(not public._can('jc.view', (select kam from ids)), 'archived role grants nothing');
 reset role;
 
 -- Signed-out visitor
@@ -138,7 +139,7 @@ reset role;
 -- Storage paths
 select pg_temp.check(public._path_site('11111111-2222-3333-4444-555555555555/job/x/a.jpg') = '11111111-2222-3333-4444-555555555555', 'path site parsed');
 select pg_temp.check(public._path_site('nope/job/x/a.jpg') is null, 'bad path gives null');
-select pg_temp.check((select count(*) from storage.buckets where not public) = 4, 'four private buckets');
+select pg_temp.check((select count(*) from storage.buckets where not public) = 5, 'five private buckets');
 select pg_temp.check(exists (select 1 from public.schema_migrations where filename = '0001_foundation.sql'), 'migration logged');
 
 rollback;
