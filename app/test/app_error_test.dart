@@ -20,6 +20,20 @@ void main() {
     expect(e.isRetryable, isFalse);
   });
 
+  test('edge function errors use the same CODE: message form', () {
+    final e = AppError.from(
+      const FunctionException(
+        status: 403,
+        details: {
+          'error':
+              'NOT_ALLOWED: Only a system administrator can create accounts',
+        },
+      ),
+    );
+    expect(e.code, 'NOT_ALLOWED');
+    expect(e.message, 'Only a system administrator can create accounts');
+  });
+
   test('unknown errors are treated as network problems', () {
     final e = AppError.from(Exception('socket closed'));
     expect(e.code, AppError.network);
