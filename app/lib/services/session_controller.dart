@@ -122,6 +122,7 @@ class SessionNotifier extends Notifier<SessionState> {
                 fullName: p['full_name'] as String? ?? '',
                 phone: p['phone'] as String?,
                 homeSiteId: p['home_site_id'] as String?,
+                departmentId: p['department_id'] as String?,
                 avatarUrl: p['avatar_url'] as String?,
                 active: p['active'] as bool? ?? false,
               ),

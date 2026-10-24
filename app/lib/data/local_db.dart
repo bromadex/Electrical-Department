@@ -9,6 +9,7 @@ class LocalProfiles extends Table {
   TextColumn get fullName => text()();
   TextColumn get phone => text().nullable()();
   TextColumn get homeSiteId => text().nullable()();
+  TextColumn get departmentId => text().nullable()();
   TextColumn get avatarUrl => text().nullable()();
   BoolColumn get active => boolean()();
 
@@ -109,7 +110,7 @@ class LocalDb extends _$LocalDb {
       );
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -122,6 +123,10 @@ class LocalDb extends _$LocalDb {
         await customStatement('DROP TABLE IF EXISTS local_jobs');
         await customStatement('DROP TABLE IF EXISTS local_people');
         await m.createTable(localJobCards);
+      }
+      if (from < 4) {
+        // The request form starts with the person's own department.
+        await m.addColumn(localProfiles, localProfiles.departmentId);
       }
     },
   );

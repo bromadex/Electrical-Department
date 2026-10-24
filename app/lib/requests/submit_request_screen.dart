@@ -30,14 +30,16 @@ class _SubmitRequestScreenState extends ConsumerState<SubmitRequestScreen> {
   late final _reporter = TextEditingController(
     text: ref.read(sessionProvider).profile?.fullName,
   );
-  final _contact = TextEditingController();
+  late final _contact = TextEditingController(
+    text: ref.read(sessionProvider).profile?.phone,
+  );
   final _location = TextEditingController();
   final _equipment = TextEditingController();
   final _title = TextEditingController();
   final _description = TextEditingController();
   String? _siteId;
   String? _areaId;
-  String? _departmentId;
+  late String? _departmentId = ref.read(sessionProvider).profile?.departmentId;
   Asset? _asset;
   String? _impact;
   List<PickedFile> _files = const [];

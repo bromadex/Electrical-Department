@@ -49,6 +49,17 @@ class $LocalProfilesTable extends LocalProfiles
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _departmentIdMeta = const VerificationMeta(
+    'departmentId',
+  );
+  @override
+  late final GeneratedColumn<String> departmentId = GeneratedColumn<String>(
+    'department_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _avatarUrlMeta = const VerificationMeta(
     'avatarUrl',
   );
@@ -78,6 +89,7 @@ class $LocalProfilesTable extends LocalProfiles
     fullName,
     phone,
     homeSiteId,
+    departmentId,
     avatarUrl,
     active,
   ];
@@ -121,6 +133,15 @@ class $LocalProfilesTable extends LocalProfiles
         ),
       );
     }
+    if (data.containsKey('department_id')) {
+      context.handle(
+        _departmentIdMeta,
+        departmentId.isAcceptableOrUnknown(
+          data['department_id']!,
+          _departmentIdMeta,
+        ),
+      );
+    }
     if (data.containsKey('avatar_url')) {
       context.handle(
         _avatarUrlMeta,
@@ -160,6 +181,10 @@ class $LocalProfilesTable extends LocalProfiles
         DriftSqlType.string,
         data['${effectivePrefix}home_site_id'],
       ),
+      departmentId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}department_id'],
+      ),
       avatarUrl: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}avatar_url'],
@@ -182,6 +207,7 @@ class LocalProfile extends DataClass implements Insertable<LocalProfile> {
   final String fullName;
   final String? phone;
   final String? homeSiteId;
+  final String? departmentId;
   final String? avatarUrl;
   final bool active;
   const LocalProfile({
@@ -189,6 +215,7 @@ class LocalProfile extends DataClass implements Insertable<LocalProfile> {
     required this.fullName,
     this.phone,
     this.homeSiteId,
+    this.departmentId,
     this.avatarUrl,
     required this.active,
   });
@@ -202,6 +229,9 @@ class LocalProfile extends DataClass implements Insertable<LocalProfile> {
     }
     if (!nullToAbsent || homeSiteId != null) {
       map['home_site_id'] = Variable<String>(homeSiteId);
+    }
+    if (!nullToAbsent || departmentId != null) {
+      map['department_id'] = Variable<String>(departmentId);
     }
     if (!nullToAbsent || avatarUrl != null) {
       map['avatar_url'] = Variable<String>(avatarUrl);
@@ -220,6 +250,9 @@ class LocalProfile extends DataClass implements Insertable<LocalProfile> {
       homeSiteId: homeSiteId == null && nullToAbsent
           ? const Value.absent()
           : Value(homeSiteId),
+      departmentId: departmentId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(departmentId),
       avatarUrl: avatarUrl == null && nullToAbsent
           ? const Value.absent()
           : Value(avatarUrl),
@@ -237,6 +270,7 @@ class LocalProfile extends DataClass implements Insertable<LocalProfile> {
       fullName: serializer.fromJson<String>(json['fullName']),
       phone: serializer.fromJson<String?>(json['phone']),
       homeSiteId: serializer.fromJson<String?>(json['homeSiteId']),
+      departmentId: serializer.fromJson<String?>(json['departmentId']),
       avatarUrl: serializer.fromJson<String?>(json['avatarUrl']),
       active: serializer.fromJson<bool>(json['active']),
     );
@@ -249,6 +283,7 @@ class LocalProfile extends DataClass implements Insertable<LocalProfile> {
       'fullName': serializer.toJson<String>(fullName),
       'phone': serializer.toJson<String?>(phone),
       'homeSiteId': serializer.toJson<String?>(homeSiteId),
+      'departmentId': serializer.toJson<String?>(departmentId),
       'avatarUrl': serializer.toJson<String?>(avatarUrl),
       'active': serializer.toJson<bool>(active),
     };
@@ -259,6 +294,7 @@ class LocalProfile extends DataClass implements Insertable<LocalProfile> {
     String? fullName,
     Value<String?> phone = const Value.absent(),
     Value<String?> homeSiteId = const Value.absent(),
+    Value<String?> departmentId = const Value.absent(),
     Value<String?> avatarUrl = const Value.absent(),
     bool? active,
   }) => LocalProfile(
@@ -266,6 +302,7 @@ class LocalProfile extends DataClass implements Insertable<LocalProfile> {
     fullName: fullName ?? this.fullName,
     phone: phone.present ? phone.value : this.phone,
     homeSiteId: homeSiteId.present ? homeSiteId.value : this.homeSiteId,
+    departmentId: departmentId.present ? departmentId.value : this.departmentId,
     avatarUrl: avatarUrl.present ? avatarUrl.value : this.avatarUrl,
     active: active ?? this.active,
   );
@@ -277,6 +314,9 @@ class LocalProfile extends DataClass implements Insertable<LocalProfile> {
       homeSiteId: data.homeSiteId.present
           ? data.homeSiteId.value
           : this.homeSiteId,
+      departmentId: data.departmentId.present
+          ? data.departmentId.value
+          : this.departmentId,
       avatarUrl: data.avatarUrl.present ? data.avatarUrl.value : this.avatarUrl,
       active: data.active.present ? data.active.value : this.active,
     );
@@ -289,6 +329,7 @@ class LocalProfile extends DataClass implements Insertable<LocalProfile> {
           ..write('fullName: $fullName, ')
           ..write('phone: $phone, ')
           ..write('homeSiteId: $homeSiteId, ')
+          ..write('departmentId: $departmentId, ')
           ..write('avatarUrl: $avatarUrl, ')
           ..write('active: $active')
           ..write(')'))
@@ -296,8 +337,15 @@ class LocalProfile extends DataClass implements Insertable<LocalProfile> {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, fullName, phone, homeSiteId, avatarUrl, active);
+  int get hashCode => Object.hash(
+    id,
+    fullName,
+    phone,
+    homeSiteId,
+    departmentId,
+    avatarUrl,
+    active,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -306,6 +354,7 @@ class LocalProfile extends DataClass implements Insertable<LocalProfile> {
           other.fullName == this.fullName &&
           other.phone == this.phone &&
           other.homeSiteId == this.homeSiteId &&
+          other.departmentId == this.departmentId &&
           other.avatarUrl == this.avatarUrl &&
           other.active == this.active);
 }
@@ -315,6 +364,7 @@ class LocalProfilesCompanion extends UpdateCompanion<LocalProfile> {
   final Value<String> fullName;
   final Value<String?> phone;
   final Value<String?> homeSiteId;
+  final Value<String?> departmentId;
   final Value<String?> avatarUrl;
   final Value<bool> active;
   final Value<int> rowid;
@@ -323,6 +373,7 @@ class LocalProfilesCompanion extends UpdateCompanion<LocalProfile> {
     this.fullName = const Value.absent(),
     this.phone = const Value.absent(),
     this.homeSiteId = const Value.absent(),
+    this.departmentId = const Value.absent(),
     this.avatarUrl = const Value.absent(),
     this.active = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -332,6 +383,7 @@ class LocalProfilesCompanion extends UpdateCompanion<LocalProfile> {
     required String fullName,
     this.phone = const Value.absent(),
     this.homeSiteId = const Value.absent(),
+    this.departmentId = const Value.absent(),
     this.avatarUrl = const Value.absent(),
     required bool active,
     this.rowid = const Value.absent(),
@@ -343,6 +395,7 @@ class LocalProfilesCompanion extends UpdateCompanion<LocalProfile> {
     Expression<String>? fullName,
     Expression<String>? phone,
     Expression<String>? homeSiteId,
+    Expression<String>? departmentId,
     Expression<String>? avatarUrl,
     Expression<bool>? active,
     Expression<int>? rowid,
@@ -352,6 +405,7 @@ class LocalProfilesCompanion extends UpdateCompanion<LocalProfile> {
       if (fullName != null) 'full_name': fullName,
       if (phone != null) 'phone': phone,
       if (homeSiteId != null) 'home_site_id': homeSiteId,
+      if (departmentId != null) 'department_id': departmentId,
       if (avatarUrl != null) 'avatar_url': avatarUrl,
       if (active != null) 'active': active,
       if (rowid != null) 'rowid': rowid,
@@ -363,6 +417,7 @@ class LocalProfilesCompanion extends UpdateCompanion<LocalProfile> {
     Value<String>? fullName,
     Value<String?>? phone,
     Value<String?>? homeSiteId,
+    Value<String?>? departmentId,
     Value<String?>? avatarUrl,
     Value<bool>? active,
     Value<int>? rowid,
@@ -372,6 +427,7 @@ class LocalProfilesCompanion extends UpdateCompanion<LocalProfile> {
       fullName: fullName ?? this.fullName,
       phone: phone ?? this.phone,
       homeSiteId: homeSiteId ?? this.homeSiteId,
+      departmentId: departmentId ?? this.departmentId,
       avatarUrl: avatarUrl ?? this.avatarUrl,
       active: active ?? this.active,
       rowid: rowid ?? this.rowid,
@@ -393,6 +449,9 @@ class LocalProfilesCompanion extends UpdateCompanion<LocalProfile> {
     if (homeSiteId.present) {
       map['home_site_id'] = Variable<String>(homeSiteId.value);
     }
+    if (departmentId.present) {
+      map['department_id'] = Variable<String>(departmentId.value);
+    }
     if (avatarUrl.present) {
       map['avatar_url'] = Variable<String>(avatarUrl.value);
     }
@@ -412,6 +471,7 @@ class LocalProfilesCompanion extends UpdateCompanion<LocalProfile> {
           ..write('fullName: $fullName, ')
           ..write('phone: $phone, ')
           ..write('homeSiteId: $homeSiteId, ')
+          ..write('departmentId: $departmentId, ')
           ..write('avatarUrl: $avatarUrl, ')
           ..write('active: $active, ')
           ..write('rowid: $rowid')
@@ -2496,6 +2556,7 @@ typedef $$LocalProfilesTableCreateCompanionBuilder =
       required String fullName,
       Value<String?> phone,
       Value<String?> homeSiteId,
+      Value<String?> departmentId,
       Value<String?> avatarUrl,
       required bool active,
       Value<int> rowid,
@@ -2506,6 +2567,7 @@ typedef $$LocalProfilesTableUpdateCompanionBuilder =
       Value<String> fullName,
       Value<String?> phone,
       Value<String?> homeSiteId,
+      Value<String?> departmentId,
       Value<String?> avatarUrl,
       Value<bool> active,
       Value<int> rowid,
@@ -2537,6 +2599,11 @@ class $$LocalProfilesTableFilterComposer
 
   ColumnFilters<String> get homeSiteId => $composableBuilder(
     column: $table.homeSiteId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get departmentId => $composableBuilder(
+    column: $table.departmentId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -2580,6 +2647,11 @@ class $$LocalProfilesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get departmentId => $composableBuilder(
+    column: $table.departmentId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get avatarUrl => $composableBuilder(
     column: $table.avatarUrl,
     builder: (column) => ColumnOrderings(column),
@@ -2611,6 +2683,11 @@ class $$LocalProfilesTableAnnotationComposer
 
   GeneratedColumn<String> get homeSiteId => $composableBuilder(
     column: $table.homeSiteId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get departmentId => $composableBuilder(
+    column: $table.departmentId,
     builder: (column) => column,
   );
 
@@ -2656,6 +2733,7 @@ class $$LocalProfilesTableTableManager
                 Value<String> fullName = const Value.absent(),
                 Value<String?> phone = const Value.absent(),
                 Value<String?> homeSiteId = const Value.absent(),
+                Value<String?> departmentId = const Value.absent(),
                 Value<String?> avatarUrl = const Value.absent(),
                 Value<bool> active = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -2664,6 +2742,7 @@ class $$LocalProfilesTableTableManager
                 fullName: fullName,
                 phone: phone,
                 homeSiteId: homeSiteId,
+                departmentId: departmentId,
                 avatarUrl: avatarUrl,
                 active: active,
                 rowid: rowid,
@@ -2674,6 +2753,7 @@ class $$LocalProfilesTableTableManager
                 required String fullName,
                 Value<String?> phone = const Value.absent(),
                 Value<String?> homeSiteId = const Value.absent(),
+                Value<String?> departmentId = const Value.absent(),
                 Value<String?> avatarUrl = const Value.absent(),
                 required bool active,
                 Value<int> rowid = const Value.absent(),
@@ -2682,6 +2762,7 @@ class $$LocalProfilesTableTableManager
                 fullName: fullName,
                 phone: phone,
                 homeSiteId: homeSiteId,
+                departmentId: departmentId,
                 avatarUrl: avatarUrl,
                 active: active,
                 rowid: rowid,
