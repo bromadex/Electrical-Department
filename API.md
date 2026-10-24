@@ -130,7 +130,7 @@ Realtime: INSERT on `notifications` filtered by `user_id = auth.uid()`.
 ### device_tokens
 
 `id, user_id, token unique, platform (android|web), updated_at`. Read/write: own rows.
-Push edge function `push-send` (week 2, Tafara) sends FCM for every new notification.
+The `push-send` edge function sends every new notification to these devices (section 8).
 
 ### code_counters
 
@@ -384,8 +384,52 @@ secret is set.
 - Overdue (hourly) → the responsible person and assigner, or `jc.assign` holders when
   unassigned.
 
+## 8. Push notifications (0007)
+
+Every row inserted into `notifications` is also sent as a push message to the person's
+registered phones and browsers, so alerts arrive when the app is closed.
+
+**Flow.**
+1. The app gets an FCM registration token and calls `fn_register_device(p_token, p_platform)`
+   (through the outbox). It does this when the person taps **Turn on** (banner or account
+   menu), and again on each start once permission was given.
+2. Trigger `notifications_push` (after insert on `notifications`) calls the `push-send` edge
+   function through `pg_net` with `{"notification_id"}` and the `x-push-secret` header. It
+   does nothing while `push_config.endpoint` is empty or the person has no active device.
+3. `push-send` calls `fn_push_job(p_notification, p_secret)` for the title, body, link and
+   tokens, and signs in to Google with `FIREBASE_SERVICE_ACCOUNT`. It then sends one FCM HTTP
+   v1 message per token. Critical, overdue and assignment messages go at high priority.
+4. Tokens FCM reports as gone are archived with `fn_push_drop_tokens(p_secret, p_tokens)`.
+
+**Tables and functions.**
+
+| name | who | what |
+| --- | --- | --- |
+| `push_config(endpoint, secret)` | nobody (RLS, no policies) | one row; `secret` is random, made by the migration |
+| `fn_unregister_device(p_token)` | signed-in | archives the caller's own token: on sign-out and when alerts are switched off |
+| `fn_push_job(p_notification, p_secret)` | service role | jsonb: `id, type, title, body, link, tokens[{token, platform}]` |
+| `fn_push_drop_tokens(p_secret, p_tokens text[])` | service role | archives dead tokens, returns how many |
+| `fn_set_push_endpoint(p_url)` | database owner (CI) | stores where `push-send` lives |
+
+**Messages.** `notification {title, body}` plus `data {link, type, notification_id, url}`.
+- **Android:** tapping a message opens `link`. `jobcard:<id>` goes to `/job-cards/<id>`,
+  `request:<id>` to `/requests/<id>`.
+- **Browsers:** `web/firebase-messaging-sw.js` shows the message and opens `url`
+  (`APP_URL` + `#` + path).
+
+**Configuration.**
+- **App:** `app/lib/config/firebase_config.dart` holds the public Firebase identifiers (project,
+  web app, Android app for `com.bravura.electrical_department` and the web push key). Push
+  stays off on a platform until its values are filled in. The dev flavor has no pushes.
+- **Server:** CI deploys `push-send`, copies the `FIREBASE_SERVICE_ACCOUNT` repo secret and
+  `APP_URL` into the function's secrets, then calls `fn_set_push_endpoint`. It needs the
+  `SUPABASE_ACCESS_TOKEN` repo secret.
+
 ## Changelog
 
+- v0.3 — push notifications: `push_config`, trigger `notifications_push`,
+  `fn_unregister_device`, `fn_push_job`, `fn_push_drop_tokens`, `fn_set_push_endpoint`; the
+  `push-send` edge function; alerts toggle in the app.
 - v0.2 — job card & maintenance management, phase 1: roles renamed and new permission
   codes; settings, priorities, departments, categories, escalation contacts; assets;
   service requests; job cards with assessment, assignment, holds, escalation, review and

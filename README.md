@@ -99,11 +99,12 @@ Database tests are plain SQL in `supabase/tests/`; with local Supabase running:
 | Workflow | When | What |
 | --- | --- | --- |
 | `App` | every push and PR | `flutter analyze`, `flutter test`, format and generated-code checks |
+| `App` | pull request | Android debug build check; web preview deployed to Vercel, link in the run summary (built against production Supabase) |
 | `App` | push to `main` | web build deployed to Vercel production |
-| `App` | pull request | web preview deployed to Vercel; link in the run summary (built against production Supabase) |
 | `App` | tag `v*` | release APK attached to a GitHub release (+ Firebase App Distribution) |
+| `Acceptance tests` | pushes to `feat/**` and PRs touching the app or database | browser tests against a throwaway Supabase; screenshots in the `acceptance` artifact |
 | `Supabase database` | changes under `supabase/` | edge function type check, migrations + lint + SQL tests on a throwaway database, preview of pending migrations |
-| `Supabase database` | push to `main` | new migrations applied to Supabase, edge functions deployed |
+| `Supabase database` | push to `main` | new migrations applied to Supabase; edge functions deployed and push notifications switched on |
 
 GitHub settings (**Settings → Secrets and variables → Actions**):
 
@@ -117,7 +118,9 @@ GitHub settings (**Settings → Secrets and variables → Actions**):
 | `VERCEL_ORG_ID` | secret | Vercel team ID (**Team Settings → General**) |
 | `VERCEL_PROJECT_ID` | secret | Vercel **Project Settings → General → Project ID** |
 | `ANDROID_KEYSTORE_BASE64` etc. | secret | optional APK signing key, see `.github/workflows/app.yml` |
-| `FIREBASE_APP_ID`, `FIREBASE_SERVICE_ACCOUNT` | secret | optional, for Firebase App Distribution |
+| `FIREBASE_APP_ID` | secret | Android app ID, for Firebase App Distribution |
+| `FIREBASE_SERVICE_ACCOUNT` | secret | Firebase Admin SDK service account JSON: App Distribution uploads and push notifications |
+| `APP_URL` | variable | optional; the web app's address, opened by browser notifications (defaults to the Vercel production URL) |
 
 GitHub Actions builds the web app and uploads the finished files to Vercel, so
 Vercel never builds Flutter itself. `vercel.json` turns off Vercel's own Git
@@ -148,6 +151,37 @@ account with a temporary password (give it to the person in person) and sets
 their department, home site and roles per site. This needs the `admin-users`
 edge function, deployed by CI when `SUPABASE_ACCESS_TOKEN` is set; until then,
 add people in the Supabase dashboard as above and set their roles in the app.
+
+## Push notifications and testers' APKs
+
+Both use the team's Firebase project (sender ID `86873598340`). See API.md section 8.
+
+**Push notifications** (alerts when the app is closed):
+
+1. **App config.** Put the public identifiers in `app/lib/config/firebase_config.dart`:
+   - the project ID;
+   - the **Web** app's API key and app ID (Project settings → Your apps → Web);
+   - the **Android** app's API key (`current_key` in its `google-services.json`).
+
+   The web push key and the Android app ID are already there.
+2. **Service account.** Make sure the `FIREBASE_SERVICE_ACCOUNT` repo secret is a Firebase
+   Admin SDK key (Project settings → Service accounts → Generate new private key).
+3. **Supabase token.** Add the `SUPABASE_ACCESS_TOKEN` repo secret.
+4. **Merge.** The next merge to `main` deploys `push-send`, gives it the key and switches
+   pushes on.
+5. **Each person.** In the app, tap **Turn on** in the blue banner, or choose **Alerts on this
+   device** in the account menu.
+
+Pushes come on browsers and on the prod Android app, not on the dev flavor. On iPhones,
+browser pushes work only once the site is added to the home screen.
+
+**APKs for testers.**
+1. In Firebase App Distribution, create a tester group called `electrical-team` and add
+   people to it.
+2. Push a version tag, e.g. `git tag v1.0.0 && git push origin v1.0.0`. CI builds the release
+   APK, attaches it to a GitHub release and sends it to the group. It needs
+   `FIREBASE_APP_ID` and `FIREBASE_SERVICE_ACCOUNT`, and a signing key for upgrades to install
+   over each other.
 
 ## Branding
 

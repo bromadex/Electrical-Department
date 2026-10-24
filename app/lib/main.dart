@@ -1,3 +1,7 @@
+import 'dart:async';
+
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,8 +12,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'config/env.dart';
 import 'data/local_db.dart';
 import 'router.dart';
+import 'screens/notifications_screen.dart';
 import 'screens/setup_required_screen.dart';
 import 'services/core_providers.dart';
+import 'services/push_service.dart';
 import 'theme/app_theme.dart';
 import 'theme/theme_mode.dart';
 import 'ui/format.dart';
@@ -29,12 +35,13 @@ Future<void> main() async {
     return;
   }
 
-  final (_, prefs) = await (
+  final (_, prefs, _) = await (
     Supabase.initialize(
       url: Env.supabaseUrl,
       publishableKey: Env.supabaseAnonKey,
     ),
     SharedPreferences.getInstance(),
+    PushSupport.init(),
   ).wait;
   runApp(
     ProviderScope(
@@ -59,6 +66,31 @@ class ElectricalDepartmentApp extends ConsumerStatefulWidget {
 class _ElectricalDepartmentAppState
     extends ConsumerState<ElectricalDepartmentApp> {
   late final GoRouter _router = buildRouter(ref);
+  StreamSubscription<RemoteMessage>? _opened;
+
+  @override
+  void initState() {
+    super.initState();
+    // A tapped push notification on Android opens its job card or request
+    // (browsers open it from firebase-messaging-sw.js).
+    if (PushSupport.ready && !kIsWeb) {
+      _opened = FirebaseMessaging.onMessageOpenedApp.listen(_openPush);
+      FirebaseMessaging.instance.getInitialMessage().then((m) {
+        if (m != null) _openPush(m);
+      });
+    }
+  }
+
+  void _openPush(RemoteMessage message) {
+    final path = notificationPath(message.data['link'] as String?);
+    if (path != null) _router.go(path);
+  }
+
+  @override
+  void dispose() {
+    _opened?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {

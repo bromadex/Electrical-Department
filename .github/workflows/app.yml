@@ -51,6 +51,27 @@ jobs:
       - run: flutter analyze
       - run: flutter test
 
+  android:
+    name: Android build check
+    needs: check
+    # Nothing else compiles the Android side before a release tag, so pull
+    # requests build a debug APK of the prod flavor (which includes push).
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - run: flutter pub get
+      - run: flutter build apk --debug --flavor prod --dart-define=FLAVOR=prod
+
   web:
     name: Deploy web to Vercel
     needs: check

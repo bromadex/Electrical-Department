@@ -6,6 +6,7 @@ import '../config/env.dart';
 import '../navigation.dart';
 import '../reference/reference_data.dart';
 import '../services/core_providers.dart';
+import '../services/push_service.dart';
 import '../services/session_controller.dart';
 import '../theme/theme_mode.dart';
 import '../theme/tokens.dart';
@@ -13,6 +14,7 @@ import '../ui/bits.dart';
 import 'brand_logo.dart';
 import 'global_search.dart';
 import 'notifications_button.dart';
+import 'push_prompt.dart';
 import 'site_picker.dart';
 import 'sync_banner.dart';
 
@@ -43,6 +45,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     final body = Column(
       children: [
         const SyncBanner(),
+        const PushPrompt(),
         Expanded(
           child: _AccountGate(session: session, child: widget.child),
         ),
@@ -345,11 +348,15 @@ class _UserCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final mode = ref.watch(themeModeProvider);
+    final push = ref.watch(pushProvider);
     return PopupMenuButton<String>(
       tooltip: 'Account',
       position: PopupMenuPosition.over,
       onSelected: (v) {
         switch (v) {
+          case 'push':
+            final alerts = ref.read(pushProvider.notifier);
+            push == PushState.on ? alerts.disable() : alerts.enable();
           case 'light':
             ref.read(themeModeProvider.notifier).set(ThemeMode.light);
           case 'dark':
@@ -376,6 +383,19 @@ class _UserCard extends ConsumerWidget {
           checked: mode == ThemeMode.system,
           child: const Text('Match device'),
         ),
+        if (push != PushState.unavailable) ...[
+          const PopupMenuDivider(),
+          CheckedPopupMenuItem(
+            value: 'push',
+            checked: push == PushState.on,
+            enabled: push != PushState.blocked,
+            child: Text(
+              push == PushState.blocked
+                  ? 'Alerts blocked in this browser or phone\'s settings'
+                  : 'Alerts on this device',
+            ),
+          ),
+        ],
         const PopupMenuDivider(),
         const PopupMenuItem(
           value: 'out',

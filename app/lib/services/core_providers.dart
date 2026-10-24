@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../data/local_db.dart';
 import 'notifications_controller.dart';
 import 'outbox_service.dart';
+import 'push_service.dart';
 import 'session_controller.dart';
 
 /// Overridden in `main()` once Supabase is initialised.
@@ -60,9 +61,11 @@ class AuthUserIdNotifier extends Notifier<String?> {
     return auth.currentUser?.id;
   }
 
-  /// Sends queued changes first so nothing is lost, then signs out.
+  /// Sends queued changes first so nothing is lost, stops pushes to this
+  /// device, then signs out.
   Future<void> signOut() async {
     await ref.read(outboxProvider).flush();
+    await ref.read(pushProvider.notifier).forgetDevice();
     await ref.read(supabaseProvider).auth.signOut();
   }
 }
