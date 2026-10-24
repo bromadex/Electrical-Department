@@ -393,7 +393,7 @@ class _CommentTile extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 2),
-                SelectableText(comment.body),
+                CopyableText(comment.body),
               ],
             ),
           ),

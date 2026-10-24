@@ -117,7 +117,7 @@ class _RequestViewState extends ConsumerState<_RequestView> {
                 KeyValue(
                   'What is wrong',
                   null,
-                  child: SelectableText(r.description),
+                  child: CopyableText(r.description),
                 ),
                 const SizedBox(height: Space.md),
                 ResponsiveGrid(

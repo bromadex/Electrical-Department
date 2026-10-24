@@ -342,6 +342,19 @@ class KeyValue extends StatelessWidget {
   }
 }
 
+/// Text people can select and copy (descriptions, comments). It keeps its
+/// own accessibility node: a bare SelectableText marks the nearest parent
+/// node as a text field, which folds a whole panel into one "field".
+class CopyableText extends StatelessWidget {
+  const CopyableText(this.text, {super.key});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) =>
+      Semantics(container: true, child: SelectableText(text));
+}
+
 void showSnack(BuildContext context, String message) {
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()

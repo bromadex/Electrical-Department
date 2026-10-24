@@ -692,7 +692,7 @@ class _Overview extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        KeyValue('Description', null, child: SelectableText(job.description)),
+        KeyValue('Description', null, child: CopyableText(job.description)),
         const SectionHeader('Reception'),
         ResponsiveGrid(
           minItemWidth: 200,

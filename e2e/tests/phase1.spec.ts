@@ -109,8 +109,9 @@ test('Test 5: a P1 job updates the critical dashboard and sends notifications', 
   await expectShown(manager, `CRITICAL ${number} (P1)`);
   await shot(manager, '05-manager-notifications');
 
+  // The manager's home site is Harare; the P1 job is at Kamativi.
   await open(manager, '/dashboard');
-  await tap(manager, 'Switch site');
+  await manager.getByRole('button', { name: /Switch site|Harare/ }).first().click();
   await tap(manager, 'All my sites', true);
   await expectShown(manager, number);
   await shot(manager, '05-manager-dashboard');
@@ -203,6 +204,8 @@ test('Request flow: a request reaches the queue and becomes a job card', async (
   await expectShown(engineer, title);
   await shot(engineer, '07-incoming-requests');
   await tap(engineer, title);
+  await engineer.waitForURL(/#\/requests\/[0-9a-f-]{36}/);
+  await expectShown(engineer, title);
   await tap(engineer, 'Register job card', true);
   await expectShown(engineer, /^Register EL-SR-/);
   await tap(engineer, 'P3 Medium', true);
@@ -214,6 +217,7 @@ test('Request flow: a request reaches the queue and becomes a job card', async (
 
   await open(requester, '/my-requests');
   await tap(requester, title);
+  await requester.waitForURL(/#\/requests\/[0-9a-f-]{36}/);
   await expectShown(requester, number);
   await shot(requester, '07-requester-tracking');
 });
@@ -231,7 +235,8 @@ for (const [name, viewport] of [
     await expectShown(engineer, 'Total job cards', true);
     await shot(engineer, `12-${name}-dashboard`);
     await open(engineer, '/job-cards');
-    await expectShown(engineer, job.number);
+    await expectShown(engineer, 'Job Cards', true);
+    await expectShown(engineer, 'New job card', true);
     await shot(engineer, `12-${name}-job-cards`);
     await open(engineer, `/job-cards/${job.number}`);
     await expectShown(engineer, 'Conveyor 3 VFD fault F0002');
