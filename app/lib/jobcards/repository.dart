@@ -163,34 +163,34 @@ final jobCardExtrasProvider = FutureProvider.autoDispose
     .family<JobCardExtras, String>((ref, id) async {
       ref.watch(jobCardsLiveProvider);
       final client = ref.watch(supabaseProvider);
+      // Joins name the foreign key column, not the constraint: the retired
+      // jobs board's tables kept some of the constraint names.
       final results = await Future.wait<dynamic>([
         client
             .from('job_assignments')
             .select(
-              '*, person:profiles!job_assignments_user_id_fkey(full_name), '
-              'assigner:profiles!job_assignments_assigned_by_fkey(full_name)',
+              '*, person:profiles!user_id(full_name), '
+              'assigner:profiles!assigned_by(full_name)',
             )
             .eq('job_card_id', id)
             .order('assigned_at'),
         client
             .from('job_comments')
-            .select('*, author:profiles!job_comments_author_id_fkey(full_name)')
+            .select('*, author:profiles!author_id(full_name)')
             .eq('job_card_id', id)
             .eq('is_archived', false)
             .order('created_at'),
         client
             .from('job_attachments')
-            .select(
-              '*, uploader:profiles!job_attachments_uploaded_by_fkey(full_name)',
-            )
+            .select('*, uploader:profiles!uploaded_by(full_name)')
             .eq('job_card_id', id)
             .eq('is_archived', false)
             .order('created_at'),
         client
             .from('job_closures')
             .select(
-              '*, performer:profiles!job_closures_performed_by_fkey(full_name), '
-              'verifier:profiles!job_closures_verified_by_fkey(full_name)',
+              '*, performer:profiles!performed_by(full_name), '
+              'verifier:profiles!verified_by(full_name)',
             )
             .eq('job_card_id', id)
             .order('closed_at'),

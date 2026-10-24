@@ -11,8 +11,8 @@ import 'models.dart';
 const _select =
     '*, site:sites(name), area:areas(name), department:departments(name), '
     'asset:assets(asset_no, name), '
-    'requester:profiles!service_requests_requested_by_fkey(full_name), '
-    'job:job_cards!service_requests_job_card_id_fkey(number, status)';
+    'requester:profiles!requested_by(full_name), '
+    'job:job_cards!job_card_id(number, status)';
 
 /// The electrical department's queue: submitted (and optionally returned)
 /// requests at a site, or at all the user's sites when the site is null.
