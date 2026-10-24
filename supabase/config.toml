@@ -387,6 +387,12 @@ deno_version = 2
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 
+# Creates accounts and resets passwords for system administrators. It checks
+# the caller's token and admin.users itself (through my_permissions), so it
+# works with both legacy and new signing keys.
+[functions.admin-users]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327

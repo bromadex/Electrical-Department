@@ -1,0 +1,12 @@
+{
+  "name": "electrical-department-e2e",
+  "private": true,
+  "description": "Browser acceptance tests for the web app, run against a local Supabase",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.49.1",
+    "@types/node": "20.17.10"
+  }
+}

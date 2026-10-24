@@ -122,6 +122,7 @@ class SessionNotifier extends Notifier<SessionState> {
                 fullName: p['full_name'] as String? ?? '',
                 phone: p['phone'] as String?,
                 homeSiteId: p['home_site_id'] as String?,
+                departmentId: p['department_id'] as String?,
                 avatarUrl: p['avatar_url'] as String?,
                 active: p['active'] as bool? ?? false,
               ),
@@ -199,6 +200,27 @@ class PickedSiteNotifier extends Notifier<String?> {
 
   void pick(String siteId) => state = siteId;
 }
+
+/// True when the user chose "All sites" in the site picker.
+final allSitesProvider = NotifierProvider<AllSitesNotifier, bool>(
+  AllSitesNotifier.new,
+);
+
+class AllSitesNotifier extends Notifier<bool> {
+  @override
+  bool build() {
+    ref.watch(authUserIdProvider);
+    return false;
+  }
+
+  void set(bool value) => state = value;
+}
+
+/// The site lists and the dashboard show; null means all the user's sites.
+final siteFilterProvider = Provider<String?>((ref) {
+  if (ref.watch(allSitesProvider)) return null;
+  return ref.watch(currentSiteProvider)?.id;
+});
 
 /// The site screens work in: the picked site, else the home site, else the
 /// first site the user has access to.

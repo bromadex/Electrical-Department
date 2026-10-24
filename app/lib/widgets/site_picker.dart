@@ -3,166 +3,72 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../services/session_controller.dart';
 import '../theme/tokens.dart';
-import '../ui/motion.dart';
-import '../ui/surfaces.dart';
 
-/// Chip showing the current site; opens a sheet to switch site.
+/// Current site, with a menu to switch site or show all the user's sites.
 class SitePicker extends ConsumerWidget {
-  const SitePicker({super.key, this.large = false});
-
-  /// Desktop header style: a 48 px glass button with the site name.
-  final bool large;
+  const SitePicker({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final sites = ref.watch(sessionProvider.select((s) => s.mySites));
     final current = ref.watch(currentSiteProvider);
+    final all = ref.watch(allSitesProvider);
     if (current == null) return const SizedBox.shrink();
     final scheme = Theme.of(context).colorScheme;
-    final canSwitch = sites.length > 1;
-    final narrow = MediaQuery.sizeOf(context).width < 380;
-    final g = Glass.of(context);
+    final label = all && sites.length > 1 ? 'All sites' : current.name;
 
-    return Pressable(
-      onTap: canSwitch ? () => _open(context, ref) : null,
-      child: AnimatedContainer(
-        duration: Motion.of(context, Motion.medium),
-        height: large ? 48 : null,
-        padding: large
-            ? const EdgeInsets.symmetric(horizontal: 14)
-            : const EdgeInsets.fromLTRB(10, 7, 8, 7),
-        decoration: BoxDecoration(
-          color: g.fill,
-          border: Border.all(color: g.border),
-          borderRadius: BorderRadius.circular(large ? Radii.md : Radii.pill),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+    final chip = Container(
+      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        border: Border.all(color: scheme.outlineVariant),
+        borderRadius: BorderRadius.circular(Radii.sm),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.place_outlined, size: 18, color: scheme.primary),
+          const SizedBox(width: 6),
+          Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+          if (sites.length > 1) ...[
+            const SizedBox(width: 2),
             Icon(
-              Icons.place_rounded,
-              size: large ? 20 : 16,
-              color: scheme.primary,
+              Icons.expand_more_rounded,
+              size: 18,
+              color: scheme.onSurfaceVariant,
             ),
-            const SizedBox(width: 4),
-            AnimatedSwitcher(
-              duration: Motion.of(context, Motion.medium),
-              child: Text(
-                narrow ? current.code : current.name,
-                key: ValueKey(current.id),
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: large ? 14 : 13,
-                ),
-              ),
-            ),
-            if (canSwitch)
-              Icon(
-                Icons.expand_more_rounded,
-                size: 18,
-                color: scheme.onSurfaceVariant,
-              ),
           ],
-        ),
+        ],
       ),
     );
-  }
+    if (sites.length < 2) return chip;
 
-  void _open(BuildContext context, WidgetRef ref) {
-    showModalBottomSheet<void>(
-      context: context,
-      useSafeArea: true,
-      constraints: const BoxConstraints(maxWidth: 520),
-      builder: (context) => Consumer(
-        builder: (context, ref, _) {
-          final theme = Theme.of(context);
-          final session = ref.watch(sessionProvider);
-          final current = ref.watch(currentSiteProvider);
-          return Padding(
-            padding: const EdgeInsets.fromLTRB(Space.md, 0, Space.md, Space.lg),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(left: 4, bottom: Space.sm),
-                  child: Text('Switch site', style: theme.textTheme.titleLarge),
-                ),
-                for (final (i, s) in session.mySites.indexed)
-                  _SiteRow(
-                    code: s.code,
-                    name: s.name,
-                    areas: session.areasAt(s.id).length,
-                    selected: s.id == current?.id,
-                    onTap: () {
-                      ref.read(pickedSiteIdProvider.notifier).pick(s.id);
-                      Navigator.pop(context);
-                    },
-                  ).entrance(context, index: i),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _SiteRow extends StatelessWidget {
-  const _SiteRow({
-    required this.code,
-    required this.name,
-    required this.areas,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String code;
-  final String name;
-  final int areas;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: Space.xs),
-      child: Material(
-        color: selected
-            ? scheme.primary.withValues(alpha: 0.1)
-            : scheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(Radii.md),
-        child: ListTile(
-          onTap: onTap,
-          leading: Container(
-            width: 44,
-            height: 44,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: selected ? scheme.primary : scheme.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(Radii.sm),
-            ),
-            child: Text(
-              code,
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 12,
-                color: selected ? scheme.onPrimary : scheme.onSurfaceVariant,
-              ),
-            ),
-          ),
-          title: Text(name, style: theme.textTheme.titleMedium),
-          subtitle: Text(areas == 1 ? '1 area' : '$areas areas'),
-          trailing: AnimatedScale(
-            scale: selected ? 1 : 0,
-            duration: Motion.of(context, Motion.medium),
-            curve: Motion.spring,
-            child: Icon(Icons.check_circle_rounded, color: scheme.primary),
-          ),
+    return PopupMenuButton<String>(
+      tooltip: 'Switch site',
+      position: PopupMenuPosition.under,
+      onSelected: (id) {
+        if (id == '*') {
+          ref.read(allSitesProvider.notifier).set(true);
+        } else {
+          ref.read(allSitesProvider.notifier).set(false);
+          ref.read(pickedSiteIdProvider.notifier).pick(id);
+        }
+      },
+      itemBuilder: (context) => [
+        CheckedPopupMenuItem(
+          value: '*',
+          checked: all,
+          child: const Text('All my sites'),
         ),
-      ),
+        const PopupMenuDivider(),
+        for (final s in sites)
+          CheckedPopupMenuItem(
+            value: s.id,
+            checked: !all && s.id == current.id,
+            child: Text('${s.name} (${s.code})'),
+          ),
+      ],
+      child: chip,
     );
   }
 }

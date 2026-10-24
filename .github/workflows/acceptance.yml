@@ -1,0 +1,89 @@
+name: Acceptance tests
+
+# Browser acceptance tests: a throwaway Supabase (migrations + seed.sql), the
+# web app built against it, and Playwright driving it as the seeded users.
+# Screenshots and the HTML report are uploaded as the "acceptance" artifact.
+# Nothing here touches the real Supabase project.
+
+on:
+  push:
+    branches: ["feat/**"]
+    paths: ["app/**", "supabase/**", "e2e/**", ".github/workflows/acceptance.yml"]
+  pull_request:
+    paths: ["app/**", "supabase/**", "e2e/**", ".github/workflows/acceptance.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FLUTTER_VERSION: 3.47.7
+  SUPABASE_CLI_VERSION: 2.122.0
+
+jobs:
+  browser:
+    name: Browser acceptance tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: ${{ env.SUPABASE_CLI_VERSION }}
+
+      - name: Start local Supabase with seed data
+        run: supabase start -x studio,imgproxy,vector,logflare,edge-runtime
+
+      - name: Read local API address and key
+        run: |
+          supabase status -o env > "$RUNNER_TEMP/supabase.env"
+          url=$(grep '^API_URL=' "$RUNNER_TEMP/supabase.env" | cut -d= -f2- | tr -d '"')
+          key=$(grep '^ANON_KEY=' "$RUNNER_TEMP/supabase.env" | cut -d= -f2- | tr -d '"')
+          if [ -z "$key" ]; then
+            key=$(grep '^PUBLISHABLE_KEY=' "$RUNNER_TEMP/supabase.env" | cut -d= -f2- | tr -d '"')
+          fi
+          if [ -z "$url" ] || [ -z "$key" ]; then
+            echo "::error::Could not read the local Supabase URL and key"; exit 1
+          fi
+          echo "SUPABASE_URL=$url" >> "$GITHUB_ENV"
+          echo "SUPABASE_ANON_KEY=$key" >> "$GITHUB_ENV"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: Build the web app against local Supabase
+        working-directory: app
+        run: |
+          flutter pub get
+          flutter build web --release --no-web-resources-cdn \
+            --dart-define=FLAVOR=dev --dart-define=E2E=true \
+            --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+            --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Playwright
+        working-directory: e2e
+        run: |
+          npm ci --no-audit --no-fund
+          npx playwright install --with-deps chromium
+
+      - name: Run acceptance tests
+        working-directory: e2e
+        run: npx playwright test
+
+      - name: Upload screenshots and report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: acceptance
+          path: |
+            e2e/screenshots/
+            e2e/playwright-report/
+            e2e/test-results/
+          retention-days: 14
