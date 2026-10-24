@@ -1374,7 +1374,7 @@ declare
   v_staff boolean;
   v_kind text := coalesce(p_kind, 'comment');
   v_visibility text := coalesce(p_visibility, 'internal');
-  v_mentions uuid[] := '{}';
+  v_mentions uuid[] := '{}'::uuid[];
   v_author text;
   v_user uuid;
 begin
