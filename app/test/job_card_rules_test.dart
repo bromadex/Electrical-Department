@@ -84,6 +84,8 @@ void main() {
 
   test('site time is used whatever the device zone', () {
     SiteTime.configure('Africa/Harare');
+    expect(SiteTime.zoneName, 'Africa/Harare');
+    expect(SiteTime.zoneNames(), contains('Africa/Harare'));
     final local = SiteTime.local(DateTime.utc(2026, 10, 24, 22, 30));
     expect((local.day, local.hour), (25, 0));
     expect(

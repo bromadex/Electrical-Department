@@ -6,22 +6,50 @@ import 'package:timezone/timezone.dart' as tz;
 /// unless an administrator changes it), whatever the device's own zone.
 class SiteTime {
   static tz.Location? _location;
+  static String? _name;
   static bool _loaded = false;
 
+  /// Zones that current tz data keeps only as links, so they are missing
+  /// from the compact database the app ships; each follows the zone given.
+  static const aliases = {
+    'Africa/Harare': 'Africa/Maputo',
+    'Africa/Lusaka': 'Africa/Maputo',
+    'Africa/Blantyre': 'Africa/Maputo',
+    'Africa/Gaborone': 'Africa/Maputo',
+    'Africa/Lubumbashi': 'Africa/Maputo',
+    'Africa/Kigali': 'Africa/Maputo',
+    'Africa/Bujumbura': 'Africa/Maputo',
+    'Africa/Maseru': 'Africa/Johannesburg',
+    'Africa/Mbabane': 'Africa/Johannesburg',
+    'Africa/Dar_es_Salaam': 'Africa/Nairobi',
+  };
+
+  static void _load() {
+    if (_loaded) return;
+    tzdata.initializeTimeZones();
+    _loaded = true;
+  }
+
   static void configure(String timezone) {
-    if (!_loaded) {
-      tzdata.initializeTimeZones();
-      _loaded = true;
-    }
+    _load();
     try {
-      _location = tz.getLocation(timezone);
+      _location = tz.getLocation(aliases[timezone] ?? timezone);
+      _name = timezone;
     } catch (_) {
       _location = null;
+      _name = null;
     }
   }
 
+  /// Every zone an administrator can choose, sorted.
+  static List<String> zoneNames() {
+    _load();
+    return {...tz.timeZoneDatabase.locations.keys, ...aliases.keys}.toList()
+      ..sort();
+  }
+
   /// The configured zone's name, e.g. `Africa/Harare`.
-  static String get zoneName => _location?.name ?? 'device time';
+  static String get zoneName => _name ?? 'device time';
 
   /// [t] as wall-clock time in the site zone.
   static DateTime local(DateTime t) {

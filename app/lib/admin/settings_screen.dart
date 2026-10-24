@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:timezone/timezone.dart' as tz;
 
 import '../reference/reference_data.dart';
 import '../services/session_controller.dart';
@@ -317,7 +316,7 @@ class _GeneralSettingsState extends ConsumerState<_GeneralSettings> {
 
   @override
   Widget build(BuildContext context) {
-    final zones = tz.timeZoneDatabase.locations.keys.toList()..sort();
+    final zones = SiteTime.zoneNames();
     String? intRange(String? v, int min, int max, String what) {
       final n = int.tryParse(v?.trim() ?? '');
       return n == null || n < min || n > max
