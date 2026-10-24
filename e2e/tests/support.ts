@@ -39,13 +39,26 @@ export async function tap(page: Page, text: string | RegExp, exact = false) {
   await target.click();
 }
 
-/** Types into the text field with this label, replacing what is there. */
+/**
+ * Types into the text field with this label, replacing what is there.
+ * Flutter attaches its editor a moment after the field takes focus, and keys
+ * typed before that are lost, so it waits, checks the result and retries.
+ */
 export async function fill(page: Page, label: string | RegExp, value: string) {
   const box = page.getByRole('textbox', { name: label }).first();
-  await box.click();
-  await page.keyboard.press('Control+A');
-  await page.keyboard.type(value);
-  await expect(box).toHaveValue(value);
+  for (let attempt = 1; ; attempt++) {
+    await box.click();
+    await page.waitForTimeout(500);
+    await page.keyboard.press('Control+A');
+    await page.keyboard.press('Delete');
+    await page.keyboard.type(value, { delay: 20 });
+    try {
+      await expect(box).toHaveValue(value, { timeout: 3_000 });
+      return;
+    } catch (e) {
+      if (attempt >= 3) throw e;
+    }
+  }
 }
 
 export async function open(page: Page, path: string) {
