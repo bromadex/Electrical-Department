@@ -36,15 +36,22 @@ class JobCardTile extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  RecordCode(job.number),
+                  // Wraps on narrow phones instead of running into the age.
+                  Expanded(
+                    child: Wrap(
+                      spacing: Space.xs,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        RecordCode(job.number),
+                        PriorityBadge(job.priority),
+                        if (job.isCriticalOpen) const CriticalFlag(),
+                      ],
+                    ),
+                  ),
                   const SizedBox(width: Space.xs),
-                  PriorityBadge(job.priority),
-                  if (job.isCriticalOpen) ...[
-                    const SizedBox(width: 4),
-                    const CriticalFlag(),
-                  ],
-                  const Spacer(),
                   Text(
                     fmtRelative(job.receivedAt),
                     style: theme.textTheme.labelSmall,

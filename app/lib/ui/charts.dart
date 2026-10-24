@@ -248,6 +248,8 @@ class TrendChart extends StatelessWidget {
                       }
                       return SideTitleWidget(
                         meta: meta,
+                        // Keeps the first and last dates inside the chart.
+                        fitInside: SideTitleFitInsideData.fromTitleMeta(meta),
                         child: Text(
                           fmtDayMonth(points[i].period),
                           style: _small(context),
