@@ -3,6 +3,9 @@ import { Api, expectShown, fill, open, people, q, reportFailure, shot, shown, si
 
 // Phase 1 acceptance tests from the CMMS spec, run in order against one
 // seeded local database. Screenshots go to e2e/screenshots/.
+//
+// Flutter joins the texts of a card into one accessible label, so texts
+// inside panels are matched by pattern; buttons are matched exactly.
 
 test.describe.configure({ mode: 'serial' });
 test.afterEach(async ({}, testInfo) => reportFailure(testInfo));
@@ -10,15 +13,17 @@ test.afterEach(async ({}, testInfo) => reportFailure(testInfo));
 const JOB_NUMBER = /EL-JC-\d{4}-\d{4,}/;
 
 async function jobByTitle(api: Api, title: string) {
-  const [job] = await api.select(`job_cards?select=id,number,status&title=eq.${q(title)}`);
-  expect(job, `seeded job card "${title}"`).toBeTruthy();
+  const [job] = await api.select(
+    `v_job_cards?select=id,number,status,responsible_name,is_critical,is_overdue,sla_state&title=eq.${q(title)}`,
+  );
+  expect(job, `job card "${title}"`).toBeTruthy();
   return job;
 }
 
 test('Test 1: a new job card gets a unique number and receipt time', async ({ browser }) => {
   const page = await signIn(browser, people.engineer);
   await open(page, '/job-cards/new');
-  await expectShown(page, 'New job card', true);
+  await expectShown(page, /Receive and register an electrical fault/);
   const title = `MCC-4 isolator handle broken (${stamp})`;
   await fill(page, /Reported by/, 'Shift foreman');
   await fill(page, /Location details/, 'MCC-4, feeder 2');
@@ -31,8 +36,8 @@ test('Test 1: a new job card gets a unique number and receipt time', async ({ br
   await tap(page, 'Register job card', true);
   await page.waitForURL(JOB_NUMBER);
   const number = page.url().match(JOB_NUMBER)![0];
-  await expectShown(page, number, true);
-  await expectShown(page, 'Received', true);
+  await expectShown(page, number);
+  await expectShown(page, /Received/);
   await shot(page, '01-registered-job-card');
 
   const api = await Api.as(people.engineer);
@@ -47,42 +52,45 @@ test('Test 1: a new job card gets a unique number and receipt time', async ({ br
 });
 
 test('Test 2: an assigned job appears in the electrician’s My Jobs', async ({ browser }) => {
+  const title = 'Crusher motor tripping on overload';
   const api = await Api.as(people.engineer);
-  const job = await jobByTitle(api, 'Crusher motor tripping on overload');
+  const job = await jobByTitle(api, title);
   expect(job.status).toBe('awaiting_assignment');
 
   const engineer = await signIn(browser, people.engineer);
   await open(engineer, `/job-cards/${job.number}`);
-  await expectShown(engineer, 'Awaiting assignment', true);
+  await expectShown(engineer, /Awaiting assignment/);
   await tap(engineer, 'Assign', true);
-  await expectShown(engineer, 'Responsible person', true);
+  await expectShown(engineer, /Responsible person/);
   await tap(engineer, /Tatenda Ncube/);
   await shot(engineer, '02-assign-dialog');
   await engineer.getByRole('button', { name: 'Assign', exact: true }).last().click();
-  await expectShown(engineer, 'Assignment saved');
-  await expectShown(engineer, 'Assigned', true);
+  await expectShown(engineer, /Assignment saved/);
+  await expect.poll(async () => (await jobByTitle(api, title)).status).toBe('assigned');
+  expect((await jobByTitle(api, title)).responsible_name).toBe('Tatenda Ncube');
+  await expectShown(engineer, /Tatenda Ncube/);
 
   const electrician = await signIn(browser, people.electrician);
   await open(electrician, '/my-jobs');
-  await expectShown(electrician, 'My Assigned Jobs', true);
-  await expectShown(electrician, 'Crusher motor tripping on overload');
+  await expectShown(electrician, /Work assigned to you/);
+  await expectShown(electrician, title);
   await shot(electrician, '02-electrician-my-jobs');
 });
 
 test('Test 4: a job past its deadline shows as overdue', async ({ browser }) => {
   const title = 'Replace control room UPS batteries';
   const api = await Api.as(people.engineer);
-  const [row] = await api.select(`v_job_cards?select=number,is_overdue,sla_state&title=eq.${q(title)}`);
-  expect(row.is_overdue).toBe(true);
-  expect(row.sla_state).toBe('overdue');
+  const job = await jobByTitle(api, title);
+  expect(job.is_overdue).toBe(true);
+  expect(job.sla_state).toBe('overdue');
 
   const page = await signIn(browser, people.engineer);
   await open(page, '/job-cards?view=overdue');
   await expectShown(page, title);
-  await expectShown(page, 'Overdue', true);
+  await expectShown(page, /Overdue/);
   await shot(page, '04-overdue-job-cards');
   await open(page, '/dashboard');
-  await expectShown(page, 'Needs attention', true);
+  await expectShown(page, /Needs attention/);
   await shot(page, '04-dashboard');
 });
 
@@ -100,8 +108,10 @@ test('Test 5: a P1 job updates the critical dashboard and sends notifications', 
   await tap(engineer, 'Register job card', true);
   await engineer.waitForURL(JOB_NUMBER);
   const number = engineer.url().match(JOB_NUMBER)![0];
-  await expectShown(engineer, 'Critical', true);
+  await expectShown(engineer, /\bCritical\b/);
   await shot(engineer, '05-p1-job-card');
+  const api = await Api.as(people.engineer);
+  expect((await jobByTitle(api, title)).is_critical).toBe(true);
 
   // The department manager is the P1 escalation contact.
   const manager = await signIn(browser, people.manager);
@@ -119,20 +129,22 @@ test('Test 5: a P1 job updates the critical dashboard and sends notifications', 
 
 test('Test 10: an electrician is blocked from admin, assigning and approving', async ({ browser }) => {
   const electrician = await signIn(browser, people.electrician);
-  await expectShown(electrician, 'Job Cards', true);
+  await expect(electrician.getByRole('button', { name: 'Job Cards', exact: true }).first()).toBeVisible();
   await expect(shown(electrician, 'User Management', true)).toHaveCount(0);
   await expect(shown(electrician, 'Settings', true)).toHaveCount(0);
   await open(electrician, '/admin/users');
-  await expectShown(electrician, 'Administrators only', true);
+  await expectShown(electrician, /Administrators only/);
   await shot(electrician, '10-electrician-admin-blocked');
   await open(electrician, '/admin/settings');
-  await expectShown(electrician, 'Administrators only', true);
+  await expectShown(electrician, /Administrators only/);
 
   const api = await Api.as(people.electrician);
   const review = await jobByTitle(api, 'Generator G2 weekly inspection');
+  expect(review.status).toBe('awaiting_review');
   await open(electrician, `/job-cards/${review.number}`);
-  await expectShown(electrician, 'Awaiting engineering review', true);
-  await expect(electrician.getByRole('button', { name: 'Verify work' })).toHaveCount(0);
+  await expectShown(electrician, /Awaiting engineering review/);
+  await expect(electrician.getByRole('button', { name: 'Verify work', exact: true })).toHaveCount(0);
+  await expect(electrician.getByRole('button', { name: 'Reassign', exact: true })).toHaveCount(0);
   await shot(electrician, '10-electrician-no-verify');
 
   // The server refuses as well, whatever the app shows.
@@ -187,7 +199,7 @@ test('Request flow: a request reaches the queue and becomes a job card', async (
   const title = `Sockets dead in production office (${stamp})`;
   const requester = await signIn(browser, people.requester);
   await open(requester, '/my-requests/new');
-  await expectShown(requester, 'New request', true);
+  await expectShown(requester, /Report an electrical fault or ask for electrical work/);
   await fill(requester, /Name of the person reporting/, 'Blessing Dube');
   await fill(requester, /Exact location/, 'Production office, east wall');
   await fill(requester, /Short title/, title);
@@ -200,14 +212,14 @@ test('Request flow: a request reaches the queue and becomes a job card', async (
 
   const engineer = await signIn(browser, people.engineer);
   await open(engineer, '/requests');
-  await expectShown(engineer, 'Incoming Requests', true);
+  await expectShown(engineer, /waiting to be registered/);
   await expectShown(engineer, title);
   await shot(engineer, '07-incoming-requests');
   await tap(engineer, title);
   await engineer.waitForURL(/#\/requests\/[0-9a-f-]{36}/);
   await expectShown(engineer, title);
   await tap(engineer, 'Register job card', true);
-  await expectShown(engineer, /^Register EL-SR-/);
+  await expectShown(engineer, /Register EL-SR-/);
   await tap(engineer, 'P3 Medium', true);
   await shot(engineer, '07-register-from-request');
   await tap(engineer, 'Register job card', true);
@@ -232,11 +244,10 @@ for (const [name, viewport] of [
     const job = await jobByTitle(api, 'Conveyor 3 VFD fault F0002');
     const engineer = await signIn(browser, people.engineer, viewport);
     await open(engineer, '/dashboard');
-    await expectShown(engineer, 'Total job cards', true);
+    await expectShown(engineer, /Total job cards/);
     await shot(engineer, `12-${name}-dashboard`);
     await open(engineer, '/job-cards');
-    await expectShown(engineer, 'Job Cards', true);
-    await expectShown(engineer, 'New job card', true);
+    await expect(engineer.getByRole('button', { name: /New job card/ }).first()).toBeVisible();
     await shot(engineer, `12-${name}-job-cards`);
     await open(engineer, `/job-cards/${job.number}`);
     await expectShown(engineer, 'Conveyor 3 VFD fault F0002');
@@ -244,7 +255,7 @@ for (const [name, viewport] of [
 
     const electrician = await signIn(browser, people.electrician, viewport);
     await open(electrician, '/my-jobs');
-    await expectShown(electrician, 'My Assigned Jobs', true);
+    await expectShown(electrician, /Work assigned to you/);
     await shot(electrician, `12-${name}-my-jobs`);
   });
 }

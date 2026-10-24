@@ -309,7 +309,8 @@ class AsyncView<T> extends StatelessWidget {
   }
 }
 
-/// Label above a value, for detail pages.
+/// Label above a value, for detail pages. Screen readers read each pair as
+/// one item ("Received, 24 Oct 2026") rather than the whole panel at once.
 class KeyValue extends StatelessWidget {
   const KeyValue(this.label, this.value, {super.key, this.child});
 
@@ -320,7 +321,7 @@ class KeyValue extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Column(
+    final pair = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -339,6 +340,8 @@ class KeyValue extends StatelessWidget {
             ),
       ],
     );
+    // A custom child (selectable text, links) keeps its own semantics.
+    return child == null ? MergeSemantics(child: pair) : pair;
   }
 }
 
