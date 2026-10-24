@@ -393,6 +393,11 @@ deno_version = 2
 [functions.admin-users]
 verify_jwt = false
 
+# Called by the database (pg_net) for each new notification; it checks the
+# shared secret in push_config instead of a user token.
+[functions.push-send]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327
