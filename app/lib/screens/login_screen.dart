@@ -217,7 +217,7 @@ class _BrandPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    const muted = Color(0xFFB4C2D9);
+    const muted = AppColors.rose;
     Widget point(IconData icon, String text) => Padding(
       padding: const EdgeInsets.only(bottom: Space.sm),
       child: Row(
@@ -235,7 +235,7 @@ class _BrandPanel extends StatelessWidget {
     );
 
     return ColoredBox(
-      color: AppColors.navy900,
+      color: AppColors.burgundyDeep,
       child: Padding(
         padding: const EdgeInsets.all(Space.xxl),
         child: Column(

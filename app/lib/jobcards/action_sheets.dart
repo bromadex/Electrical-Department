@@ -34,7 +34,10 @@ Future<T?> showFormSheet<T>(
     builder: (_) => Dialog(
       insetPadding: const EdgeInsets.all(Space.lg),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 760, maxHeight: 820),
+        constraints: BoxConstraints(
+          maxWidth: 760,
+          maxHeight: (MediaQuery.sizeOf(context).height * 0.9).clamp(480, 1600),
+        ),
         child: content,
       ),
     ),

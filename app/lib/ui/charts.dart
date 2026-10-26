@@ -261,7 +261,7 @@ class TrendChart extends StatelessWidget {
               ),
               lineTouchData: LineTouchData(
                 touchTooltipData: LineTouchTooltipData(
-                  getTooltipColor: (_) => AppColors.navy900,
+                  getTooltipColor: (_) => AppColors.black,
                   getTooltipItems: (spots) => [
                     for (final s in spots)
                       LineTooltipItem(
@@ -298,7 +298,7 @@ class BarList extends StatelessWidget {
   const BarList({
     super.key,
     required this.items,
-    this.color = AppColors.navy600,
+    this.color = AppColors.burgundy,
     this.format,
   });
 

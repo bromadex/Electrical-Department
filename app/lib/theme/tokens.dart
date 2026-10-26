@@ -1,30 +1,53 @@
 import 'package:flutter/material.dart';
 
-/// Industrial palette: navy chrome, a light workspace and one colour per
-/// meaning. Meaning is never shown by colour alone (see ui/status.dart).
+/// Bravura palette: burgundy, dusty rose, blue, black and white, with one
+/// colour per meaning for statuses. Meaning is never shown by colour alone
+/// (see ui/status.dart).
 class AppColors {
-  static const navy950 = Color(0xFF071327);
-  static const navy900 = Color(0xFF0B1D39);
-  static const navy800 = Color(0xFF12294D);
-  static const navy700 = Color(0xFF1B3A69);
-  static const navy600 = Color(0xFF2A5291);
-  static const navy100 = Color(0xFFE4EAF4);
+  /// Primary: buttons, selected items, record numbers (light theme).
+  static const burgundy = Color(0xFF7B1E3A);
+  static const burgundyDeep = Color(0xFF55122A);
 
-  static const canvas = Color(0xFFF2F4F8);
-  static const canvasDark = Color(0xFF0C1320);
-  static const panelDark = Color(0xFF141E30);
-  static const line = Color(0xFFE2E7EF);
-  static const lineDark = Color(0xFF26334A);
+  /// Primary on dark surfaces, light enough to read.
+  static const burgundyLight = Color(0xFFE59AB0);
 
+  /// Accent: highlights, the selected menu marker, soft tints.
+  static const rose = Color(0xFFD8A7B1);
+  static const roseSoft = Color(0xFFF6E8EB);
+
+  /// Secondary: links and information.
+  static const blue = Color(0xFF2563C9);
+  static const blueLight = Color(0xFF8AB4FF);
+
+  /// Chrome: the side menu in both themes, tooltips, snack bars.
+  static const black = Color(0xFF161113);
+  static const blackRaised = Color(0xFF241B1F);
+
+  static const canvas = Color(0xFFFAF7F8);
+  static const canvasDark = Color(0xFF0F0B0D);
+  static const panelDark = Color(0xFF1B1517);
+  static const line = Color(0xFFEBE1E4);
+  static const lineDark = Color(0xFF362B30);
+
+  // Statuses keep their usual meaning colours so a critical red never looks
+  // like the burgundy of an ordinary button.
   static const critical = Color(0xFFD92D20);
   static const warning = Color(0xFFDC6803);
   static const success = Color(0xFF079455);
-  static const info = Color(0xFF1570EF);
+  static const info = blue;
   static const review = Color(0xFF6938EF);
-  static const neutral = Color(0xFF667085);
+  static const neutral = Color(0xFF6B6266);
 
-  /// Bravura maroon: the brand mark only, never a status.
+  /// Bravura logo colour.
   static const brand = Color(0xFF982329);
+
+  /// The readable version of a palette colour on dark surfaces.
+  static Color adapt(Color c, Brightness brightness) {
+    if (brightness != Brightness.dark) return c;
+    if (c == burgundy || c == burgundyDeep) return burgundyLight;
+    if (c == blue) return blueLight;
+    return c;
+  }
 }
 
 /// 4-point spacing scale.

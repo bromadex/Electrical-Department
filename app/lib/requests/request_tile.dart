@@ -71,7 +71,7 @@ class RequestTile extends StatelessWidget {
                     Pill(
                       label: r.jobNumber!,
                       icon: Icons.assignment_outlined,
-                      color: AppColors.navy600,
+                      color: AppColors.burgundy,
                       dense: true,
                     ),
                 ],

@@ -94,13 +94,14 @@ class KpiCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final c = AppColors.adapt(color, theme.brightness);
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         child: Container(
           decoration: BoxDecoration(
-            border: Border(left: BorderSide(color: color, width: 4)),
+            border: Border(left: BorderSide(color: c, width: 4)),
           ),
           padding: const EdgeInsets.fromLTRB(
             Space.sm,
@@ -114,10 +115,10 @@ class KpiCard extends StatelessWidget {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
+                  color: c.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(Radii.sm),
                 ),
-                child: Icon(icon, color: color, size: 22),
+                child: Icon(icon, color: c, size: 22),
               ),
               const SizedBox(width: Space.sm),
               Expanded(

@@ -29,7 +29,7 @@ class AppAvatar extends StatelessWidget {
       alignment: Alignment.center,
       decoration: const BoxDecoration(
         shape: BoxShape.circle,
-        color: AppColors.navy700,
+        color: AppColors.burgundy,
       ),
       child: Text(
         initials(name),
@@ -63,7 +63,11 @@ class Pill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = color ?? Theme.of(context).colorScheme.primary;
+    final theme = Theme.of(context);
+    final c = AppColors.adapt(
+      color ?? theme.colorScheme.primary,
+      theme.brightness,
+    );
     final fg = solid ? Colors.white : c;
     return Container(
       padding: EdgeInsets.symmetric(

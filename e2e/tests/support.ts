@@ -76,8 +76,10 @@ export async function signIn(
   browser: Browser,
   email: string,
   viewport: { width: number; height: number } = desktop,
+  colorScheme: 'light' | 'dark' = 'light',
 ): Promise<Page> {
-  const context = await browser.newContext({ viewport });
+  // The app follows the device's light or dark setting until changed.
+  const context = await browser.newContext({ viewport, colorScheme });
   const page = await context.newPage();
   pages.push(page);
   await open(page, '/login');

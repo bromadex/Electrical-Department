@@ -95,7 +95,7 @@ class _Dashboard extends ConsumerWidget {
               label: 'Total job cards',
               value: '${d.card('total')}',
               icon: Icons.assignment_outlined,
-              color: AppColors.navy600,
+              color: AppColors.burgundy,
               onTap: () => open('all'),
             ),
             KpiCard(

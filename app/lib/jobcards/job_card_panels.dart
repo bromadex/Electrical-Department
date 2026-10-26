@@ -188,7 +188,7 @@ const _commentKinds = {
   'instruction': (
     'Engineering instruction',
     Icons.rule_rounded,
-    AppColors.navy600,
+    AppColors.burgundy,
   ),
   'handover': ('Handover note', Icons.swap_horiz_rounded, AppColors.warning),
   'assistance': (
@@ -497,7 +497,7 @@ class TimelinePanel extends ConsumerWidget {
 
   static Color _color(String kind) => switch (kind) {
     'status' => AppColors.info,
-    'assignment' => AppColors.navy600,
+    'assignment' => AppColors.burgundy,
     'comment' => AppColors.neutral,
     'attachment' => AppColors.success,
     _ => AppColors.warning,

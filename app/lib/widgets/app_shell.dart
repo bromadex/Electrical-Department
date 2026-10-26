@@ -18,7 +18,7 @@ import 'push_prompt.dart';
 import 'site_picker.dart';
 import 'sync_banner.dart';
 
-/// Desktop: navy sidebar + top bar. Tablet: icon rail + top bar.
+/// Desktop: black sidebar + top bar. Tablet: icon rail + top bar.
 /// Phone: app bar, role-based bottom bar and a menu drawer.
 class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key, required this.child});
@@ -66,7 +66,7 @@ class _AppShellState extends ConsumerState<AppShell> {
           ],
         ),
         drawer: Drawer(
-          backgroundColor: AppColors.navy900,
+          backgroundColor: AppColors.black,
           child: _NavMenu(
             items: items,
             current: current,
@@ -109,7 +109,7 @@ class _AppShellState extends ConsumerState<AppShell> {
         children: [
           Container(
             width: expanded ? 252 : 76,
-            color: AppColors.navy900,
+            color: AppColors.black,
             child: _NavMenu(items: items, current: current, expanded: expanded),
           ),
           Expanded(
@@ -287,7 +287,7 @@ class _NavTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final fg = selected ? Colors.white : Colors.white.withValues(alpha: 0.72);
     final tile = Material(
-      color: selected ? AppColors.navy700 : Colors.transparent,
+      color: selected ? AppColors.burgundy : Colors.transparent,
       borderRadius: BorderRadius.circular(Radii.sm),
       child: InkWell(
         onTap: onTap,
@@ -299,7 +299,7 @@ class _NavTile extends StatelessWidget {
           decoration: BoxDecoration(
             border: Border(
               left: BorderSide(
-                color: selected ? const Color(0xFF84ADFF) : Colors.transparent,
+                color: selected ? AppColors.rose : Colors.transparent,
                 width: 3,
               ),
             ),

@@ -4,7 +4,8 @@ import 'tokens.dart';
 
 export 'tokens.dart';
 
-/// Light and dark (night shift / plant room) themes on the navy palette.
+/// Light (white and burgundy) and dark (black and dusty rose, for night
+/// shift and plant rooms) themes on the Bravura palette.
 class AppTheme {
   static ThemeData light() => _build(Brightness.light);
   static ThemeData dark() => _build(Brightness.dark);
@@ -14,24 +15,36 @@ class AppTheme {
     final line = dark ? AppColors.lineDark : AppColors.line;
     final scheme =
         ColorScheme.fromSeed(
-          seedColor: AppColors.navy700,
+          seedColor: AppColors.burgundy,
           brightness: brightness,
         ).copyWith(
-          primary: dark ? const Color(0xFF8DB4F2) : AppColors.navy700,
-          onPrimary: dark ? AppColors.navy950 : Colors.white,
-          secondary: AppColors.info,
+          primary: dark ? AppColors.burgundyLight : AppColors.burgundy,
+          onPrimary: dark ? AppColors.black : Colors.white,
+          primaryContainer: dark ? AppColors.burgundyDeep : AppColors.roseSoft,
+          onPrimaryContainer: dark
+              ? AppColors.roseSoft
+              : AppColors.burgundyDeep,
+          secondary: dark ? AppColors.blueLight : AppColors.blue,
+          onSecondary: dark ? AppColors.black : Colors.white,
+          tertiary: AppColors.rose,
+          onTertiary: AppColors.black,
           error: AppColors.critical,
           surface: dark ? AppColors.canvasDark : AppColors.canvas,
+          onSurface: dark ? const Color(0xFFF3EDEF) : AppColors.black,
+          onSurfaceVariant: dark
+              ? const Color(0xFFBFB2B7)
+              : const Color(0xFF5E5458),
           surfaceContainerLowest: dark ? AppColors.panelDark : Colors.white,
           surfaceContainerLow: dark
-              ? const Color(0xFF182338)
-              : const Color(0xFFF7F8FB),
+              ? const Color(0xFF211A1D)
+              : const Color(0xFFF8F3F5),
           surfaceContainer: dark
-              ? const Color(0xFF1C2840)
-              : const Color(0xFFEEF1F6),
+              ? const Color(0xFF282023)
+              : const Color(0xFFF2EAED),
           surfaceContainerHigh: dark
-              ? const Color(0xFF223049)
-              : const Color(0xFFE6EAF1),
+              ? const Color(0xFF30272B)
+              : const Color(0xFFEADFE3),
+          outline: dark ? const Color(0xFF6E6166) : const Color(0xFFA3969B),
           outlineVariant: line,
         );
 
@@ -139,7 +152,7 @@ class AppTheme {
         ),
         side: BorderSide(color: line),
         backgroundColor: scheme.surfaceContainerLowest,
-        selectedColor: scheme.primary.withValues(alpha: 0.12),
+        selectedColor: scheme.primaryContainer,
         labelStyle: text.labelMedium,
       ),
       dataTableTheme: DataTableThemeData(
@@ -166,7 +179,7 @@ class AppTheme {
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: scheme.surfaceContainerLowest,
-        indicatorColor: scheme.primary.withValues(alpha: 0.14),
+        indicatorColor: scheme.primaryContainer,
         height: 68,
         labelTextStyle: WidgetStatePropertyAll(
           text.labelSmall?.copyWith(fontWeight: FontWeight.w600),
@@ -182,7 +195,7 @@ class AppTheme {
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         elevation: 2,
-        backgroundColor: dark ? scheme.surfaceContainerHigh : AppColors.navy900,
+        backgroundColor: dark ? scheme.surfaceContainerHigh : AppColors.black,
         contentTextStyle: text.bodyMedium?.copyWith(color: Colors.white),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(Radii.sm),
@@ -221,7 +234,7 @@ class AppTheme {
       ),
       tooltipTheme: TooltipThemeData(
         decoration: BoxDecoration(
-          color: AppColors.navy900,
+          color: dark ? AppColors.blackRaised : AppColors.black,
           borderRadius: BorderRadius.circular(Radii.sm),
         ),
         textStyle: text.labelSmall?.copyWith(color: Colors.white),
