@@ -102,6 +102,9 @@ class LocalAssets extends Table {
   TextColumn get serialNo => text().nullable()();
   TextColumn get notes => text().nullable()();
 
+  /// in_service | out_of_service | standby | decommissioned (0012).
+  TextColumn get status => text().withDefault(const Constant('in_service'))();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -181,7 +184,7 @@ class LocalDb extends _$LocalDb {
       );
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -197,6 +200,9 @@ class LocalDb extends _$LocalDb {
       }
       if (from < 3) await m.createTable(localAssets);
       if (from < 4) await m.createTable(localTools);
+      if (from >= 3 && from < 5) {
+        await m.addColumn(localAssets, localAssets.status);
+      }
     },
   );
 

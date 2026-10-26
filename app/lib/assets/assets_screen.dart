@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../data/local_db.dart';
-import '../ui/form_sheet.dart';
 import '../data/site_data.dart';
 import '../v2/jobcards/repository.dart' show openJobCardsByAssetProvider;
 import '../services/session_controller.dart';
@@ -13,7 +12,6 @@ import '../theme/tokens.dart';
 import '../ui/bits.dart';
 import '../ui/motion.dart';
 import '../ui/surfaces.dart';
-import '../widgets/app_back_button.dart';
 
 /// Common kinds of plant, offered when adding an asset. Free text is fine.
 const assetKinds = [
@@ -29,28 +27,46 @@ const assetKinds = [
   'Instrument',
 ];
 
-IconData assetIcon(String? kind) => switch (kind?.toLowerCase()) {
-  'motor' || 'pump' => CupertinoIcons.gear_alt_fill,
-  'transformer' || 'generator' => CupertinoIcons.bolt_fill,
-  'lighting' => CupertinoIcons.lightbulb_fill,
-  'cable' => CupertinoIcons.link,
-  'instrument' => CupertinoIcons.gauge,
-  _ => CupertinoIcons.square_grid_2x2_fill,
-};
-
-/// The asset register at the current site.
-class AssetsScreen extends ConsumerStatefulWidget {
-  const AssetsScreen({super.key});
-
-  @override
-  ConsumerState<AssetsScreen> createState() => _AssetsScreenState();
+IconData assetIcon(String? kind) {
+  final k = kind?.toLowerCase() ?? '';
+  bool has(List<String> words) => words.any(k.contains);
+  if (has(['motor', 'pump', 'fan', 'conveyor'])) {
+    return CupertinoIcons.gear_alt_fill;
+  }
+  if (has(['transformer', 'generator', 'substation', 'switchgear'])) {
+    return CupertinoIcons.bolt_fill;
+  }
+  if (has(['light', 'flood'])) return CupertinoIcons.lightbulb_fill;
+  if (has(['cable', 'termination'])) return CupertinoIcons.link;
+  if (has(['instrument', 'meter', 'sensor'])) return CupertinoIcons.gauge;
+  if (has(['earth', 'lightning'])) return CupertinoIcons.arrow_down_to_line;
+  if (has(['board', 'panel', 'mcc', 'control'])) {
+    return CupertinoIcons.square_grid_2x2_fill;
+  }
+  return CupertinoIcons.cube_box_fill;
 }
 
-class _AssetsScreenState extends ConsumerState<AssetsScreen> {
-  String _query = '';
+/// Narrows the equipment side of the Equipment & tools page.
+enum AssetFilter { all, inService, outOfService, standby, openJobs }
+
+bool assetMatches(LocalAsset a, String q, Map<String, String> areaNames) =>
+    q.isEmpty ||
+    a.tag.toLowerCase().contains(q) ||
+    a.name.toLowerCase().contains(q) ||
+    (a.kind?.toLowerCase().contains(q) ?? false) ||
+    (a.serialNo?.toLowerCase().contains(q) ?? false) ||
+    (areaNames[a.areaId]?.toLowerCase().contains(q) ?? false);
+
+/// The equipment register at the current site, as cards (two columns on
+/// wide screens). The Equipment & tools page supplies search and filter.
+class AssetList extends ConsumerWidget {
+  const AssetList({super.key, this.query = '', this.filter = AssetFilter.all});
+
+  final String query;
+  final AssetFilter filter;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final assets = ref.watch(siteAssetsProvider).value ?? const [];
     final session = ref.watch(sessionProvider);
     final site = ref.watch(currentSiteProvider);
@@ -60,140 +76,149 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen> {
         ? const <String, int>{}
         : ref.watch(openJobCardsByAssetProvider(site.id)).value ??
               const <String, int>{};
-    final q = _query.toLowerCase();
+    final q = query.trim().toLowerCase();
     final shown = [
       for (final a in assets)
-        if (q.isEmpty ||
-            a.tag.toLowerCase().contains(q) ||
-            a.name.toLowerCase().contains(q) ||
-            (a.kind?.toLowerCase().contains(q) ?? false))
+        if (switch (filter) {
+              AssetFilter.all => true,
+              AssetFilter.inService => a.status == 'in_service',
+              AssetFilter.outOfService => a.status == 'out_of_service',
+              AssetFilter.standby => a.status == 'standby',
+              AssetFilter.openJobs => (openByAsset[a.id] ?? 0) > 0,
+            } &&
+            assetMatches(a, q, areaNames))
           a,
     ];
-    final top = MediaQuery.paddingOf(context).top + kToolbarHeight;
-    final theme = Theme.of(context);
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        leading: const AppBackButton(),
-        title: Text('Equipment · ${site?.code ?? ''}'),
-        flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
-      ),
-      floatingActionButton: canEdit
-          ? FloatingActionButton.extended(
-              onPressed: () => showFormSheet(context, const AssetForm()),
-              icon: const Icon(CupertinoIcons.add),
-              label: const Text('Add equipment'),
-            )
-          : null,
-      body: MeshBackground(
-        child: RefreshIndicator(
-          edgeOffset: top,
-          onRefresh: () async {
-            ref.invalidate(openJobCardsByAssetProvider);
-            await ref.read(siteDataProvider.notifier).refresh();
-          },
-          child: ListView(
-            padding: EdgeInsets.fromLTRB(
-              Space.md,
-              top + Space.md,
-              Space.md,
-              120,
-            ),
-            children: [
-              if (assets.isNotEmpty)
-                Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 720),
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: Space.md),
-                      child: CupertinoSearchTextField(
-                        placeholder: 'Search ${assets.length} assets',
-                        onChanged: (v) => setState(() => _query = v),
-                      ),
-                    ),
-                  ),
-                ),
-              if (assets.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: Space.xl),
-                  child: Center(
-                    child: EmptyState(
-                      icon: CupertinoIcons.gear_alt,
-                      title: 'No equipment yet',
-                      message: canEdit
-                          ? 'Add the motors, panels and transformers you look '
-                                'after. Jobs on them build its history.'
-                          : 'A supervisor adds the plant you look after here.',
-                    ),
-                  ),
-                ),
-              for (final (i, a) in shown.indexed)
-                Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 720),
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: Space.sm),
-                      child: SurfaceCard(
-                        onTap: () => context.push('/assets/${a.id}'),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 44,
-                              height: 44,
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.primary.withValues(
-                                  alpha: 0.12,
-                                ),
-                                borderRadius: BorderRadius.circular(Radii.md),
-                              ),
-                              child: Icon(
-                                assetIcon(a.kind),
-                                color: theme.colorScheme.primary,
-                              ),
-                            ),
-                            const SizedBox(width: Space.sm),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      RecordCode(a.tag),
-                                      const SizedBox(width: Space.xs),
-                                      Expanded(
-                                        child: Text(
-                                          a.name,
-                                          style: theme.textTheme.titleSmall,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    [?a.kind, ?areaNames[a.areaId]].join(' · '),
-                                    style: theme.textTheme.labelSmall,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            if ((openByAsset[a.id] ?? 0) > 0)
-                              Pill(
-                                label: '${openByAsset[a.id]} open',
-                                color: Colors.orange,
-                                dense: true,
-                              ),
-                          ],
-                        ),
-                      ),
-                    ).entrance(context, index: i.clamp(0, 8)),
-                  ),
-                ),
-            ],
+    if (shown.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.only(top: Space.xl),
+        child: Center(
+          child: EmptyState(
+            icon: CupertinoIcons.gear_alt,
+            title: assets.isEmpty ? 'No equipment yet' : 'Nothing here',
+            message: assets.isEmpty
+                ? (canEdit
+                      ? 'Add the motors, panels and transformers you look '
+                            'after. Job cards on them build its history.'
+                      : 'A supervisor adds the plant you look after here.')
+                : 'No equipment matches.',
           ),
         ),
+      );
+    }
+    return CardColumns(
+      children: [
+        for (final (i, a) in shown.indexed)
+          AssetTile(
+            asset: a,
+            area: areaNames[a.areaId],
+            openJobs: openByAsset[a.id] ?? 0,
+          ).entrance(context, index: i.clamp(0, 8)),
+      ],
+    );
+  }
+}
+
+/// Cards in one column on phones and two side by side on wide screens.
+class CardColumns extends StatelessWidget {
+  const CardColumns({super.key, required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, box) {
+        final two = box.maxWidth >= 860;
+        final w = two ? (box.maxWidth - Space.sm) / 2 : box.maxWidth;
+        return Wrap(
+          spacing: Space.sm,
+          runSpacing: Space.sm,
+          children: [for (final c in children) SizedBox(width: w, child: c)],
+        );
+      },
+    );
+  }
+}
+
+class AssetTile extends StatelessWidget {
+  const AssetTile({
+    super.key,
+    required this.asset,
+    this.area,
+    this.openJobs = 0,
+  });
+
+  final LocalAsset asset;
+  final String? area;
+  final int openJobs;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final a = asset;
+    final (statusLabel, statusColor) = switch (a.status) {
+      'out_of_service' => ('Out of service', Colors.red),
+      'standby' => ('Standby', Colors.blueGrey),
+      'decommissioned' => ('Decommissioned', Colors.grey),
+      _ => (null, null),
+    };
+    return SurfaceCard(
+      onTap: () => context.push('/assets/${a.id}'),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(Radii.md),
+            ),
+            child: Icon(assetIcon(a.kind), color: theme.colorScheme.primary),
+          ),
+          const SizedBox(width: Space.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    RecordCode(a.tag),
+                    const SizedBox(width: Space.xs),
+                    Expanded(
+                      child: Text(
+                        a.name,
+                        style: theme.textTheme.titleSmall,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  [?a.kind, ?area].join(' · '),
+                  style: theme.textTheme.labelSmall,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          if (statusLabel != null)
+            Padding(
+              padding: const EdgeInsets.only(left: Space.xs),
+              child: Pill(label: statusLabel, color: statusColor, dense: true),
+            ),
+          if (openJobs > 0)
+            Padding(
+              padding: const EdgeInsets.only(left: Space.xs),
+              child: Pill(
+                label: '$openJobs open',
+                color: Colors.orange,
+                dense: true,
+              ),
+            ),
+        ],
       ),
     );
   }

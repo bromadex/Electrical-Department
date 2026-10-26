@@ -428,8 +428,7 @@ class _NavCapsule extends ConsumerWidget {
   static const _links = [
     ('/checklists', 'Checklists', CupertinoIcons.checkmark_rectangle),
     ('/reports', 'Daily report', CupertinoIcons.doc_chart),
-    ('/assets', 'Equipment', CupertinoIcons.gear_alt),
-    ('/tools', 'Tools', CupertinoIcons.wrench),
+    ('/equipment', 'Equipment & tools', CupertinoIcons.gear_alt),
     ('/documents', 'Documents', CupertinoIcons.book),
   ];
 
@@ -447,10 +446,8 @@ class _NavCapsule extends ConsumerWidget {
           !session.can('jc.view', siteId: site?.id))
         ('/my-requests', 'My requests', CupertinoIcons.paperplane),
       for (final l in _links)
-        if (l.$1 != '/tools' || session.can('tools.view', siteId: site?.id))
-          if (l.$1 != '/documents' ||
-              session.can('docs.view', siteId: site?.id))
-            if (session.can('jobs.view', siteId: site?.id)) l,
+        if (l.$1 != '/documents' || session.can('docs.view', siteId: site?.id))
+          if (session.can('jobs.view', siteId: site?.id)) l,
     ];
 
     Widget row(IconData icon, String label, Color color, {Widget? badge}) =>

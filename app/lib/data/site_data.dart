@@ -20,6 +20,7 @@ LocalAsset assetFromRow(Map<String, dynamic> r) => LocalAsset(
   makeModel: r['make_model'] as String?,
   serialNo: r['serial_no'] as String?,
   notes: r['notes'] as String?,
+  status: r['operational_status'] as String? ?? 'in_service',
 );
 
 class SiteDataState {
@@ -200,16 +201,17 @@ class SiteActions {
       await _db
           .into(_db.localAssets)
           .insertOnConflictUpdate(
-            LocalAsset(
+            // A companion, so the status the server keeps is left alone.
+            LocalAssetsCompanion.insert(
               id: ref,
               siteId: siteId,
-              areaId: areaId,
+              areaId: Value(areaId),
               tag: tag.trim().toUpperCase(),
               name: name.trim(),
-              kind: clean(kind),
-              makeModel: clean(makeModel),
-              serialNo: clean(serialNo),
-              notes: clean(notes),
+              kind: Value(clean(kind)),
+              makeModel: Value(clean(makeModel)),
+              serialNo: Value(clean(serialNo)),
+              notes: Value(clean(notes)),
             ),
           );
     }

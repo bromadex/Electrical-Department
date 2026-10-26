@@ -3752,6 +3752,16 @@ class $LocalAssetsTable extends LocalAssets
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('in_service'),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -3763,6 +3773,7 @@ class $LocalAssetsTable extends LocalAssets
     makeModel,
     serialNo,
     notes,
+    status,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3835,6 +3846,12 @@ class $LocalAssetsTable extends LocalAssets
         notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
       );
     }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
     return context;
   }
 
@@ -3880,6 +3897,10 @@ class $LocalAssetsTable extends LocalAssets
         DriftSqlType.string,
         data['${effectivePrefix}notes'],
       ),
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
     );
   }
 
@@ -3899,6 +3920,9 @@ class LocalAsset extends DataClass implements Insertable<LocalAsset> {
   final String? makeModel;
   final String? serialNo;
   final String? notes;
+
+  /// in_service | out_of_service | standby | decommissioned (0012).
+  final String status;
   const LocalAsset({
     required this.id,
     required this.siteId,
@@ -3909,6 +3933,7 @@ class LocalAsset extends DataClass implements Insertable<LocalAsset> {
     this.makeModel,
     this.serialNo,
     this.notes,
+    required this.status,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3932,6 +3957,7 @@ class LocalAsset extends DataClass implements Insertable<LocalAsset> {
     if (!nullToAbsent || notes != null) {
       map['notes'] = Variable<String>(notes);
     }
+    map['status'] = Variable<String>(status);
     return map;
   }
 
@@ -3954,6 +3980,7 @@ class LocalAsset extends DataClass implements Insertable<LocalAsset> {
       notes: notes == null && nullToAbsent
           ? const Value.absent()
           : Value(notes),
+      status: Value(status),
     );
   }
 
@@ -3972,6 +3999,7 @@ class LocalAsset extends DataClass implements Insertable<LocalAsset> {
       makeModel: serializer.fromJson<String?>(json['makeModel']),
       serialNo: serializer.fromJson<String?>(json['serialNo']),
       notes: serializer.fromJson<String?>(json['notes']),
+      status: serializer.fromJson<String>(json['status']),
     );
   }
   @override
@@ -3987,6 +4015,7 @@ class LocalAsset extends DataClass implements Insertable<LocalAsset> {
       'makeModel': serializer.toJson<String?>(makeModel),
       'serialNo': serializer.toJson<String?>(serialNo),
       'notes': serializer.toJson<String?>(notes),
+      'status': serializer.toJson<String>(status),
     };
   }
 
@@ -4000,6 +4029,7 @@ class LocalAsset extends DataClass implements Insertable<LocalAsset> {
     Value<String?> makeModel = const Value.absent(),
     Value<String?> serialNo = const Value.absent(),
     Value<String?> notes = const Value.absent(),
+    String? status,
   }) => LocalAsset(
     id: id ?? this.id,
     siteId: siteId ?? this.siteId,
@@ -4010,6 +4040,7 @@ class LocalAsset extends DataClass implements Insertable<LocalAsset> {
     makeModel: makeModel.present ? makeModel.value : this.makeModel,
     serialNo: serialNo.present ? serialNo.value : this.serialNo,
     notes: notes.present ? notes.value : this.notes,
+    status: status ?? this.status,
   );
   LocalAsset copyWithCompanion(LocalAssetsCompanion data) {
     return LocalAsset(
@@ -4022,6 +4053,7 @@ class LocalAsset extends DataClass implements Insertable<LocalAsset> {
       makeModel: data.makeModel.present ? data.makeModel.value : this.makeModel,
       serialNo: data.serialNo.present ? data.serialNo.value : this.serialNo,
       notes: data.notes.present ? data.notes.value : this.notes,
+      status: data.status.present ? data.status.value : this.status,
     );
   }
 
@@ -4036,7 +4068,8 @@ class LocalAsset extends DataClass implements Insertable<LocalAsset> {
           ..write('kind: $kind, ')
           ..write('makeModel: $makeModel, ')
           ..write('serialNo: $serialNo, ')
-          ..write('notes: $notes')
+          ..write('notes: $notes, ')
+          ..write('status: $status')
           ..write(')'))
         .toString();
   }
@@ -4052,6 +4085,7 @@ class LocalAsset extends DataClass implements Insertable<LocalAsset> {
     makeModel,
     serialNo,
     notes,
+    status,
   );
   @override
   bool operator ==(Object other) =>
@@ -4065,7 +4099,8 @@ class LocalAsset extends DataClass implements Insertable<LocalAsset> {
           other.kind == this.kind &&
           other.makeModel == this.makeModel &&
           other.serialNo == this.serialNo &&
-          other.notes == this.notes);
+          other.notes == this.notes &&
+          other.status == this.status);
 }
 
 class LocalAssetsCompanion extends UpdateCompanion<LocalAsset> {
@@ -4078,6 +4113,7 @@ class LocalAssetsCompanion extends UpdateCompanion<LocalAsset> {
   final Value<String?> makeModel;
   final Value<String?> serialNo;
   final Value<String?> notes;
+  final Value<String> status;
   final Value<int> rowid;
   const LocalAssetsCompanion({
     this.id = const Value.absent(),
@@ -4089,6 +4125,7 @@ class LocalAssetsCompanion extends UpdateCompanion<LocalAsset> {
     this.makeModel = const Value.absent(),
     this.serialNo = const Value.absent(),
     this.notes = const Value.absent(),
+    this.status = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   LocalAssetsCompanion.insert({
@@ -4101,6 +4138,7 @@ class LocalAssetsCompanion extends UpdateCompanion<LocalAsset> {
     this.makeModel = const Value.absent(),
     this.serialNo = const Value.absent(),
     this.notes = const Value.absent(),
+    this.status = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        siteId = Value(siteId),
@@ -4116,6 +4154,7 @@ class LocalAssetsCompanion extends UpdateCompanion<LocalAsset> {
     Expression<String>? makeModel,
     Expression<String>? serialNo,
     Expression<String>? notes,
+    Expression<String>? status,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -4128,6 +4167,7 @@ class LocalAssetsCompanion extends UpdateCompanion<LocalAsset> {
       if (makeModel != null) 'make_model': makeModel,
       if (serialNo != null) 'serial_no': serialNo,
       if (notes != null) 'notes': notes,
+      if (status != null) 'status': status,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -4142,6 +4182,7 @@ class LocalAssetsCompanion extends UpdateCompanion<LocalAsset> {
     Value<String?>? makeModel,
     Value<String?>? serialNo,
     Value<String?>? notes,
+    Value<String>? status,
     Value<int>? rowid,
   }) {
     return LocalAssetsCompanion(
@@ -4154,6 +4195,7 @@ class LocalAssetsCompanion extends UpdateCompanion<LocalAsset> {
       makeModel: makeModel ?? this.makeModel,
       serialNo: serialNo ?? this.serialNo,
       notes: notes ?? this.notes,
+      status: status ?? this.status,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -4188,6 +4230,9 @@ class LocalAssetsCompanion extends UpdateCompanion<LocalAsset> {
     if (notes.present) {
       map['notes'] = Variable<String>(notes.value);
     }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -4206,6 +4251,7 @@ class LocalAssetsCompanion extends UpdateCompanion<LocalAsset> {
           ..write('makeModel: $makeModel, ')
           ..write('serialNo: $serialNo, ')
           ..write('notes: $notes, ')
+          ..write('status: $status, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -7065,6 +7111,7 @@ typedef $$LocalAssetsTableCreateCompanionBuilder =
       Value<String?> makeModel,
       Value<String?> serialNo,
       Value<String?> notes,
+      Value<String> status,
       Value<int> rowid,
     });
 typedef $$LocalAssetsTableUpdateCompanionBuilder =
@@ -7078,6 +7125,7 @@ typedef $$LocalAssetsTableUpdateCompanionBuilder =
       Value<String?> makeModel,
       Value<String?> serialNo,
       Value<String?> notes,
+      Value<String> status,
       Value<int> rowid,
     });
 
@@ -7132,6 +7180,11 @@ class $$LocalAssetsTableFilterComposer
 
   ColumnFilters<String> get notes => $composableBuilder(
     column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -7189,6 +7242,11 @@ class $$LocalAssetsTableOrderingComposer
     column: $table.notes,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$LocalAssetsTableAnnotationComposer
@@ -7226,6 +7284,9 @@ class $$LocalAssetsTableAnnotationComposer
 
   GeneratedColumn<String> get notes =>
       $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
 }
 
 class $$LocalAssetsTableTableManager
@@ -7268,6 +7329,7 @@ class $$LocalAssetsTableTableManager
                 Value<String?> makeModel = const Value.absent(),
                 Value<String?> serialNo = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
+                Value<String> status = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => LocalAssetsCompanion(
                 id: id,
@@ -7279,6 +7341,7 @@ class $$LocalAssetsTableTableManager
                 makeModel: makeModel,
                 serialNo: serialNo,
                 notes: notes,
+                status: status,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -7292,6 +7355,7 @@ class $$LocalAssetsTableTableManager
                 Value<String?> makeModel = const Value.absent(),
                 Value<String?> serialNo = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
+                Value<String> status = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => LocalAssetsCompanion.insert(
                 id: id,
@@ -7303,6 +7367,7 @@ class $$LocalAssetsTableTableManager
                 makeModel: makeModel,
                 serialNo: serialNo,
                 notes: notes,
+                status: status,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

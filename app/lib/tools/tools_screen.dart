@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../data/local_db.dart';
-import '../ui/form_sheet.dart';
 import '../data/site_data.dart';
 import '../ui/media.dart';
 import '../services/core_providers.dart';
@@ -14,18 +13,30 @@ import '../theme/tokens.dart';
 import '../ui/bits.dart';
 import '../ui/motion.dart';
 import '../ui/surfaces.dart';
+import '../assets/assets_screen.dart' show CardColumns;
 import 'tools_repository.dart';
 import '../widgets/app_back_button.dart';
 
-enum _Filter { all, store, out, mine, due }
+/// Narrows the tools side of the Equipment & tools page.
+enum ToolFilter { all, store, out, mine, overdue, calibration, attention }
 
-const _filterLabels = {
-  _Filter.all: 'All',
-  _Filter.store: 'In store',
-  _Filter.out: 'Out',
-  _Filter.mine: 'Mine',
-  _Filter.due: 'Attention',
+const toolFilterLabels = {
+  ToolFilter.all: 'All',
+  ToolFilter.store: 'In store',
+  ToolFilter.out: 'Out',
+  ToolFilter.mine: 'With me',
+  ToolFilter.overdue: 'Overdue back',
+  ToolFilter.calibration: 'Calibration due',
+  ToolFilter.attention: 'Needs attention',
 };
+
+bool toolMatches(LocalTool t, String q, Map<String, String> people) =>
+    q.isEmpty ||
+    t.name.toLowerCase().contains(q) ||
+    (t.code?.toLowerCase().contains(q) ?? false) ||
+    (t.kind?.toLowerCase().contains(q) ?? false) ||
+    (t.serialNo?.toLowerCase().contains(q) ?? false) ||
+    (people[t.holderId]?.toLowerCase().contains(q) ?? false);
 
 Color conditionColor(ToolCondition c) => switch (c) {
   ToolCondition.good => BrandColors.success,
@@ -62,22 +73,16 @@ class ConditionPicker extends StatelessWidget {
   }
 }
 
-/// The tools register at the current site.
-class ToolsScreen extends ConsumerStatefulWidget {
-  const ToolsScreen({super.key, this.mine = false});
+/// The tools register at the current site, as cards. The Equipment &
+/// tools page supplies search and filter.
+class ToolList extends ConsumerWidget {
+  const ToolList({super.key, this.query = '', this.filter = ToolFilter.all});
 
-  final bool mine;
-
-  @override
-  ConsumerState<ToolsScreen> createState() => _ToolsScreenState();
-}
-
-class _ToolsScreenState extends ConsumerState<ToolsScreen> {
-  late _Filter _filter = widget.mine ? _Filter.mine : _Filter.all;
-  String _query = '';
+  final String query;
+  final ToolFilter filter;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final tools = ref.watch(siteToolsProvider).value ?? const [];
     final people = ref.watch(peopleProvider).value ?? const {};
     final me = ref.watch(authUserIdProvider);
@@ -85,127 +90,50 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
     final site = ref.watch(currentSiteProvider);
     final canIssue =
         site != null && session.can('tools.issue', siteId: site.id);
-    final q = _query.toLowerCase();
+    final q = query.trim().toLowerCase();
     final shown = [
       for (final t in tools)
-        if (switch (_filter) {
-              _Filter.all => true,
-              _Filter.store => t.holderId == null,
-              _Filter.out => t.holderId != null,
-              _Filter.mine => t.holderId == me,
-              _Filter.due =>
+        if (switch (filter) {
+              ToolFilter.all => true,
+              ToolFilter.store => t.holderId == null,
+              ToolFilter.out => t.holderId != null,
+              ToolFilter.mine => t.holderId == me,
+              ToolFilter.overdue => toolOverdue(t),
+              ToolFilter.calibration => calibrationDue(t),
+              ToolFilter.attention =>
                 toolOverdue(t) ||
                     calibrationDue(t) ||
                     t.condition != ToolCondition.good.value,
             } &&
-            (q.isEmpty ||
-                t.name.toLowerCase().contains(q) ||
-                (t.code?.toLowerCase().contains(q) ?? false) ||
-                (t.serialNo?.toLowerCase().contains(q) ?? false) ||
-                (people[t.holderId]?.toLowerCase().contains(q) ?? false)))
+            toolMatches(t, q, people))
           t,
     ];
-    final top = MediaQuery.paddingOf(context).top + kToolbarHeight;
-
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        leading: const AppBackButton(),
-        title: Text('Tools · ${site?.code ?? ''}'),
-        flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
-        actions: [
-          if (canIssue && tools.isNotEmpty)
-            TextButton.icon(
-              onPressed: () => context.push('/tools/count'),
-              icon: const Icon(CupertinoIcons.checkmark_square),
-              label: const Text('Count'),
-            ),
-        ],
-      ),
-      floatingActionButton: canIssue
-          ? FloatingActionButton.extended(
-              onPressed: () => showFormSheet(context, const ToolForm()),
-              icon: const Icon(CupertinoIcons.add),
-              label: const Text('Add tool'),
-            )
-          : null,
-      body: MeshBackground(
-        child: RefreshIndicator(
-          edgeOffset: top,
-          onRefresh: ref.read(toolsSyncProvider.notifier).refresh,
-          child: ListView(
-            padding: EdgeInsets.fromLTRB(
-              Space.md,
-              top + Space.md,
-              Space.md,
-              120,
-            ),
-            children: [
-              Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 720),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      CupertinoSearchTextField(
-                        placeholder: 'Search tools, codes or people',
-                        onChanged: (v) => setState(() => _query = v),
-                      ),
-                      const SizedBox(height: Space.sm),
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: [
-                            for (final f in _Filter.values)
-                              Padding(
-                                padding: const EdgeInsets.only(right: Space.xs),
-                                child: ChoiceChip(
-                                  label: Text(_filterLabels[f]!),
-                                  selected: _filter == f,
-                                  onSelected: (_) =>
-                                      setState(() => _filter = f),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: Space.md),
-                      if (shown.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: Space.xl),
-                          child: Center(
-                            child: EmptyState(
-                              icon: CupertinoIcons.wrench,
-                              title: tools.isEmpty
-                                  ? 'No tools yet'
-                                  : 'Nothing here',
-                              message: tools.isEmpty
-                                  ? (canIssue
-                                        ? 'Add meggers, multimeters and other '
-                                              'tools to know who holds what.'
-                                        : 'The store adds tools here.')
-                                  : 'No tools match this filter.',
-                            ),
-                          ),
-                        ),
-                      for (final (i, t) in shown.indexed)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: Space.sm),
-                          child: ToolTile(
-                            tool: t,
-                            holderName: people[t.holderId],
-                            isMine: t.holderId == me,
-                          ),
-                        ).entrance(context, index: i.clamp(0, 8)),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+    if (shown.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.only(top: Space.xl),
+        child: Center(
+          child: EmptyState(
+            icon: CupertinoIcons.wrench,
+            title: tools.isEmpty ? 'No tools yet' : 'Nothing here',
+            message: tools.isEmpty
+                ? (canIssue
+                      ? 'Add meggers, multimeters and other tools to know '
+                            'who holds what.'
+                      : 'The store adds tools here.')
+                : 'No tools match.',
           ),
         ),
-      ),
+      );
+    }
+    return CardColumns(
+      children: [
+        for (final (i, t) in shown.indexed)
+          ToolTile(
+            tool: t,
+            holderName: people[t.holderId],
+            isMine: t.holderId == me,
+          ).entrance(context, index: i.clamp(0, 8)),
+      ],
     );
   }
 }

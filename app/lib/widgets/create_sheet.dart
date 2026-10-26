@@ -101,7 +101,7 @@ class _CreateSheet extends ConsumerWidget {
           title: 'Lend a tool',
           hint: 'Issue or take one back',
           colors: const [BrandColors.warning, Color(0xFFF2BE5C)],
-          run: (c) => then(c, (h) => h.push('/tools')),
+          run: (c) => then(c, (h) => h.push('/equipment?side=tools')),
         ),
       if (session.can('chat.use'))
         (

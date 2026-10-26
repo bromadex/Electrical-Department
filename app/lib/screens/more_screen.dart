@@ -139,17 +139,10 @@ class MoreScreen extends ConsumerWidget {
             ),
             ShortcutTile(
               icon: Icons.precision_manufacturing_outlined,
-              title: 'Equipment',
-              subtitle: 'Plant register',
+              title: 'Equipment & tools',
+              subtitle: 'Plant, and who has what',
               colors: const [BrandColors.maroonDeep, BrandColors.maroon],
-              onTap: () => context.push('/assets'),
-            ),
-            ShortcutTile(
-              icon: Icons.handyman_outlined,
-              title: 'Tools',
-              subtitle: 'Who has what',
-              colors: const [BrandColors.warning, Color(0xFFF2BE5C)],
-              onTap: () => context.push('/tools'),
+              onTap: () => context.push('/equipment'),
             ),
             ShortcutTile(
               icon: Icons.notifications_none_rounded,

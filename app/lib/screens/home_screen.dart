@@ -368,7 +368,7 @@ class _Shortcuts extends ConsumerWidget {
                 title: 'Equipment',
                 subtitle: 'Plant and history',
                 colors: const [BrandColors.maroonDeep, BrandColors.maroon],
-                onTap: () => context.push('/assets'),
+                onTap: () => context.push('/equipment?side=equipment'),
               ),
             ],
             if (can('tools.view'))
@@ -377,7 +377,7 @@ class _Shortcuts extends ConsumerWidget {
                 title: 'Tools',
                 subtitle: 'Who has what',
                 colors: const [BrandColors.warning, Color(0xFFF2BE5C)],
-                onTap: () => context.push('/tools'),
+                onTap: () => context.push('/equipment?side=tools'),
               ),
             if (can('docs.view'))
               ShortcutTile(

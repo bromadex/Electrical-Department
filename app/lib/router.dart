@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'admin/activity_screen.dart';
 import 'admin/users_screen.dart';
 import 'assets/asset_detail_screen.dart';
-import 'assets/assets_screen.dart';
+import 'assets/equipment_screen.dart';
 import 'chat/call_screen.dart';
 import 'chat/chat_list_screen.dart';
 import 'chat/conversation_screen.dart';
@@ -77,7 +77,7 @@ GoRouter buildRouter(WidgetRef ref) {
       // Old tab addresses, kept for bookmarks.
       GoRoute(path: '/today', redirect: (_, _) => '/home'),
       GoRoute(path: '/board', redirect: (_, _) => '/jobs'),
-      GoRoute(path: '/store', redirect: (_, _) => '/tools'),
+      GoRoute(path: '/store', redirect: (_, _) => '/equipment?side=tools'),
       GoRoute(path: '/more', redirect: (_, _) => '/menu'),
       GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
       GoRoute(
@@ -104,8 +104,25 @@ GoRouter buildRouter(WidgetRef ref) {
         path: '/admin/activity',
         builder: (_, _) => const ActivityScreen(),
       ),
-      GoRoute(path: '/assets', builder: (_, _) => const AssetsScreen()),
-      GoRoute(path: '/tools', builder: (_, _) => const ToolsScreen()),
+      // Equipment and tools share one page; the old addresses open a side.
+      GoRoute(
+        path: '/equipment',
+        builder: (_, s) => EquipmentScreen(
+          side: switch (s.uri.queryParameters['side']) {
+            'tools' => EquipmentSide.tools,
+            'equipment' => EquipmentSide.equipment,
+            _ => null,
+          },
+          mine: s.uri.queryParameters['mine'] == '1',
+        ),
+      ),
+      GoRoute(path: '/assets', redirect: (_, _) => '/equipment?side=equipment'),
+      GoRoute(
+        path: '/tools',
+        redirect: (_, s) => s.uri.queryParameters['mine'] == '1'
+            ? '/equipment?side=tools&mine=1'
+            : '/equipment?side=tools',
+      ),
       GoRoute(path: '/checklists', builder: (_, _) => const ChecklistsScreen()),
       GoRoute(
         path: '/checklists/:id',
