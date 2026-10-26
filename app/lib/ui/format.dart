@@ -115,6 +115,18 @@ String fmtMinutes(num? minutes) {
   return rh == 0 ? '$d d' : '$d d $rh h';
 }
 
+/// Seconds as a running clock: 65 → "1:05", 3725 → "1:02:05".
+String fmtClock(int seconds) {
+  final s = seconds.abs();
+  String two(int v) => v.toString().padLeft(2, '0');
+  final h = s ~/ 3600;
+  final m = (s % 3600) ~/ 60;
+  return h > 0 ? '$h:${two(m)}:${two(s % 60)}' : '$m:${two(s % 60)}';
+}
+
+/// Seconds as hours with one decimal: 23400 → "6.5 h".
+String fmtHours(num seconds) => '${(seconds / 3600).toStringAsFixed(1)} h';
+
 /// "just now", "5 min ago", "in 2 h".
 String fmtRelative(DateTime? t) {
   if (t == null) return '—';

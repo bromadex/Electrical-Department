@@ -14,6 +14,8 @@ import 'action_sheets.dart';
 import 'job_card_panels.dart';
 import 'models.dart';
 import 'repository.dart';
+import 'work.dart';
+import 'work_panels.dart';
 
 class JobCardScreen extends ConsumerWidget {
   const JobCardScreen({super.key, required this.reference, this.initialTab});
@@ -52,6 +54,8 @@ const _tabs = [
   'overview',
   'assessment',
   'assignment',
+  'work',
+  'safety',
   'files',
   'comments',
   'activity',
@@ -123,7 +127,7 @@ class _JobCardViewState extends ConsumerState<_JobCardView>
     await _do(() => run(reason), done);
   }
 
-  List<_Act> _available(JobCard j, JobCardExtras x, String? me) {
+  List<_Act> _available(JobCard j, JobCardExtras x, String? me, JobWork? work) {
     final session = ref.read(sessionProvider);
     bool can(String code) => session.can(code, siteId: j.siteId);
     String? myRole;
@@ -134,6 +138,7 @@ class _JobCardViewState extends ConsumerState<_JobCardView>
     }
     final s = j.status;
     final acts = <_Act>[];
+    final myWorkRunning = work?.runningFor(me) != null;
 
     void assess() => _sheet('Engineering assessment', AssessSheet(job: j));
     void assign(String title) =>
@@ -145,9 +150,18 @@ class _JobCardViewState extends ConsumerState<_JobCardView>
       (r) => _actions.returnForClarification(j.id, r),
       done: 'Returned for clarification',
     );
-    void start() =>
-        _do(() => _actions.setStatus(j.id, 'in_progress'), 'Work started');
-    void hold() => _sheet('Put on hold', HoldSheet(job: j));
+    // The team starts their own timer; an engineer off the team only moves
+    // the job card back to in progress.
+    void start() => myRole != null
+        ? _do(() => _actions.startWork(j.id), 'Work started')
+        : _do(
+            () => _actions.setStatus(j.id, 'in_progress'),
+            'Back in progress',
+          );
+    void pause({required bool holdOnly}) => _sheet(
+      holdOnly ? 'Put on hold' : 'Pause work',
+      PauseSheet(job: j, myWorkRunning: !holdOnly && myWorkRunning),
+    );
 
     switch (s) {
       case JobStatus.registered:
@@ -218,11 +232,34 @@ class _JobCardViewState extends ConsumerState<_JobCardView>
       case JobStatus.accepted:
         if (myRole != null || can('jc.assign')) {
           acts.add(
-            _Act('Start work', Icons.play_arrow_rounded, start, primary: true),
+            _Act(
+              myRole != null ? 'Start work' : 'Mark in progress',
+              Icons.play_arrow_rounded,
+              start,
+              primary: true,
+            ),
           );
-          acts.add(_Act('Put on hold', Icons.pause_rounded, hold));
+          acts.add(
+            _Act(
+              'Put on hold',
+              Icons.pause_rounded,
+              () => pause(holdOnly: true),
+            ),
+          );
         }
       case JobStatus.inProgress:
+        if (myRole != null && !myWorkRunning) {
+          acts.add(
+            _Act(
+              work != null && work.sessions.any((x) => x.userId == me)
+                  ? 'Resume my work'
+                  : 'Start work',
+              Icons.play_arrow_rounded,
+              start,
+              primary: myRole != 'responsible',
+            ),
+          );
+        }
         if (myRole == 'responsible' || can('jc.assign')) {
           acts.add(
             _Act(
@@ -235,7 +272,13 @@ class _JobCardViewState extends ConsumerState<_JobCardView>
           );
         }
         if (myRole != null || can('jc.assign')) {
-          acts.add(_Act('Put on hold', Icons.pause_rounded, hold));
+          acts.add(
+            _Act(
+              myWorkRunning ? 'Pause' : 'Put on hold',
+              Icons.pause_rounded,
+              () => pause(holdOnly: !myWorkRunning),
+            ),
+          );
         }
       case JobStatus.onHold ||
           JobStatus.awaitingMaterials ||
@@ -244,21 +287,13 @@ class _JobCardViewState extends ConsumerState<_JobCardView>
           JobStatus.awaitingProductionClearance:
         if (myRole != null || can('jc.assign')) {
           acts.add(
-            _Act(
-              'Resume work',
-              Icons.play_arrow_rounded,
-              () => _do(
-                () => _actions.setStatus(j.id, 'in_progress'),
-                'Work resumed',
-              ),
-              primary: true,
-            ),
+            _Act('Resume work', Icons.play_arrow_rounded, start, primary: true),
           );
           acts.add(
             _Act(
               'Change hold reason',
               Icons.edit_outlined,
-              () => _sheet('Change hold reason', HoldSheet(job: j)),
+              () => pause(holdOnly: true),
             ),
           );
         }
@@ -276,6 +311,24 @@ class _JobCardViewState extends ConsumerState<_JobCardView>
                 ),
               ),
               primary: true,
+            ),
+          );
+        }
+        if (work?.openQuestion != null &&
+            (myRole != null || can('jc.assign'))) {
+          acts.add(
+            _Act(
+              'Answer the reviewer',
+              Icons.reply_rounded,
+              () => _withReason(
+                'Answer the reviewer',
+                'Your answer',
+                'Send answer',
+                (r) => _actions.answerReview(j.id, r),
+                done: 'Answer sent',
+                message: work!.openQuestion!.notes,
+              ),
+              primary: !can('jc.review'),
             ),
           );
         }
@@ -402,7 +455,9 @@ class _JobCardViewState extends ConsumerState<_JobCardView>
     final x = extras.value ?? const JobCardExtras();
     final me = ref.watch(authUserIdProvider);
     final session = ref.watch(sessionProvider);
-    final acts = _available(job, x, me);
+    final work = ref.watch(jobWorkProvider(job.id)).value;
+    final acts = _available(job, x, me, work);
+    final onTeam = x.current.any((a) => a.userId == me);
     final canAddFiles =
         job.status.isOpen &&
         (session.can('jc.register', siteId: job.siteId) ||
@@ -423,9 +478,30 @@ class _JobCardViewState extends ConsumerState<_JobCardView>
         comments: x.comments,
         canComment: session.can('jc.view', siteId: job.siteId),
       ),
+      'work' =>
+        work == null
+            ? const LoadingPanel()
+            : WorkTab(job: job, work: work, extras: x),
+      'safety' =>
+        work == null
+            ? const LoadingPanel()
+            : SafetyTab(
+                job: job,
+                work: work,
+                canRecord:
+                    job.status.isOpen &&
+                    (onTeam ||
+                        session.can('jc.assign', siteId: job.siteId) ||
+                        session.can('jc.assess', siteId: job.siteId)),
+              ),
       'activity' => TimelinePanel(jobId: job.id),
-      _ => _Closure(job: job, closures: x.closures),
+      _ => ClosureTab(job: job, work: work, closures: x.closures),
     };
+    final showClock =
+        work != null &&
+        (job.status == JobStatus.inProgress ||
+            job.status.isHold ||
+            (job.status.isOpen && work.sessions.isNotEmpty));
 
     return AppPage(
       title: job.number,
@@ -448,6 +524,17 @@ class _JobCardViewState extends ConsumerState<_JobCardView>
         children: [
           _Header(job: job),
           _ReasonBanner(job: job),
+          if (work?.openQuestion != null)
+            _Banner(
+              color: AppColors.info,
+              icon: Icons.help_outline_rounded,
+              text:
+                  '${work!.openQuestion!.reviewer} asked: ${work.openQuestion!.notes ?? ''}',
+            ),
+          if (showClock) ...[
+            const SizedBox(height: Space.sm),
+            WorkClock(job: job, work: work),
+          ],
           if (acts.isNotEmpty) ...[
             const SizedBox(height: Space.sm),
             Wrap(
@@ -495,6 +582,8 @@ class _JobCardViewState extends ConsumerState<_JobCardView>
                     const Tab(text: 'Overview'),
                     const Tab(text: 'Assessment'),
                     const Tab(text: 'Assignment'),
+                    Tab(text: 'Work (${work?.records.length ?? 0})'),
+                    const Tab(text: 'Safety'),
                     Tab(text: 'Files (${x.attachments.length})'),
                     Tab(text: 'Comments (${x.comments.length})'),
                     const Tab(text: 'Activity'),
@@ -918,76 +1007,6 @@ class _AssignmentTab extends ConsumerWidget {
               ],
             ),
           ),
-        ],
-      ],
-    );
-  }
-}
-
-class _Closure extends StatelessWidget {
-  const _Closure({required this.job, required this.closures});
-
-  final JobCard job;
-  final List<JobClosure> closures;
-
-  @override
-  Widget build(BuildContext context) {
-    final submitted = job.t('submitted_at') != null;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (!submitted && closures.isEmpty)
-          const EmptyState(
-            icon: Icons.verified_outlined,
-            title: 'Not submitted yet',
-            message: 'When the work is done, the responsible person submits it here for engineering review.',
-          )
-        else ...[
-          ResponsiveGrid(
-            minItemWidth: 300,
-            children: [
-              KeyValue('Work completion summary', job.s('completion_summary')),
-              KeyValue('Fault cause or findings', job.s('findings')),
-              KeyValue('Corrective action', job.s('corrective_action')),
-              KeyValue(
-                'Equipment after the work',
-                humanize(job.s('equipment_state_after')),
-              ),
-            ],
-          ),
-          const SizedBox(height: Space.md),
-          ResponsiveGrid(
-            minItemWidth: 200,
-            children: [
-              KeyValue('Submitted', fmtDateTime(job.t('submitted_at'))),
-              KeyValue(
-                'Closure approved',
-                fmtDateTime(job.t('closure_approved_at')),
-              ),
-              KeyValue(
-                'Elapsed (received → closed)',
-                job.closedAt == null ? '—' : fmtMinutes(job.elapsedMinutes),
-              ),
-              KeyValue(
-                'Completion target',
-                job.status == JobStatus.closed ? job.sla.label : '—',
-              ),
-            ],
-          ),
-        ],
-        if (closures.isNotEmpty) ...[
-          const SectionHeader('Closure records'),
-          for (final c in closures)
-            Panel(
-              title: 'Closed ${fmtDateTime(c.closedAt)}',
-              subtitle: [
-                if (c.performerName != null) 'Work by ${c.performerName}',
-                if (c.verifierName != null) 'verified by ${c.verifierName}',
-                if (c.selfApproved) 'self-approved',
-                if (c.legacy) 'from the jobs board',
-              ].join(' · '),
-              child: Text(c.summary ?? '—'),
-            ),
         ],
       ],
     );

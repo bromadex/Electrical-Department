@@ -7,9 +7,11 @@ import '../ui/bits.dart';
 import '../ui/format.dart';
 import '../ui/forms.dart';
 import '../ui/media.dart';
+import '../ui/panels.dart';
 import '../ui/status.dart';
 import 'models.dart';
 import 'repository.dart';
+import 'work.dart';
 
 /// Opens [child] as a dialog on wide screens and a full-height sheet on phones.
 Future<T?> showFormSheet<T>(
@@ -795,59 +797,124 @@ class _PersonRow extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Stage 4: holds
+// Stage 4: pausing work and holds
 // ---------------------------------------------------------------------------
-class HoldSheet extends ConsumerStatefulWidget {
-  const HoldSheet({super.key, required this.job});
+
+/// Pause my work (break, end of shift, another job) or put the job on hold
+/// because it is waiting for something (materials, isolation, ...).
+class PauseSheet extends ConsumerStatefulWidget {
+  const PauseSheet({
+    super.key,
+    required this.job,
+    this.myWorkRunning = true,
+    this.canHold = true,
+  });
 
   final JobCard job;
 
+  /// Offer the short pauses (only when my timer is running).
+  final bool myWorkRunning;
+
+  /// Offer the hold reasons.
+  final bool canHold;
+
   @override
-  ConsumerState<HoldSheet> createState() => _HoldSheetState();
+  ConsumerState<PauseSheet> createState() => _PauseSheetState();
 }
 
-class _HoldSheetState extends ConsumerState<HoldSheet> with _Saving {
-  late String? _status = widget.job.status.isHold ? widget.job.status.db : null;
-  final _reason = TextEditingController();
+const _shortPauses = [
+  ('break', 'Break', Icons.coffee_outlined),
+  ('end_of_shift', 'End of shift', Icons.nightlight_outlined),
+  ('other_job', 'Another job', Icons.swap_horiz_rounded),
+  ('other', 'Other', Icons.more_horiz_rounded),
+];
+
+class _PauseSheetState extends ConsumerState<PauseSheet> with _Saving {
+  late String? _reason = widget.job.status.isHold ? widget.job.status.db : null;
+  bool _counts = true;
+  final _note = TextEditingController();
+
+  bool get _isHold => JobStatus.holds.any((s) => s.db == _reason);
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return _FormBody(
       formKey: formKey,
       busy: busy,
-      saveLabel: 'Put on hold',
+      saveLabel: _isHold ? 'Put on hold' : 'Pause my work',
       onSave: () {
-        if (_status == null) {
-          showSnack(context, 'Choose what the job is waiting for.');
+        if (_reason == null) {
+          showSnack(context, 'Choose why the work is pausing.');
           return;
         }
         save(
           () => ref
               .read(jobCardActionsProvider)
-              .setStatus(widget.job.id, _status!, reason: _reason.text),
-          done: 'Job card on hold',
+              .pauseWork(
+                widget.job.id,
+                _reason!,
+                note: _note.text,
+                countsTowardSla: _counts,
+              ),
+          done: _isHold ? 'Job card on hold' : 'Your work is paused',
         );
       },
       children: [
-        ChoiceField<String>(
-          label: 'What is the job waiting for? *',
-          value: _status,
-          onChanged: (v) => setState(() => _status = v),
-          options: [
-            for (final s in JobStatus.holds) (s.db, s.label, s.icon, s.color),
-          ],
-        ),
+        if (widget.myWorkRunning) ...[
+          ChoiceField<String>(
+            label: 'Short pause (stops only your timer)',
+            value: _isHold ? null : _reason,
+            onChanged: (v) => setState(() => _reason = v),
+            options: [
+              for (final (v, l, i) in _shortPauses) (v, l, i, AppColors.info),
+            ],
+          ),
+          const SizedBox(height: Space.md),
+        ],
+        if (widget.canHold)
+          ChoiceField<String>(
+            label: 'The job is waiting (stops everyone\'s timer)',
+            value: _isHold ? _reason : null,
+            onChanged: (v) => setState(() => _reason = v),
+            options: [
+              for (final s in JobStatus.holds)
+                (
+                  s.db,
+                  s == JobStatus.awaitingSpecialist
+                      ? 'Awaiting specialist or contractor'
+                      : s.label,
+                  s.icon,
+                  s.color,
+                ),
+            ],
+          ),
         const SizedBox(height: Space.md),
         TextFormField(
-          controller: _reason,
+          controller: _note,
           minLines: 2,
           maxLines: 5,
-          decoration: const InputDecoration(
-            labelText: 'Reason *',
-            hintText: 'e.g. Waiting for 63 A MCB from stores',
+          decoration: InputDecoration(
+            labelText: _isHold ? 'What is it waiting for? *' : 'Note',
+            hintText: _isHold ? 'e.g. 63 A MCB from Harare stores' : null,
           ),
-          validator: Valid.length(2, 2000, 'A reason'),
+          validator: _isHold ? Valid.length(2, 1000, 'A reason') : null,
         ),
+        if (_isHold) ...[
+          const SizedBox(height: Space.sm),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            value: _counts,
+            onChanged: (v) => setState(() => _counts = v),
+            title: const Text('Count this wait toward the completion deadline'),
+            subtitle: Text(
+              'Switch off only when the delay is outside the team\'s control, such '
+              'as waiting for production clearance. The wait still shows in the '
+              'elapsed time and on the job card.',
+              style: theme.textTheme.bodySmall,
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -873,12 +940,28 @@ class _SubmitSheetState extends ConsumerState<SubmitSheet> with _Saving {
   late final _action = TextEditingController(
     text: widget.job.s('corrective_action'),
   );
+  final _functional = TextEditingController();
+  final _electrical = TextEditingController();
+  final _materials = TextEditingController();
+  final _labour = TextEditingController();
+  final _defects = TextEditingController();
+  final _recommendations = TextEditingController();
   late String? _after = widget.job.s('equipment_state_after');
   bool _checks = false;
+  bool _safety = false;
+  bool _labourFilled = false;
   List<PickedFile> _files = const [];
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final work = ref.watch(jobWorkProvider(widget.job.id)).value;
+    final recorded = work?.time.labourSeconds;
+    if (!_labourFilled && recorded != null) {
+      _labourFilled = true;
+      _labour.text = (recorded / 3600).toStringAsFixed(2);
+    }
+    final missingAfter = work?.safety.missingAfter ?? const <String>[];
     return _FormBody(
       formKey: formKey,
       busy: busy,
@@ -888,7 +971,7 @@ class _SubmitSheetState extends ConsumerState<SubmitSheet> with _Saving {
           showSnack(context, 'Record the equipment condition after the work.');
           return;
         }
-        if (!_checks) {
+        if (!_checks || !_safety) {
           showSnack(
             context,
             'Confirm that the required checks and safety procedures were completed.',
@@ -904,62 +987,161 @@ class _SubmitSheetState extends ConsumerState<SubmitSheet> with _Saving {
               files: _files,
             );
           }
-          await actions.submit(
+          await actions.submitForReview(
             widget.job.id,
             summary: _summary.text,
             findings: _findings.text,
             correctiveAction: _action.text,
             equipmentStateAfter: _after!,
+            functionalTests: _functional.text,
+            electricalTests: _electrical.text,
+            materialsUsed: _materials.text,
+            labourHours: num.tryParse(_labour.text.trim()),
+            outstandingDefects: _defects.text,
+            recommendations: _recommendations.text,
             checksConfirmed: _checks,
+            safetyConfirmed: _safety,
           );
         }, done: 'Submitted for engineering review');
       },
       children: [
-        TextFormField(
-          controller: _summary,
-          minLines: 3,
-          maxLines: 8,
-          decoration: const InputDecoration(
-            labelText: 'Work completion summary *',
+        if (missingAfter.isNotEmpty)
+          Container(
+            margin: const EdgeInsets.only(bottom: Space.md),
+            padding: const EdgeInsets.all(Space.sm),
+            decoration: BoxDecoration(
+              color: AppColors.warning.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(Radii.sm),
+            ),
+            child: Text(
+              'Record these post-work safety checks first (Safety tab): '
+              '${missingAfter.join(', ')}.',
+            ),
           ),
-          validator: Valid.length(5, 4000, 'The summary'),
-        ),
-        const SizedBox(height: Space.sm),
-        TextFormField(
-          controller: _findings,
-          minLines: 2,
-          maxLines: 6,
-          decoration: const InputDecoration(
-            labelText: 'Fault cause or findings *',
-          ),
-          validator: Valid.length(2, 4000, 'The findings'),
-        ),
-        const SizedBox(height: Space.sm),
-        TextFormField(
-          controller: _action,
-          minLines: 2,
-          maxLines: 6,
-          decoration: const InputDecoration(
-            labelText: 'Corrective action taken *',
-          ),
-          validator: Valid.length(2, 4000, 'The corrective action'),
-        ),
-        const SizedBox(height: Space.md),
-        ChoiceField<String>(
-          label: 'Equipment condition after the work *',
-          value: _after,
-          onChanged: (v) => setState(() => _after = v),
-          options: const [
-            ('operational', 'Operational', null, AppColors.success),
-            ('degraded', 'Degraded', null, AppColors.warning),
-            ('out_of_service', 'Out of service', null, AppColors.critical),
+        FormSection(
+          title: 'What was done',
+          children: [
+            FullWidth(
+              child: TextFormField(
+                controller: _summary,
+                minLines: 3,
+                maxLines: 8,
+                decoration: const InputDecoration(
+                  labelText: 'Work completion summary *',
+                ),
+                validator: Valid.length(5, 4000, 'The summary'),
+              ),
+            ),
+            FullWidth(
+              child: TextFormField(
+                controller: _findings,
+                minLines: 2,
+                maxLines: 6,
+                decoration: const InputDecoration(
+                  labelText: 'Fault cause or findings *',
+                ),
+                validator: Valid.length(2, 4000, 'The findings'),
+              ),
+            ),
+            FullWidth(
+              child: TextFormField(
+                controller: _action,
+                minLines: 2,
+                maxLines: 6,
+                decoration: const InputDecoration(
+                  labelText: 'Corrective action taken *',
+                ),
+                validator: Valid.length(2, 4000, 'The corrective action'),
+              ),
+            ),
           ],
         ),
-        const SizedBox(height: Space.md),
-        Text(
-          'After photos and test sheets',
-          style: Theme.of(context).textTheme.titleSmall,
+        FormSection(
+          title: 'Tests, materials and time',
+          children: [
+            TextFormField(
+              controller: _functional,
+              minLines: 1,
+              maxLines: 4,
+              decoration: const InputDecoration(
+                labelText: 'Functional test results',
+              ),
+            ),
+            TextFormField(
+              controller: _electrical,
+              minLines: 1,
+              maxLines: 4,
+              decoration: const InputDecoration(
+                labelText: 'Electrical test results',
+                hintText: 'e.g. IR 500 MΩ, earth 0.4 Ω',
+              ),
+            ),
+            TextFormField(
+              controller: _materials,
+              minLines: 1,
+              maxLines: 4,
+              decoration: const InputDecoration(labelText: 'Materials used'),
+            ),
+            TextFormField(
+              controller: _labour,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              decoration: InputDecoration(
+                labelText: 'Actual labour hours',
+                helperText: recorded == null
+                    ? null
+                    : 'Work sessions recorded ${fmtHours(recorded)} '
+                          '(all people together)',
+              ),
+              validator: (v) {
+                final t = v?.trim() ?? '';
+                if (t.isEmpty) return null;
+                final n = num.tryParse(t);
+                return n == null || n < 0 || n > 2000
+                    ? 'Hours between 0 and 2000'
+                    : null;
+              },
+            ),
+          ],
         ),
+        FormSection(
+          title: 'Condition and what is left',
+          children: [
+            FullWidth(
+              child: ChoiceField<String>(
+                label: 'Equipment condition after the work *',
+                value: _after,
+                onChanged: (v) => setState(() => _after = v),
+                options: const [
+                  ('operational', 'Operational', null, AppColors.success),
+                  ('degraded', 'Degraded', null, AppColors.warning),
+                  (
+                    'out_of_service',
+                    'Out of service',
+                    null,
+                    AppColors.critical,
+                  ),
+                ],
+              ),
+            ),
+            TextFormField(
+              controller: _defects,
+              minLines: 1,
+              maxLines: 4,
+              decoration: const InputDecoration(
+                labelText: 'Outstanding defects',
+              ),
+            ),
+            TextFormField(
+              controller: _recommendations,
+              minLines: 1,
+              maxLines: 4,
+              decoration: const InputDecoration(labelText: 'Recommendations'),
+            ),
+          ],
+        ),
+        Text('After photos and test sheets', style: theme.textTheme.titleSmall),
         const SizedBox(height: Space.xs),
         AttachmentPicker(
           files: _files,
@@ -973,8 +1155,17 @@ class _SubmitSheetState extends ConsumerState<SubmitSheet> with _Saving {
           controlAffinity: ListTileControlAffinity.leading,
           contentPadding: EdgeInsets.zero,
           title: const Text(
-            'I confirm the required checks and the applicable safety procedures '
-            '(isolation, permits, test before touch, safe reinstatement) were completed.',
+            'I confirm the required checks and tests were completed.',
+          ),
+        ),
+        CheckboxListTile(
+          value: _safety,
+          onChanged: (v) => setState(() => _safety = v ?? false),
+          controlAffinity: ListTileControlAffinity.leading,
+          contentPadding: EdgeInsets.zero,
+          title: const Text(
+            'I confirm the applicable safety procedures were followed: isolation, '
+            'permits, test before touch and safe reinstatement.',
           ),
         ),
       ],
@@ -1000,35 +1191,64 @@ class ReviewSheet extends ConsumerStatefulWidget {
 class _ReviewSheetState extends ConsumerState<ReviewSheet> with _Saving {
   String _decision = 'approve';
   final _notes = TextEditingController();
+  final _followTitle = TextEditingController();
+  final _followDescription = TextEditingController();
+  String? _followPriority;
 
   @override
   Widget build(BuildContext context) {
     final job = widget.job;
+    final work = ref.watch(jobWorkProvider(job.id)).value;
+    final latest = work?.submissions.lastOrNull;
+    final question = work?.reviews.lastOrNull;
     final reject = _decision == 'reject';
+    final followUp = _decision == 'follow_up';
+    final ask = _decision == 'request_info';
+    final (saveLabel, done) = switch (_decision) {
+      'reject' => ('Return for more work', 'Returned to the technician'),
+      'request_info' => ('Send question', 'Question sent'),
+      'follow_up' => (
+        'Approve and raise follow-up',
+        'Job card closed; follow-up raised',
+      ),
+      _ => ('Approve and close', 'Job card closed'),
+    };
     return _FormBody(
       formKey: formKey,
       busy: busy,
       danger: reject,
-      saveLabel: reject ? 'Return for more work' : 'Approve and close',
+      saveLabel: saveLabel,
       onSave: () => save(
         () => ref
             .read(jobCardActionsProvider)
-            .review(job.id, _decision, notes: _notes.text),
-        done: reject ? 'Returned to the technician' : 'Job card closed',
+            .verify(
+              job.id,
+              followUp ? 'approve' : _decision,
+              notes: _notes.text,
+              followUpTitle: followUp ? _followTitle.text : null,
+              followUpDescription: followUp ? _followDescription.text : null,
+              followUpPriority: followUp ? _followPriority : null,
+            ),
+        done: done,
       ),
       children: [
-        KeyValue('Completion summary', job.s('completion_summary')),
-        const SizedBox(height: Space.sm),
-        KeyValue('Fault cause or findings', job.s('findings')),
-        const SizedBox(height: Space.sm),
-        KeyValue('Corrective action', job.s('corrective_action')),
-        const SizedBox(height: Space.sm),
-        KeyValue(
-          'Equipment after the work',
-          humanize(job.s('equipment_state_after')),
-        ),
-        const SizedBox(height: Space.sm),
-        KeyValue('Submitted', fmtDateTime(job.t('submitted_at'))),
+        if (latest != null)
+          SubmissionDetails(submission: latest)
+        else ...[
+          KeyValue('Completion summary', job.s('completion_summary')),
+          const SizedBox(height: Space.sm),
+          KeyValue('Corrective action', job.s('corrective_action')),
+        ],
+        if (question != null &&
+            question.decision == 'request_info' &&
+            question.answeredAt != null) ...[
+          const SizedBox(height: Space.sm),
+          KeyValue(
+            'Your question: ${question.notes ?? ''}',
+            'Answer from ${question.answeredBy ?? 'the technician'}: '
+                '${question.answer}',
+          ),
+        ],
         const SizedBox(height: Space.md),
         if (widget.selfReview)
           Container(
@@ -1055,10 +1275,22 @@ class _ReviewSheetState extends ConsumerState<ReviewSheet> with _Saving {
               AppColors.success,
             ),
             (
+              'follow_up',
+              'Approve and raise a follow-up job',
+              Icons.playlist_add_rounded,
+              AppColors.success,
+            ),
+            (
               'reject',
               'Return for more work',
               Icons.undo_rounded,
               AppColors.warning,
+            ),
+            (
+              'request_info',
+              'Ask a question',
+              Icons.help_outline_rounded,
+              AppColors.info,
             ),
           ],
         ),
@@ -1068,11 +1300,341 @@ class _ReviewSheetState extends ConsumerState<ReviewSheet> with _Saving {
           minLines: 2,
           maxLines: 5,
           decoration: InputDecoration(
-            labelText: reject
-                ? 'What still needs to be done? *'
-                : 'Verification notes',
+            labelText: switch (_decision) {
+              'reject' => 'What still needs to be done? *',
+              'request_info' => 'Your question *',
+              _ => 'Verification notes',
+            },
           ),
-          validator: reject ? Valid.length(2, 2000, 'What needs doing') : null,
+          validator: reject || ask
+              ? Valid.length(
+                  2,
+                  2000,
+                  reject ? 'What needs doing' : 'The question',
+                )
+              : null,
+        ),
+        if (followUp) ...[
+          const SizedBox(height: Space.md),
+          TextFormField(
+            controller: _followTitle,
+            decoration: const InputDecoration(
+              labelText: 'Follow-up job card title *',
+            ),
+            validator: Valid.length(3, 120, 'The title'),
+          ),
+          const SizedBox(height: Space.sm),
+          TextFormField(
+            controller: _followDescription,
+            minLines: 2,
+            maxLines: 5,
+            decoration: InputDecoration(
+              labelText: 'What is outstanding',
+              hintText: latest?.outstandingDefects,
+            ),
+          ),
+          const SizedBox(height: Space.sm),
+          ChoiceField<String>(
+            label: 'Follow-up priority (default: same as this job)',
+            value: _followPriority,
+            onChanged: (v) => setState(() => _followPriority = v),
+            options: [
+              for (final p in Priority.values)
+                (p.code, '${p.code} ${p.name}', p.icon, p.color),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// One closure submission, as the reviewer and the Closure tab show it.
+class SubmissionDetails extends StatelessWidget {
+  const SubmissionDetails({super.key, required this.submission});
+
+  final Submission submission;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = submission;
+    final labour = s.labourHours == null
+        ? 'Not given'
+        : '${s.labourHours} h reported · ${fmtMinutes(s.recordedLabourMinutes)} recorded';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ResponsiveGrid(
+          minItemWidth: 260,
+          children: [
+            KeyValue('Completion summary', s.summary),
+            KeyValue('Fault cause or findings', s.findings),
+            KeyValue('Corrective action', s.correctiveAction),
+            KeyValue(
+              'Equipment after the work',
+              humanize(s.equipmentStateAfter),
+            ),
+            KeyValue('Functional tests', s.functionalTests),
+            KeyValue('Electrical tests', s.electricalTests),
+            KeyValue('Materials used', s.materialsUsed),
+            KeyValue('Labour', labour),
+            KeyValue('Outstanding defects', s.outstandingDefects),
+            KeyValue('Recommendations', s.recommendations),
+          ],
+        ),
+        const SizedBox(height: Space.xs),
+        Text(
+          'Submitted by ${s.submittedBy} · ${fmtDateTime(s.submittedAt)}',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Work log entry
+// ---------------------------------------------------------------------------
+class WorkRecordSheet extends ConsumerStatefulWidget {
+  const WorkRecordSheet({super.key, required this.job});
+
+  final JobCard job;
+
+  @override
+  ConsumerState<WorkRecordSheet> createState() => _WorkRecordSheetState();
+}
+
+class _WorkRecordSheetState extends ConsumerState<WorkRecordSheet>
+    with _Saving {
+  String _kind = 'work_performed';
+  final _body = TextEditingController();
+  final _readings =
+      <(TextEditingController, TextEditingController, TextEditingController)>[];
+
+  void _addReading() => setState(
+    () => _readings.add((
+      TextEditingController(),
+      TextEditingController(),
+      TextEditingController(),
+    )),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return _FormBody(
+      formKey: formKey,
+      busy: busy,
+      saveLabel: 'Add to work log',
+      onSave: () {
+        final readings = [
+          for (final (n, v, u) in _readings)
+            if (n.text.trim().isNotEmpty || v.text.trim().isNotEmpty)
+              Reading(n.text.trim(), v.text.trim(), u.text.trim()).toJson(),
+        ];
+        if (_body.text.trim().isEmpty && readings.isEmpty) {
+          showSnack(context, 'Write what was found or done, or add readings.');
+          return;
+        }
+        save(
+          () => ref
+              .read(jobCardActionsProvider)
+              .addWorkRecord(
+                widget.job.id,
+                kind: _kind,
+                body: _body.text,
+                readings: readings,
+              ),
+          done: 'Added to the work log',
+        );
+      },
+      children: [
+        DropdownField<String>(
+          label: 'Type of entry',
+          value: _kind,
+          items: workRecordKinds,
+          onChanged: (v) => setState(() => _kind = v ?? _kind),
+        ),
+        const SizedBox(height: Space.sm),
+        TextFormField(
+          controller: _body,
+          minLines: 3,
+          maxLines: 8,
+          decoration: const InputDecoration(labelText: 'Details'),
+          validator: (v) =>
+              (v?.length ?? 0) > 4000 ? 'Up to 4000 characters' : null,
+        ),
+        const SizedBox(height: Space.md),
+        Text('Readings', style: Theme.of(context).textTheme.titleSmall),
+        for (final (i, (n, v, u)) in _readings.indexed)
+          Padding(
+            padding: const EdgeInsets.only(top: Space.xs),
+            child: Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: TextFormField(
+                    controller: n,
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      labelText: 'What',
+                      hintText: 'L1-N voltage',
+                    ),
+                    validator: (x) =>
+                        v.text.trim().isNotEmpty && (x ?? '').trim().isEmpty
+                        ? 'Name it'
+                        : null,
+                  ),
+                ),
+                const SizedBox(width: Space.xs),
+                Expanded(
+                  flex: 2,
+                  child: TextFormField(
+                    controller: v,
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      labelText: 'Value',
+                    ),
+                    validator: (x) =>
+                        n.text.trim().isNotEmpty && (x ?? '').trim().isEmpty
+                        ? 'Value?'
+                        : null,
+                  ),
+                ),
+                const SizedBox(width: Space.xs),
+                Expanded(
+                  child: TextFormField(
+                    controller: u,
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      labelText: 'Unit',
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Remove reading',
+                  onPressed: () => setState(() => _readings.removeAt(i)),
+                  icon: const Icon(Icons.remove_circle_outline_rounded),
+                ),
+              ],
+            ),
+          ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: _readings.length >= 50 ? null : _addReading,
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Add a reading'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Time corrections (engineers): fix a session, or enter missed time
+// ---------------------------------------------------------------------------
+class CorrectTimeSheet extends ConsumerStatefulWidget {
+  const CorrectTimeSheet({
+    super.key,
+    required this.job,
+    this.session,
+    this.people = const [],
+  });
+
+  final JobCard job;
+
+  /// The session to correct; null to enter time that was never started.
+  final WorkSession? session;
+
+  /// People who were on the job (for entering missed time).
+  final List<(String, String)> people;
+
+  @override
+  ConsumerState<CorrectTimeSheet> createState() => _CorrectTimeSheetState();
+}
+
+class _CorrectTimeSheetState extends ConsumerState<CorrectTimeSheet>
+    with _Saving {
+  late DateTime? _start = widget.session?.startedAt;
+  late DateTime? _end = widget.session?.endedAt;
+  late String? _user = widget.session?.userId;
+  final _reason = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    final s = widget.session;
+    return _FormBody(
+      formKey: formKey,
+      busy: busy,
+      saveLabel: s == null ? 'Add the time' : 'Save correction',
+      onSave: () {
+        if (_start == null || (s == null && (_end == null || _user == null))) {
+          showSnack(context, 'Give the person, start and end.');
+          return;
+        }
+        final actions = ref.read(jobCardActionsProvider);
+        save(
+          () => s == null
+              ? actions.addSession(
+                  widget.job.id,
+                  userId: _user!,
+                  startedAt: _start!,
+                  endedAt: _end!,
+                  reason: _reason.text,
+                )
+              : actions.correctSession(
+                  s.id,
+                  startedAt: _start!,
+                  endedAt: _end,
+                  reason: _reason.text,
+                ),
+          done: 'Work time saved; the change is in the audit trail',
+        );
+      },
+      children: [
+        Text(
+          s == null
+              ? 'Enter work that was done but never started on the app.'
+              : 'Correct ${s.name}\'s session. The original times are kept.',
+        ),
+        const SizedBox(height: Space.md),
+        if (s == null) ...[
+          DropdownField<String>(
+            label: 'Person',
+            required: true,
+            value: _user,
+            items: widget.people,
+            onChanged: (v) => setState(() => _user = v),
+          ),
+          const SizedBox(height: Space.sm),
+        ],
+        DateTimeField(
+          label: 'Started',
+          value: _start,
+          allowClear: false,
+          lastDate: SiteTime.now(),
+          onChanged: (v) => setState(() => _start = v),
+        ),
+        const SizedBox(height: Space.sm),
+        DateTimeField(
+          label: s != null && s.running
+              ? 'Ended (leave empty if still working)'
+              : 'Ended',
+          value: _end,
+          allowClear: s != null && s.running,
+          lastDate: SiteTime.now(),
+          onChanged: (v) => setState(() => _end = v),
+        ),
+        const SizedBox(height: Space.sm),
+        TextFormField(
+          controller: _reason,
+          minLines: 2,
+          maxLines: 4,
+          decoration: const InputDecoration(
+            labelText: 'Reason for the correction *',
+          ),
+          validator: Valid.length(5, 2000, 'The reason'),
         ),
       ],
     );

@@ -341,7 +341,35 @@ class JobClosure {
       performerName = (r['performer'] as Map?)?['full_name'] as String?,
       verifierName = (r['verifier'] as Map?)?['full_name'] as String?,
       selfApproved = r['self_approved'] as bool? ?? false,
-      legacy = r['legacy'] as bool? ?? false;
+      legacy = r['legacy'] as bool? ?? false,
+      elapsedMinutes = parseNum(r['elapsed_minutes'])?.round(),
+      activeMinutes = parseNum(r['active_minutes'])?.round(),
+      labourMinutes = parseNum(r['labour_minutes'])?.round(),
+      waitMinutes = parseNum(r['wait_minutes'])?.round(),
+      slaExcludedMinutes = parseNum(r['sla_excluded_minutes'])?.round(),
+      pauseCount = parseNum(r['pause_count'])?.round(),
+      responseMinutes = parseNum(r['response_minutes'])?.round(),
+      assignmentMinutes = parseNum(r['assignment_minutes'])?.round(),
+      startMinutes = parseNum(r['start_minutes'])?.round(),
+      responseTargetMet = r['response_target_met'] as bool?,
+      completionTargetMet = r['completion_target_met'] as bool?,
+      labourHoursReported = parseNum(r['labour_hours_reported']);
+
+  /// Phase 2 metrics, frozen at closure; null on earlier closures.
+  final int? elapsedMinutes;
+  final int? activeMinutes;
+  final int? labourMinutes;
+  final int? waitMinutes;
+  final int? slaExcludedMinutes;
+  final int? pauseCount;
+  final int? responseMinutes;
+  final int? assignmentMinutes;
+  final int? startMinutes;
+  final bool? responseTargetMet;
+  final bool? completionTargetMet;
+  final num? labourHoursReported;
+
+  bool get hasMetrics => activeMinutes != null;
 
   final DateTime closedAt;
   final String? summary;

@@ -32,6 +32,11 @@ class JobCardsLive extends Notifier<int> {
       'job_comments',
       'job_attachments',
       'service_requests',
+      'job_work_sessions',
+      'job_waits',
+      'job_work_records',
+      'job_submissions',
+      'job_reviews',
     ]) {
       channel = channel.onPostgresChanges(
         event: PostgresChangeEvent.all,
@@ -461,6 +466,129 @@ class JobCardActions {
     'fn_review_job_card',
     {'p_job': id, 'p_decision': decision, 'p_notes': _text(notes)},
   );
+
+  // --- Phase 2: work execution (API.md section 9) --------------------------
+
+  /// Starts, resumes or joins the work; opens a work session for me.
+  Future<void> startWork(String id) => _call('fn_start_work', {'p_job': id});
+
+  /// A short pause (break, end_of_shift, other_job, other) stops my timer; a
+  /// hold status stops everyone's and starts a wait.
+  Future<void> pauseWork(
+    String id,
+    String reason, {
+    String? note,
+    bool countsTowardSla = true,
+  }) => _call('fn_pause_work', {
+    'p_job': id,
+    'p_reason': reason,
+    'p_note': _text(note),
+    'p_counts_toward_sla': countsTowardSla,
+  });
+
+  Future<void> addWorkRecord(
+    String id, {
+    required String kind,
+    String? body,
+    List<Map<String, dynamic>> readings = const [],
+  }) => _call('fn_add_work_record', {
+    'p_client_ref': _uuid.v4(),
+    'p_job': id,
+    'p_kind': kind,
+    'p_body': _text(body),
+    'p_readings': readings,
+  });
+
+  /// [items]: {item_id, confirmed, reference, note}.
+  Future<void> recordSafety(String id, List<Map<String, dynamic>> items) =>
+      _call('fn_record_safety', {'p_job': id, 'p_items': items});
+
+  Future<void> submitForReview(
+    String id, {
+    required String summary,
+    required String findings,
+    required String correctiveAction,
+    required String equipmentStateAfter,
+    String? functionalTests,
+    String? electricalTests,
+    String? materialsUsed,
+    num? labourHours,
+    String? outstandingDefects,
+    String? recommendations,
+    required bool checksConfirmed,
+    required bool safetyConfirmed,
+  }) => _call('fn_submit_for_review', {
+    'p_job': id,
+    'p_summary': summary,
+    'p_findings': findings,
+    'p_corrective_action': correctiveAction,
+    'p_equipment_state_after': equipmentStateAfter,
+    'p_functional_tests': _text(functionalTests),
+    'p_electrical_tests': _text(electricalTests),
+    'p_materials_used': _text(materialsUsed),
+    'p_labour_hours': labourHours,
+    'p_outstanding_defects': _text(outstandingDefects),
+    'p_recommendations': _text(recommendations),
+    'p_checks_confirmed': checksConfirmed,
+    'p_safety_confirmed': safetyConfirmed,
+  });
+
+  /// approve (optionally raising a follow-up job card), reject or
+  /// request_info.
+  Future<void> verify(
+    String id,
+    String decision, {
+    String? notes,
+    String? followUpTitle,
+    String? followUpDescription,
+    String? followUpPriority,
+  }) => _call('fn_verify_job_card', {
+    'p_job': id,
+    'p_decision': decision,
+    'p_notes': _text(notes),
+    'p_follow_up_title': _text(followUpTitle),
+    'p_follow_up_description': _text(followUpDescription),
+    'p_follow_up_priority': followUpPriority,
+  });
+
+  Future<void> answerReview(String id, String answer) =>
+      _call('fn_answer_review', {'p_job': id, 'p_answer': answer});
+
+  Future<void> correctSession(
+    String sessionId, {
+    required DateTime startedAt,
+    DateTime? endedAt,
+    required String reason,
+  }) => _call('fn_correct_work_session', {
+    'p_session': sessionId,
+    'p_started_at': _time(startedAt),
+    'p_ended_at': _time(endedAt),
+    'p_reason': reason,
+  });
+
+  Future<void> addSession(
+    String id, {
+    required String userId,
+    required DateTime startedAt,
+    required DateTime endedAt,
+    required String reason,
+  }) => _call('fn_add_work_session', {
+    'p_job': id,
+    'p_user': userId,
+    'p_started_at': _time(startedAt),
+    'p_ended_at': _time(endedAt),
+    'p_reason': reason,
+  });
+
+  Future<void> setWaitSla(
+    String waitId, {
+    required bool counts,
+    required String reason,
+  }) => _call('fn_set_wait_sla', {
+    'p_wait': waitId,
+    'p_counts': counts,
+    'p_reason': reason,
+  });
 
   Future<void> cancel(String id, String reason) =>
       _call('fn_cancel_job_card', {'p_job': id, 'p_reason': reason});

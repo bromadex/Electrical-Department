@@ -240,10 +240,7 @@ class _QuickActionsState extends ConsumerState<_QuickActions> {
           FilledButton.icon(
             onPressed: _busy
                 ? null
-                : () => _run(
-                    () => actions.setStatus(j.id, 'in_progress'),
-                    'Work started',
-                  ),
+                : () => _run(() => actions.startWork(j.id), 'Work started'),
             icon: const Icon(Icons.play_arrow_rounded),
             label: const Text('Start work'),
           ),
@@ -270,11 +267,25 @@ class _QuickActionsState extends ConsumerState<_QuickActions> {
                 ? null
                 : () => showFormSheet<bool>(
                     context,
-                    title: 'Put on hold',
-                    child: HoldSheet(job: j),
+                    title: 'Pause work',
+                    child: PauseSheet(job: j),
                   ),
             icon: const Icon(Icons.pause_rounded),
-            label: const Text('Hold'),
+            label: const Text('Pause'),
+          ),
+        );
+        // Starting is safe to repeat: it opens my timer only if it is not
+        // already running.
+        buttons.add(
+          OutlinedButton.icon(
+            onPressed: _busy
+                ? null
+                : () => _run(
+                    () => actions.startWork(j.id),
+                    'Your timer is running',
+                  ),
+            icon: const Icon(Icons.play_arrow_rounded),
+            label: const Text('Start my timer'),
           ),
         );
       case _ when j.status.isHold:
@@ -282,10 +293,7 @@ class _QuickActionsState extends ConsumerState<_QuickActions> {
           FilledButton.icon(
             onPressed: _busy
                 ? null
-                : () => _run(
-                    () => actions.setStatus(j.id, 'in_progress'),
-                    'Work resumed',
-                  ),
+                : () => _run(() => actions.startWork(j.id), 'Work resumed'),
             icon: const Icon(Icons.play_arrow_rounded),
             label: const Text('Resume'),
           ),
