@@ -7,6 +7,14 @@ name: Supabase database
 #   SUPABASE_DB_URL  Session pooler connection string, e.g.
 #                    postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres
 #                    (URL-encode special characters in the password)
+# Optional, for the edge functions in supabase/functions:
+#   SUPABASE_ACCESS_TOKEN     repo secret, a personal access token from
+#                             supabase.com/dashboard/account/tokens
+#   SUPABASE_URL              repo variable (already used by the app workflow)
+#   FIREBASE_SERVICE_ACCOUNT  repo secret, the Firebase service account JSON
+#                             (needs the Firebase Cloud Messaging Admin role)
+#   APP_URL                   repo variable, optional; the web app's address
+#                             (browser notifications open jobs there)
 
 on:
   pull_request:
@@ -32,6 +40,13 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: ${{ env.SUPABASE_CLI_VERSION }}
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: 2.1.4
+
+      - name: Type-check edge functions
+        run: deno check supabase/functions/*/index.ts
 
       - name: Apply migrations to a local database
         run: supabase db start
@@ -84,3 +99,33 @@ jobs:
             exit 1
           fi
           supabase db push --db-url "$SUPABASE_DB_URL"
+
+      - name: Deploy edge functions
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          APP_URL: ${{ vars.APP_URL }}
+        run: |
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ] || [ -z "$SUPABASE_URL" ]; then
+            echo "::warning::SUPABASE_ACCESS_TOKEN or SUPABASE_URL is not set; edge functions not deployed, so no push notifications yet."
+            exit 0
+          fi
+          ref=$(echo "$SUPABASE_URL" | sed -E 's#^https://([a-z0-9]+)\.supabase\.co/?$#\1#')
+          for d in supabase/functions/*/; do
+            supabase functions deploy "$(basename "$d")" --project-ref "$ref"
+          done
+
+          # Push notifications: give push-send its Firebase key, then tell the
+          # database where push-send lives (until then the trigger does nothing).
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "::warning::FIREBASE_SERVICE_ACCOUNT is not set; push notifications stay off."
+            exit 0
+          fi
+          supabase secrets set --project-ref "$ref" \
+            "FIREBASE_SERVICE_ACCOUNT=$FIREBASE_SERVICE_ACCOUNT" \
+            "APP_URL=${APP_URL:-https://electrical-department-lake.vercel.app}"
+          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -q \
+            -c "select public.fn_set_push_endpoint('${SUPABASE_URL%/}/functions/v1/push-send')"
+          echo "Push notifications are on."

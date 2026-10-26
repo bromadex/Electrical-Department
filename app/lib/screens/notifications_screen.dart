@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../services/notifications_controller.dart';
+import '../services/push_service.dart';
 import '../theme/tokens.dart';
 import '../ui/bits.dart';
 import '../ui/motion.dart';
@@ -104,10 +105,8 @@ class NotificationsScreen extends ConsumerWidget {
                               notification: n,
                               onRead: () {
                                 if (!n.isRead) notifier.markRead([n.id]);
-                                final link = n.link;
-                                if (link != null && link.startsWith('job:')) {
-                                  context.push('/jobs/${link.substring(4)}');
-                                }
+                                final path = notificationPath(n.link);
+                                if (path != null) context.push(path);
                               },
                             ).entrance(context, index: index++),
                           ),

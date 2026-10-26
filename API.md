@@ -208,10 +208,23 @@ Errors: `NOT_ALLOWED`, `NOT_FOUND`, `INVALID`, `CONFLICT`.
 - Realtime: `jobs:<site_id>` (jobs), `job:<job_id>` (comments, photos).
 - Routes: `/board`, `/jobs/<id>`, `/jobs/recurring`. Notification link `job:<uuid>` opens `/jobs/<uuid>`.
 
+## 8. Push notifications (migration 0003)
+
+Every row inserted into `notifications` is also sent to the person's phones and browsers.
+
+- Table `push_config` (one row, no client access): `endpoint` of the push-send function and a random `secret`.
+- Trigger `notifications_push`: after insert on `notifications`, posts `{notification_id}` to the endpoint through pg_net with header `x-push-secret`. Does nothing while `endpoint` is null (local and test databases). A push failure never blocks the notification.
+- `fn_register_device(p_token, p_platform)` (0001) and `fn_unregister_device(p_token)`: the signed-in person's own devices only. The app unregisters before sign-out.
+- Service role only: `fn_push_job(p_notification, p_secret)` → `{id, type, title, body, link, tokens[]}`; `fn_push_drop_tokens(p_secret, p_tokens)` archives tokens FCM rejects.
+- `fn_set_push_endpoint(p_url)`: owner only, called by CI after deploying the function.
+- Edge function `push-send` (no JWT, checks the secret): sends through FCM HTTP v1 with the `FIREBASE_SERVICE_ACCOUNT` secret. Urgent types (`critical`, `overdue`, `assigned`, `reassigned`) go high priority.
+- Links: `job:<id>` → `/jobs/<id>`, `chat:<id>` → `/chat/<id>`. Browser notifications open `APP_URL/#/<path>`.
+- App: push stays off until `FirebaseConfig` has the project id and the platform's API key. Users switch alerts on from the Today card or More → Alerts on this device.
+
 ## 6. Feature sections (filled in as features are built)
 
 - 7. Jobs board — Clement, phase 1 (done, see above)
-- 8. Push notifications + reminders — Tafara, phase 1
+- 8. Push notifications — phase 1 (done, see above)
 - 9. Daily checklists + daily report — Clement, phase 2
 - 10. Group chat — Tafara, phase 2
 - 11. Tools — Clement, phase 3
@@ -222,6 +235,8 @@ Errors: `NOT_ALLOWED`, `NOT_FOUND`, `INVALID`, `CONFLICT`.
 - 16. Meetings, transcription, minutes — Tafara, phase 5
 
 ## Changelog
+
+- v0.3 — push notifications (push_config, notifications_push trigger, push-send function).
 
 - v0.2 — jobs board (jobs, photos, comments, recurrences, overdue alerts).
 

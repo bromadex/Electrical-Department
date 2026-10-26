@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../config/env.dart';
 import '../services/core_providers.dart';
 import '../services/notifications_controller.dart';
+import '../services/push_service.dart';
 import '../services/session_controller.dart';
 import '../theme/theme_mode.dart';
 import '../theme/tokens.dart';
@@ -23,6 +24,7 @@ class MoreScreen extends ConsumerWidget {
     final session = ref.watch(sessionProvider);
     final unread = ref.watch(notificationsProvider.select((s) => s.unread));
     final mode = ref.watch(themeModeProvider);
+    final push = ref.watch(pushProvider);
     final profile = session.profile;
     final email = ref.read(supabaseProvider).auth.currentUser?.email ?? '';
     final name = (profile?.fullName.isNotEmpty ?? false)
@@ -132,6 +134,22 @@ class MoreScreen extends ConsumerWidget {
                     : const Icon(Icons.chevron_right_rounded),
                 onTap: () => context.push('/notifications'),
               ),
+              if (push != PushState.unavailable)
+                _Row(
+                  icon: Icons.notifications_active_outlined,
+                  title: 'Alerts on this device',
+                  subtitle: push == PushState.blocked
+                      ? 'Blocked. Allow notifications in your settings.'
+                      : null,
+                  trailing: Switch.adaptive(
+                    value: push == PushState.on,
+                    onChanged: push == PushState.blocked
+                        ? null
+                        : (on) => on
+                              ? ref.read(pushProvider.notifier).enable()
+                              : ref.read(pushProvider.notifier).disable(),
+                  ),
+                ),
               _Row(
                 icon: Icons.place_outlined,
                 title: 'My sites',

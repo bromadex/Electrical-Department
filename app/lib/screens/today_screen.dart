@@ -14,6 +14,7 @@ import '../ui/charts.dart';
 import '../ui/motion.dart';
 import '../ui/page.dart';
 import '../ui/surfaces.dart';
+import '../widgets/push_prompt.dart';
 
 enum _ChartMode { activity, areas }
 
@@ -51,6 +52,7 @@ class TodayScreen extends ConsumerWidget {
         ]);
       },
       children: [
+        const PushPrompt(),
         LayoutBuilder(
           builder: (context, c) {
             final wide = c.maxWidth >= 980;
@@ -471,8 +473,8 @@ class _Roadmap extends StatelessWidget {
 
   static const _items = [
     ('Foundation', 'Clement & Tafara', 'Phase 0', 1.0),
-    ('Jobs board', 'Clement', 'Phase 1', 0.0),
-    ('Push notifications', 'Tafara', 'Phase 1', 0.0),
+    ('Jobs board', 'Clement', 'Phase 1', 0.9),
+    ('Push notifications', 'Tafara', 'Phase 1', 0.8),
     ('Daily checklists', 'Clement', 'Phase 2', 0.0),
     ('Group chat', 'Tafara', 'Phase 2', 0.0),
   ];
