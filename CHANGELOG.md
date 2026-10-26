@@ -1,0 +1,62 @@
+# What's new
+
+## 26 October 2026 (on `main`)
+
+### New layout and names
+The app was rearranged so people find things quickly. Tabs are now
+**Home · Jobs · ➕ · Chat · Menu** (phones); the desktop side menu has the same
+tabs, a **New** button and direct links to Job cards, Checklists, Daily report,
+Equipment, Tools and Documents.
+
+| Was | Now | Address |
+|---|---|---|
+| Today | Home | `/home` |
+| Board | Jobs | `/jobs` |
+| More | Menu | `/menu` |
+| Store tab | removed (tools are under Tools) | `/tools` |
+| Assets | Equipment | `/assets` |
+| Recurring jobs | Planned maintenance | `/jobs/recurring` |
+| Requests | Work requests | `/requests` |
+| Priority targets | Response times | `/admin/targets` |
+| Audit log | Activity log | `/admin/activity` |
+
+The old addresses (`/today`, `/board`, `/more`, `/store`) redirect, so old links
+still work.
+
+- **➕ New** (middle of the phone bar, top of the desktop menu): one sheet to
+  report a fault, add to today's report, do a checklist, lend a tool, send a
+  message, add a document or open work requests. It only shows what the
+  person's role allows. `lib/widgets/create_sheet.dart`
+- **Home** is a to-do list (my jobs, checklists due, documents to sign, tools to
+  return; for supervisors urgent jobs with nobody and requests to decide), four
+  site numbers that open the matching jobs, and shortcuts on phones.
+  `lib/screens/home_screen.dart`
+- **Jobs** has one filter row (All active, Mine, Needs someone, Urgent, Overdue,
+  Waiting, Done) and groups active jobs as Needs someone / In hand / Waiting.
+  `JobFilter` in `lib/jobs/job_rules.dart` changed to these values;
+  `openJobs(context, ref, filter)` opens the tab on a filter.
+  `lib/screens/jobs_screen.dart` replaces `board_screen.dart`.
+- **Menu** is a tile grid (`lib/ui/tiles.dart`: `TileGrid`, `ShortcutTile`).
+- Every pushed screen has `AppBackButton` (`lib/widgets/app_back_button.dart`):
+  it goes back, or to Home when opened from a link or a notification.
+- Job history speaks plainly ("changed the equipment and the lock-out rule") and
+  hides the system's own reminder stamps.
+
+### Job Cards Version 2 in the layout
+- Reached from the **Job cards** tile on Menu and Home and the desktop menu
+  link (people with `jc.view` or `req.submit`).
+- Its back link reads **Back to main app** and goes to `/home`.
+- The acceptance test uses `/jobs`, `/menu` and `/home`.
+- It uses the main app's liquid-glass look: the mesh wallpaper, a floating glass
+  menu beside a glass window (floating tab bar on phones), glass panels and KPI
+  cards, and the same burgundy, dark rose and blue.
+
+### Also landed today
+- **Group chat** (`0011_chat.sql`, `lib/chat/`): department and site groups,
+  direct chats, photos, replies, reactions, `#` tags for jobs, equipment and
+  tools, "make a job from this message", one push per chat until it is opened.
+  Chat pushes use notification type `chat` and are left out of the
+  notifications list.
+- **Daily report** screen with photos, approval, PDF and week/month totals
+  (`lib/reports/`).
+- `ReportUpdateForm` and `RequestForm` are public so the ➕ sheet can open them.
