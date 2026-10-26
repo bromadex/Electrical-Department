@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'admin/activity_screen.dart';
+import 'admin/sites_screen.dart';
 import 'admin/users_screen.dart';
 import 'assets/asset_detail_screen.dart';
 import 'assets/equipment_screen.dart';
@@ -17,6 +18,7 @@ import 'maintenance/planned_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/more_screen.dart';
+import 'screens/settings_screen.dart';
 import 'screens/notifications_screen.dart';
 import 'reports/daily_report_screen.dart';
 import 'services/core_providers.dart';
@@ -99,6 +101,8 @@ GoRouter buildRouter(WidgetRef ref) {
         builder: (_, s) => ConversationScreen(id: s.pathParameters['id']!),
       ),
       GoRoute(path: '/admin/users', builder: (_, _) => const UsersScreen()),
+      GoRoute(path: '/admin/sites', builder: (_, _) => const SitesScreen()),
+      GoRoute(path: '/settings', builder: (_, _) => const SettingsScreen()),
       GoRoute(path: '/reports', builder: (_, _) => const DailyReportScreen()),
       GoRoute(
         path: '/admin/activity',

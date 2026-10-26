@@ -231,6 +231,13 @@ For system administrators only: `admin.users` at all sites (site-only admins are
 - Edge function `admin-users` (POST, caller's token): `{action: "create", email, password, full_name}` → `{id}`; `{action: "reset_password", user_id, password}` → `{ok: true}`. Errors are `{error: "CODE: message"}`. The sign-up trigger creates the profile; roles are then set with `fn_set_user_roles`.
 - App: More → Admin → People (`/admin/users`). Online only.
 
+**Settings (migration 0021).** `fn_update_my_profile(p_full_name, p_phone, p_home_site)`: your
+own name, phone and home site. `fn_save_site(p_id, p_code, p_name, p_archived)` and
+`fn_save_area(p_id, p_site, p_name, p_archived)` (`admin.sites`; `p_id` null adds): site codes
+are 2–5 letters and unique, area names unique within a site; a new site gets its default chat.
+App: Menu → Settings (`/settings`: you, this device, admin, about) and Settings → Sites and
+areas (`/admin/sites`). Passwords change with Supabase Auth `updateUser`.
+
 ## 10. Assets and planned maintenance (migration 0005)
 
 A light asset register; jobs can point at an asset, so each asset has a job history.

@@ -32,7 +32,6 @@ class MoreScreen extends ConsumerWidget {
         ? profile!.fullName
         : email;
     final homeSite = session.siteById(profile?.homeSiteId);
-    final codes = session.perms.codes.toList()..sort();
 
     return PageScroll(
       maxWidth: 720,
@@ -41,6 +40,7 @@ class MoreScreen extends ConsumerWidget {
         SurfaceCard(
           gradient: BrandColors.brandGradient,
           padding: const EdgeInsets.all(Space.lg),
+          onTap: () => context.push('/settings'),
           child: Row(
             children: [
               DecoratedBox(
@@ -160,29 +160,6 @@ class MoreScreen extends ConsumerWidget {
                 colors: const [BrandColors.success, BrandColors.info],
                 onTap: () => context.push('/jobs/recurring'),
               ),
-            if (session.perms.canEverywhere('admin.users')) ...[
-              ShortcutTile(
-                icon: Icons.group_outlined,
-                title: 'People',
-                subtitle: 'Accounts and roles',
-                colors: const [Color(0xFF3B3F4A), Color(0xFF6B7080)],
-                onTap: () => context.push('/admin/users'),
-              ),
-              ShortcutTile(
-                icon: Icons.timer_outlined,
-                title: 'Job card settings',
-                subtitle: 'Priorities, numbering',
-                colors: const [Color(0xFF3B3F4A), Color(0xFF6B7080)],
-                onTap: () => context.push('/admin/job-settings'),
-              ),
-              ShortcutTile(
-                icon: Icons.history_rounded,
-                title: 'Activity log',
-                subtitle: 'Every change',
-                colors: const [Color(0xFF3B3F4A), Color(0xFF6B7080)],
-                onTap: () => context.push('/admin/audit'),
-              ),
-            ],
           ],
         ).entrance(context, index: 1),
 
@@ -191,71 +168,19 @@ class MoreScreen extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(vertical: Space.xs),
           child: Column(
             children: [
-              if (push != PushState.unavailable)
-                _Row(
-                  icon: Icons.notifications_active_outlined,
-                  title: 'Alerts on this device',
-                  subtitle: push == PushState.blocked
-                      ? 'Blocked. Allow notifications in your settings.'
-                      : null,
-                  trailing: Switch.adaptive(
-                    value: push == PushState.on,
-                    onChanged: push == PushState.blocked
-                        ? null
-                        : (on) => on
-                              ? ref.read(pushProvider.notifier).enable()
-                              : ref.read(pushProvider.notifier).disable(),
-                  ),
-                ),
               _Row(
-                icon: Icons.place_outlined,
-                title: 'My sites',
-                subtitle: session.mySites.map((s) => s.code).join(' · '),
-                onTap: () => _sheet(
-                  context,
-                  'My sites',
-                  Column(
-                    children: [
-                      for (final s in session.mySites)
-                        ListTile(
-                          leading: Pill(label: s.code),
-                          title: Text(s.name),
-                          subtitle: Text(
-                            '${session.areasAt(s.id).length} areas',
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-              _Row(
-                icon: Icons.verified_user_outlined,
-                title: 'My permissions',
-                subtitle: '${codes.length} granted',
-                onTap: () => _sheet(
-                  context,
-                  'My permissions',
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [for (final c in codes) Pill(label: c)],
-                  ),
-                ),
+                icon: Icons.settings_outlined,
+                title: 'Settings',
+                subtitle: [
+                  'Profile, password, appearance',
+                  if (push == PushState.off) 'alerts are off',
+                  if (session.perms.canEverywhere('admin.users')) 'admin',
+                ].join(' · '),
+                onTap: () => context.push('/settings'),
               ),
             ],
           ),
         ).entrance(context, index: 2),
-
-        const SizedBox(height: Space.lg),
-        Pressable(
-          onTap: () => ref.read(authUserIdProvider.notifier).signOut(),
-          child: OutlinedButton.icon(
-            onPressed: () => ref.read(authUserIdProvider.notifier).signOut(),
-            style: OutlinedButton.styleFrom(foregroundColor: scheme.error),
-            icon: const Icon(Icons.logout_rounded),
-            label: const Text('Sign out'),
-          ),
-        ).entrance(context, index: 3),
         Padding(
           padding: const EdgeInsets.all(Space.lg),
           child: Text(
@@ -269,27 +194,6 @@ class MoreScreen extends ConsumerWidget {
       ],
     );
   }
-
-  void _sheet(BuildContext context, String title, Widget body) {
-    showModalBottomSheet<void>(
-      context: context,
-      useSafeArea: true,
-      isScrollControlled: true,
-      constraints: const BoxConstraints(maxWidth: 560),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, Space.lg),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: Space.md),
-            Flexible(child: SingleChildScrollView(child: body)),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 class _Row extends StatelessWidget {
@@ -297,14 +201,12 @@ class _Row extends StatelessWidget {
     required this.icon,
     required this.title,
     this.subtitle,
-    this.trailing,
     this.onTap,
   });
 
   final IconData icon;
   final String title;
   final String? subtitle;
-  final Widget? trailing;
   final VoidCallback? onTap;
 
   @override
@@ -323,7 +225,7 @@ class _Row extends StatelessWidget {
       ),
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
       subtitle: subtitle == null || subtitle!.isEmpty ? null : Text(subtitle!),
-      trailing: trailing ?? const Icon(Icons.chevron_right_rounded),
+      trailing: const Icon(Icons.chevron_right_rounded),
     );
   }
 }
