@@ -15,51 +15,54 @@ import '../theme/tokens.dart';
 import '../ui/bits.dart';
 import '../ui/motion.dart';
 import '../ui/signature_pad.dart';
+import '../ui/charts.dart' show GlassSegmented;
+import '../ui/record_hero.dart';
 import '../ui/surfaces.dart';
 import 'tools_repository.dart';
 import 'tools_screen.dart';
 import '../widgets/app_back_button.dart';
 
-/// One tool: where it is, its condition and calibration, and who had it.
-class ToolDetailScreen extends ConsumerWidget {
+/// One tool: the shared record header, quick actions (lend or take back),
+/// then History · Details.
+class ToolDetailScreen extends ConsumerStatefulWidget {
   const ToolDetailScreen({super.key, required this.id});
 
   final String id;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ToolDetailScreen> createState() => _ToolDetailScreenState();
+}
+
+enum _Tab { history, details }
+
+class _ToolDetailScreenState extends ConsumerState<ToolDetailScreen> {
+  _Tab _tab = _Tab.history;
+
+  @override
+  Widget build(BuildContext context) {
+    final id = widget.id;
     final tool = ref.watch(toolProvider(id)).value;
     final people = ref.watch(peopleProvider).value ?? const {};
     final me = ref.watch(authUserIdProvider);
     final session = ref.watch(sessionProvider);
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
     final top = MediaQuery.paddingOf(context).top + kToolbarHeight;
     final canIssue =
         tool != null && session.can('tools.issue', siteId: tool.siteId);
     final dates = MaterialLocalizations.of(context);
 
+    Future<void> edit() async {
+      final kept = await showFormSheet<bool>(context, ToolForm(tool: tool));
+      if (kept == false && context.mounted) context.pop();
+    }
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        leading: const AppBackButton(),
+        leading: const AppBackButton(fallback: '/equipment?side=tools'),
         title: Text(tool?.code ?? 'Tool'),
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
-        actions: [
-          if (canIssue)
-            IconButton(
-              tooltip: 'Edit tool',
-              icon: const Icon(CupertinoIcons.pencil),
-              onPressed: () async {
-                final kept = await showFormSheet<bool>(
-                  context,
-                  ToolForm(tool: tool),
-                );
-                if (kept == false && context.mounted) context.pop();
-              },
-            ),
-        ],
       ),
       body: MeshBackground(
         child: tool == null
@@ -80,118 +83,101 @@ class ToolDetailScreen extends ConsumerWidget {
                 children: [
                   Center(
                     child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 720),
+                      constraints: const BoxConstraints(maxWidth: 760),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          _Header(
-                            tool: tool,
-                            holder: tool.holderId == me
-                                ? 'you'
-                                : people[tool.holderId],
-                          ).entrance(context),
-                          if (canIssue) ...[
-                            const SizedBox(height: Space.md),
-                            if (tool.holderId == null)
-                              FilledButton.icon(
-                                onPressed:
-                                    {'damaged', 'lost'}.contains(tool.condition)
-                                    ? null
-                                    : () => showFormSheet(
-                                        context,
-                                        _IssueSheet(tool: tool),
-                                      ),
-                                icon: const Icon(
-                                  CupertinoIcons.arrow_right_circle_fill,
+                          _hero(tool, me, people, dates).entrance(context),
+                          const SizedBox(height: Space.sm),
+                          QuickActions(
+                            actions: [
+                              if (tool.holderId == null)
+                                (
+                                  icon: CupertinoIcons.arrow_right_circle_fill,
+                                  label: 'Lend',
+                                  onTap:
+                                      canIssue &&
+                                          !{
+                                            'damaged',
+                                            'lost',
+                                          }.contains(tool.condition)
+                                      ? () => showFormSheet(
+                                          context,
+                                          _IssueSheet(tool: tool),
+                                        )
+                                      : null,
+                                  color: BrandColors.maroon,
+                                )
+                              else
+                                (
+                                  icon: CupertinoIcons.arrow_down_circle_fill,
+                                  label: 'Take back',
+                                  onTap: canIssue
+                                      ? () => showFormSheet(
+                                          context,
+                                          _ReturnSheet(tool: tool),
+                                        )
+                                      : null,
+                                  color: BrandColors.success,
                                 ),
-                                label: const Text('Issue to someone'),
-                              )
-                            else
-                              FilledButton.icon(
-                                style: FilledButton.styleFrom(
-                                  backgroundColor: BrandColors.success,
-                                ),
-                                onPressed: () => showFormSheet(
-                                  context,
-                                  _ReturnSheet(tool: tool),
-                                ),
-                                icon: const Icon(
-                                  CupertinoIcons.arrow_down_circle_fill,
-                                ),
-                                label: const Text('Take back'),
+                              (
+                                icon: CupertinoIcons.checkmark_square,
+                                label: 'Count',
+                                onTap: canIssue
+                                    ? () => context.push('/tools/count')
+                                    : null,
+                                color: BrandColors.info,
                               ),
-                          ],
-                          const SectionHeader('History'),
-                          ref
-                              .watch(toolHistoryProvider(id))
-                              .when(
-                                loading: () => const LinearProgressIndicator(),
-                                error: (e, _) => Text(
-                                  AppError.from(e).isRetryable
-                                      ? 'History loads when you are online.'
-                                      : AppError.from(e).message,
-                                  style: theme.textTheme.bodySmall,
-                                ),
-                                data: (rows) => rows.isEmpty
-                                    ? Text(
-                                        'Never issued yet.',
-                                        style: theme.textTheme.bodySmall,
-                                      )
-                                    : SurfaceCard(
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: Space.xs,
-                                        ),
-                                        child: Column(
-                                          children: [
-                                            for (final r in rows)
-                                              ListTile(
-                                                leading: AppAvatar(
-                                                  name:
-                                                      people[r.issuedTo] ?? '?',
-                                                  size: 36,
-                                                ),
-                                                title: Text(
-                                                  people[r.issuedTo] ??
-                                                      'Someone',
-                                                ),
-                                                subtitle: Text(
-                                                  [
-                                                    'Out ${dates.formatShortMonthDay(r.issuedAt)}',
-                                                    if (r.returnedAt != null)
-                                                      'back ${dates.formatShortMonthDay(r.returnedAt!)} · ${ToolCondition.parse(r.returnCondition ?? 'good').label.toLowerCase()}'
-                                                    else
-                                                      'still out',
-                                                    ?r.returnNote,
-                                                  ].join(' · '),
-                                                ),
-                                                trailing:
-                                                    r.signaturePath == null
-                                                    ? null
-                                                    : IconButton(
-                                                        tooltip:
-                                                            'See signature',
-                                                        icon: const Icon(
-                                                          CupertinoIcons
-                                                              .signature,
-                                                        ),
-                                                        onPressed: () =>
-                                                            _showSignature(
-                                                              context,
-                                                              r.signaturePath!,
-                                                            ),
-                                                      ),
-                                              ),
-                                          ],
-                                        ),
-                                      ),
+                              (
+                                icon: CupertinoIcons.pencil,
+                                label: 'Edit',
+                                onTap: canIssue ? edit : null,
+                                color: null,
                               ),
-                          if (tool.notes != null) ...[
-                            const SectionHeader('Notes'),
-                            Text(
-                              tool.notes!,
-                              style: TextStyle(color: scheme.onSurfaceVariant),
+                            ],
+                          ).entrance(context, index: 1),
+                          const SizedBox(height: Space.md),
+                          GlassSegmented<_Tab>(
+                            value: _tab,
+                            segments: const {
+                              _Tab.history: 'Who had it',
+                              _Tab.details: 'Details',
+                            },
+                            onChanged: (t) => setState(() => _tab = t),
+                          ),
+                          const SizedBox(height: Space.md),
+                          if (_tab == _Tab.history)
+                            _history(context, people, dates, theme)
+                          else
+                            RecordDetails(
+                              rows: [
+                                ('Code', tool.code),
+                                ('Name', tool.name),
+                                ('Kind', tool.kind),
+                                ('Serial number', tool.serialNo),
+                                (
+                                  'Condition',
+                                  ToolCondition.parse(tool.condition).label,
+                                ),
+                                (
+                                  'Calibration due',
+                                  tool.calibrationDue == null
+                                      ? null
+                                      : dates.formatMediumDate(
+                                          tool.calibrationDue!,
+                                        ),
+                                ),
+                                (
+                                  'Last counted',
+                                  tool.lastCountedAt == null
+                                      ? null
+                                      : dates.formatMediumDate(
+                                          tool.lastCountedAt!,
+                                        ),
+                                ),
+                                ('Notes', tool.notes),
+                              ],
                             ),
-                          ],
                         ],
                       ),
                     ),
@@ -200,6 +186,123 @@ class ToolDetailScreen extends ConsumerWidget {
               ),
       ),
     );
+  }
+
+  Widget _hero(
+    LocalTool tool,
+    String? me,
+    Map<String, String> people,
+    MaterialLocalizations dates,
+  ) {
+    final condition = ToolCondition.parse(tool.condition);
+    final overdue = toolOverdue(tool);
+    final holder = tool.holderId == me ? 'you' : people[tool.holderId];
+    return RecordHero(
+      icon: CupertinoIcons.wrench_fill,
+      code: tool.code,
+      title: tool.name,
+      pills: [
+        Pill(
+          label: condition.label,
+          color: conditionColor(condition),
+          dense: true,
+        ),
+        if (tool.kind != null) Pill(label: tool.kind!, dense: true),
+        if (tool.pending)
+          const Pill(
+            label: 'Waiting to sync',
+            icon: CupertinoIcons.cloud_upload,
+            dense: true,
+          ),
+      ],
+      facts: [
+        (
+          icon: tool.holderId == null
+              ? CupertinoIcons.cube_box
+              : CupertinoIcons.person_fill,
+          text: tool.holderId == null
+              ? 'In store'
+              : 'With ${holder ?? 'someone'} since '
+                    '${relativeTime(tool.issuedAt ?? DateTime.now())}',
+          color: null,
+        ),
+        if (tool.dueBack != null)
+          (
+            icon: CupertinoIcons.calendar,
+            text: overdue
+                ? 'Overdue: was due back ${dates.formatMediumDate(tool.dueBack!)}'
+                : 'Due back ${dates.formatMediumDate(tool.dueBack!)}',
+            color: overdue ? Colors.red : null,
+          ),
+        if (tool.calibrationDue != null)
+          (
+            icon: CupertinoIcons.gauge,
+            text:
+                'Calibration due ${dates.formatMediumDate(tool.calibrationDue!)}',
+            color: calibrationDue(tool) ? Colors.orange : null,
+          ),
+      ],
+    );
+  }
+
+  Widget _history(
+    BuildContext context,
+    Map<String, String> people,
+    MaterialLocalizations dates,
+    ThemeData theme,
+  ) {
+    return ref
+        .watch(toolHistoryProvider(widget.id))
+        .when(
+          loading: () => const LinearProgressIndicator(),
+          error: (e, _) => Text(
+            AppError.from(e).isRetryable
+                ? 'History loads when you are online.'
+                : AppError.from(e).message,
+            style: theme.textTheme.bodySmall,
+          ),
+          data: (rows) => rows.isEmpty
+              ? const EmptyState(
+                  icon: CupertinoIcons.person_2,
+                  title: 'Never lent yet',
+                  message:
+                      'Each time it goes out shows here, with the '
+                      'signature.',
+                )
+              : SurfaceCard(
+                  padding: const EdgeInsets.symmetric(vertical: Space.xs),
+                  child: Column(
+                    children: [
+                      for (final r in rows)
+                        ListTile(
+                          leading: AppAvatar(
+                            name: people[r.issuedTo] ?? '?',
+                            size: 36,
+                          ),
+                          title: Text(people[r.issuedTo] ?? 'Someone'),
+                          subtitle: Text(
+                            [
+                              'Out ${dates.formatShortMonthDay(r.issuedAt)}',
+                              if (r.returnedAt != null)
+                                'back ${dates.formatShortMonthDay(r.returnedAt!)} · ${ToolCondition.parse(r.returnCondition ?? 'good').label.toLowerCase()}'
+                              else
+                                'still out',
+                              ?r.returnNote,
+                            ].join(' · '),
+                          ),
+                          trailing: r.signaturePath == null
+                              ? null
+                              : IconButton(
+                                  tooltip: 'See signature',
+                                  icon: const Icon(CupertinoIcons.signature),
+                                  onPressed: () =>
+                                      _showSignature(context, r.signaturePath!),
+                                ),
+                        ),
+                    ],
+                  ),
+                ),
+        );
   }
 
   void _showSignature(BuildContext context, String path) {
@@ -221,92 +324,6 @@ class ToolDetailScreen extends ConsumerWidget {
                 ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  const _Header({required this.tool, required this.holder});
-
-  final LocalTool tool;
-  final String? holder;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final condition = ToolCondition.parse(tool.condition);
-    final dates = MaterialLocalizations.of(context);
-    final overdue = toolOverdue(tool);
-    Widget fact(IconData icon, String text, {Color? color}) => Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: color ?? scheme.onSurfaceVariant),
-          const SizedBox(width: Space.xs),
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(color: color ?? scheme.onSurfaceVariant),
-            ),
-          ),
-        ],
-      ),
-    );
-
-    return SurfaceCard(
-      padding: const EdgeInsets.all(Space.lg),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Wrap(
-            spacing: Space.xs,
-            runSpacing: Space.xs,
-            children: [
-              if (tool.code != null) RecordCode(tool.code!),
-              Pill(label: condition.label, color: conditionColor(condition)),
-              if (tool.kind != null) Pill(label: tool.kind!),
-              if (tool.pending)
-                const Pill(
-                  label: 'Waiting to sync',
-                  icon: CupertinoIcons.cloud_upload,
-                ),
-            ],
-          ),
-          const SizedBox(height: Space.sm),
-          Text(tool.name, style: theme.textTheme.headlineSmall),
-          const SizedBox(height: Space.md),
-          fact(
-            tool.holderId == null
-                ? CupertinoIcons.cube_box
-                : CupertinoIcons.person_fill,
-            tool.holderId == null
-                ? 'In store'
-                : 'With ${holder ?? 'someone'} since ${relativeTime(tool.issuedAt ?? DateTime.now())}',
-          ),
-          if (tool.dueBack != null)
-            fact(
-              CupertinoIcons.calendar,
-              overdue
-                  ? 'Overdue: was due back ${dates.formatMediumDate(tool.dueBack!)}'
-                  : 'Due back ${dates.formatMediumDate(tool.dueBack!)}',
-              color: overdue ? Colors.red : null,
-            ),
-          if (tool.calibrationDue != null)
-            fact(
-              CupertinoIcons.gauge,
-              'Calibration due ${dates.formatMediumDate(tool.calibrationDue!)}',
-              color: calibrationDue(tool) ? Colors.orange : null,
-            ),
-          if (tool.serialNo != null)
-            fact(CupertinoIcons.number, 'Serial ${tool.serialNo}'),
-          if (tool.lastCountedAt != null)
-            fact(
-              CupertinoIcons.checkmark_square,
-              'Last counted ${dates.formatMediumDate(tool.lastCountedAt!)}',
-            ),
-        ],
       ),
     );
   }
