@@ -304,6 +304,70 @@ Adopted in a light form from Tafara's PR #19, on top of the jobs board.
 - Table `priority_targets` (`priority, respond_minutes, close_hours`; defaults urgent 30 min / 24 h, normal 4 h / 72 h, low 24 h / 7 days). A job inserted without `due_at` gets `created_at + close_hours` (trigger `jobs_default_due`). The urgent escalation uses the urgent response time. `fn_set_priority_target(p_priority, p_respond_minutes, p_close_hours)`: `admin.users` at all sites.
 - App: More → Library → Requests (`/requests`: incoming for supervisors, mine for everyone; new request form; accept as a job with priority and assignee, or decline with a reason); More → Admin → Priority targets (`/admin/targets`). "Requests to decide" appears under Needs attention.
 
+## 17. Job Cards Version 2 (migrations 0012–0014)
+
+The job card & maintenance management system from Tafara's PR #19 and its phase 2,
+added beside the jobs board so both can run and be compared. Nothing of Version 1
+changes. App: More → **Job Cards V2** opens `/v2`, which has its own menu and a
+"Back to Version 1" link. (Section 16 is left for chat, migration 0011.)
+
+**Shared with Version 1.** Profiles, sites, areas and roles (no renames); notifications
+and push (`notifications_push` sends v2 notifications too); the `activity` log (every v2
+table is audited); the asset register: `assets` gains optional columns (category,
+location, manufacturer, model, ratings, operational_status, criticality, department,
+warranty) and `asset_no`, generated as `upper(tag)`. Assets are still added in Version 1's
+register. `profiles.department_id` is new.
+
+**Permissions** (new codes): `jc.view`, `jc.register`, `jc.assess`, `jc.assign`,
+`jc.execute`, `jc.review`, `jc.cancel`, `jc.reopen`, `jc.escalate`, `jc.self_approve` (no
+one by default), `req.submit`, `req.triage`, `assets.view`, `assets.manage`,
+`settings.manage`, `audit.view`, `reports.view`.
+
+| role | v2 codes |
+| --- | --- |
+| Technician | jc.view, jc.register, jc.execute, req.submit, req.triage, assets.view |
+| Supervisor | all jc.* except self_approve, req.submit, req.triage, assets.*, reports.view |
+| Admin | every code except jc.self_approve |
+| Department Manager (new) | jc.view, jc.reopen, jc.escalate, req.submit, assets.view, reports.view, stats.view, audit.view |
+| Requester | req.submit (beside Version 1's req.create) |
+| Storekeeper | jc.view, req.submit, assets.view |
+
+**Tables** (read-only for the app; every write goes through a function):
+
+| area | tables |
+| --- | --- |
+| settings | `system_settings` (numbering `EL-JC`/`EL-SR`, time zone, response end point, at-risk %, hold alert hours, handover note rule, `safety_before_start` off | when_required | always), `priority_levels` (P1–P4 targets), `departments`, `job_categories`, `asset_categories`, `escalation_contacts`, `escalation_rules`, `safety_checklist_items`, `doc_sequences`, `job_status_transitions` |
+| requests | `service_requests` (`EL-SR-YYYY-NNNN`), `request_attachments` |
+| job cards | `job_cards` (`EL-JC-YYYY-NNNN`, every stage), `job_assignments`, `job_status_history`, `job_card_comments`, `job_attachments`, `job_closures` (with frozen metrics) |
+| work | `job_work_sessions`, `job_waits`, `job_time_corrections`, `job_work_records`, `job_safety_records`, `job_submissions`, `job_reviews`, `job_escalations` |
+
+`v_job_cards` (security_invoker) adds names, SLA state, effective deadline (waits excluded
+from the SLA move it), elapsed/remaining/overdue minutes and who is working now.
+
+**Functions** (parameters in the migrations; errors are `CODE: message`):
+- Requests: `fn_submit_request`, `fn_triage_request`, `fn_resubmit_request`,
+  `fn_withdraw_request`, `fn_add_request_attachment`, `fn_request_tracking`.
+- Job cards: `fn_register_job_card`, `fn_assess_job_card`, `fn_return_for_clarification`,
+  `fn_provide_clarification`, `fn_assign_job_card`, `fn_unassign_job_card`,
+  `fn_accept_job_card`, `fn_start_work`, `fn_pause_work`, `fn_set_job_card_status`,
+  `fn_escalate_job_card`, `fn_add_work_record`, `fn_record_safety`, `fn_submit_for_review`
+  (`fn_submit_job_card`), `fn_verify_job_card` (approve, approve with a follow-up job card,
+  return, ask a question; `fn_review_job_card`), `fn_answer_review`,
+  `fn_correct_work_session`, `fn_add_work_session`, `fn_set_wait_sla`, `fn_cancel_job_card`,
+  `fn_reopen_job_card`, `fn_comment_job_card`, `fn_add_job_attachment`.
+- Reads: `fn_job_card_timeline`, `fn_job_work`, `fn_workload`, `fn_jc_site_people`,
+  `fn_dashboard`, `fn_search`, `fn_audit_log`.
+- Settings (`settings.manage`): `fn_save_settings`, `fn_save_priority`, `fn_save_department`,
+  `fn_save_job_category`, `fn_save_asset_category`, `fn_save_escalation_contact`,
+  `fn_save_escalation_rule`, `fn_save_safety_item`, `fn_save_safety_policy`.
+
+**Other.** pg_cron `jobcards-escalations` runs `fn_run_escalations()` every 10 minutes (nine
+seeded rules, each notice once per job, rule and deadline). Bucket `job-files`
+(`<site_id>/jobcard/<job_id>/<file>`, `<site_id>/request/<request_id>/<file>`). Links
+`jobcard:<id>` → `/v2/job-cards/<id>` and `servicerequest:<id>` → `/v2/requests/<id>`
+(Version 1 keeps `request:`). Realtime on `job_cards`, `job_assignments`, `job_card_comments`,
+`job_attachments`, `service_requests` and the work tables.
+
 ## 6. Feature sections (filled in as features are built)
 
 - 7. Jobs board — Clement, phase 1 (done, see above)
@@ -319,6 +383,7 @@ Adopted in a light form from Tafara's PR #19, on top of the jobs board.
 
 ## Changelog
 
+- v0.12 — Job Cards Version 2 beside the jobs board (migrations 0012–0014).
 - v0.10 — requests from other departments, priority targets.
 - v0.9 — safety check before isolated work, escalation, audit log, names from email.
 - v0.8 — checklists and daily report backend.

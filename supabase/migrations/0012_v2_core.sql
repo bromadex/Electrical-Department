@@ -1,4 +1,4 @@
--- 0012_v2_core: Job Cards Version 2 (API.md section 15). The job card &
+-- 0012_v2_core: Job Cards Version 2 (API.md section 17). The job card &
 -- maintenance management system, added beside the jobs board (Version 1) so
 -- both can run and be compared. Nothing of Version 1 changes: v2 shares
 -- people, sites, areas, assets, notifications, push and the activity log.

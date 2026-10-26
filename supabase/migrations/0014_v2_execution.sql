@@ -1,4 +1,4 @@
--- 0014_v2_execution (Job Cards Version 2): phase 2 of the job card system (API.md section 15).
+-- 0014_v2_execution (Job Cards Version 2): phase 2 of the job card system (API.md section 17).
 -- Work execution and time tracking, the safety checklist, closure
 -- submissions and engineering reviews, closure metrics, configurable
 -- escalation rules and the audit log.

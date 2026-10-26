@@ -63,6 +63,7 @@ fails if they are stale.
 | `App` | tag `v*` | release APK attached to a GitHub release (+ Firebase App Distribution) |
 | `Supabase database` | changes under `supabase/` | migrations + SQL tests on a throwaway database; preview of pending migrations |
 | `Supabase database` | push to `main` | new migrations applied to Supabase |
+| `Acceptance tests` | pushes to `feat/**` and PRs touching the app or database | browser tests of Job Cards Version 2 (and Version 1's board) against a throwaway Supabase; screenshots in the `acceptance` artifact |
 
 GitHub settings (**Settings → Secrets and variables → Actions**):
 
@@ -99,6 +100,19 @@ Accounts are created by an admin, not by sign-up from the app:
    from auth.users u, public.roles r
    where u.email = 'you@example.com' and r.name = 'Admin';
    ```
+
+## Job Cards Version 2
+
+The job card & maintenance management system runs beside the jobs board so the two can
+be compared: More → **Job Cards V2** (`/v2`). It has its own menu (dashboard, job cards,
+incoming requests, my jobs, my requests, audit log, settings) and shares people, sites,
+assets, notifications and the theme with Version 1. Its code is in `app/lib/v2/` and
+migrations 0012–0014; API.md section 17 lists its tables and functions.
+
+Who can use it comes from the roles: technicians work job cards, supervisors register,
+assess, assign and verify them, and anyone with a role can raise a request. Settings →
+priorities, escalation rules and the safety checklist need `settings.manage` (Admin).
+Local test data adds `tech2@`, `manager@` and `requester@bravura.test` (password as above).
 
 ## Branding
 

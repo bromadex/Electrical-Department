@@ -1,5 +1,5 @@
 -- 0013_v2_workflow (Job Cards Version 2): the job card and request workflow, dashboard, search and
--- administration functions (API.md section 15). Every write to the tables in
+-- administration functions (API.md section 17). Every write to the tables in
 -- 0012 goes through a function here; each one checks permissions by code,
 -- validates its input and raises 'CODE: message' errors the app can show.
 
