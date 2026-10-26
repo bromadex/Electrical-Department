@@ -83,7 +83,7 @@ final rolesProvider = FutureProvider.autoDispose<List<RoleInfo>>((ref) async {
       .from('roles')
       .select('id, name')
       .eq('is_archived', false)
-      .order('name');
+      .order('name', ascending: true);
   return [
     for (final r in rows) RoleInfo(r['id'] as String, r['name'] as String),
   ];
@@ -97,7 +97,7 @@ final escalationContactsProvider =
           .from('escalation_contacts')
           .select('*, person:profiles(full_name), site:sites(code, name)')
           .eq('is_archived', false)
-          .order('priority_code');
+          .order('priority_code', ascending: true);
       return [for (final r in rows) Map<String, dynamic>.from(r)];
     });
 
@@ -176,7 +176,7 @@ final escalationRulesProvider =
           .from('escalation_rules')
           .select()
           .eq('is_archived', false)
-          .order('sort_order');
+          .order('sort_order', ascending: true);
       return [for (final r in rows) EscalationRule(r)];
     });
 
@@ -188,7 +188,7 @@ final safetyItemsProvider =
           .from('safety_checklist_items')
           .select()
           .order('phase', ascending: false)
-          .order('sort_order');
+          .order('sort_order', ascending: true);
       return [for (final r in rows) SafetyChecklistItem(r)];
     });
 

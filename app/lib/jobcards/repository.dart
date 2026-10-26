@@ -178,19 +178,19 @@ final jobCardExtrasProvider = FutureProvider.autoDispose
               'assigner:profiles!assigned_by(full_name)',
             )
             .eq('job_card_id', id)
-            .order('assigned_at'),
+            .order('assigned_at', ascending: true),
         client
             .from('job_comments')
             .select('*, author:profiles!author_id(full_name)')
             .eq('job_card_id', id)
             .eq('is_archived', false)
-            .order('created_at'),
+            .order('created_at', ascending: true),
         client
             .from('job_attachments')
             .select('*, uploader:profiles!uploaded_by(full_name)')
             .eq('job_card_id', id)
             .eq('is_archived', false)
-            .order('created_at'),
+            .order('created_at', ascending: true),
         client
             .from('job_closures')
             .select(
@@ -198,7 +198,7 @@ final jobCardExtrasProvider = FutureProvider.autoDispose
               'verifier:profiles!verified_by(full_name)',
             )
             .eq('job_card_id', id)
-            .order('closed_at'),
+            .order('closed_at', ascending: true),
       ]);
 
       final files = [

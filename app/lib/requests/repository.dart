@@ -30,7 +30,7 @@ final incomingRequestsProvider = FutureProvider.autoDispose
             includeReturned ? ['submitted', 'returned'] : ['submitted'],
           );
       if (siteId != null) q = q.eq('site_id', siteId);
-      final rows = await q.order('submitted_at');
+      final rows = await q.order('submitted_at', ascending: false);
       return [for (final r in rows) ServiceRequest(r)];
     });
 

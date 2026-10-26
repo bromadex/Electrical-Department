@@ -109,8 +109,8 @@ class SessionNotifier extends Notifier<SessionState> {
       final results = await Future.wait<dynamic>([
         client.from('profiles').select().eq('id', userId).maybeSingle(),
         client.rpc('my_permissions'),
-        client.from('sites').select().order('name'),
-        client.from('areas').select().order('name'),
+        client.from('sites').select().order('name', ascending: true),
+        client.from('areas').select().order('name', ascending: true),
       ]);
 
       final p = results[0] as Map<String, dynamic>?;

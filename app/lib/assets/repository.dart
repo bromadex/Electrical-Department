@@ -40,7 +40,7 @@ final assetsPageProvider = FutureProvider.autoDispose
       }
       final from = f.page * AssetFilter.pageSize;
       final res = await q
-          .order('asset_no')
+          .order('asset_no', ascending: true)
           .range(from, from + AssetFilter.pageSize - 1)
           .count(CountOption.exact);
       return PagedResult([for (final r in res.data) Asset(r)], res.count);
@@ -80,7 +80,7 @@ final assetLookupProvider = FutureProvider.autoDispose
       if (s.isNotEmpty) {
         q = q.or('asset_no.ilike.*$s*,name.ilike.*$s*,location.ilike.*$s*');
       }
-      final rows = await q.order('asset_no').limit(30);
+      final rows = await q.order('asset_no', ascending: true).limit(30);
       return [for (final r in rows) Asset(r)];
     });
 

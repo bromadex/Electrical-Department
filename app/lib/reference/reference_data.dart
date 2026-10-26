@@ -188,10 +188,21 @@ final referenceDataProvider = FutureProvider<ReferenceData>((ref) async {
   ref.watch(authUserIdProvider);
   final client = ref.watch(supabaseProvider);
   final results = await Future.wait<dynamic>([
-    client.from('departments').select().order('name'),
-    client.from('job_categories').select().order('sort_order').order('name'),
-    client.from('asset_categories').select().order('sort_order').order('name'),
-    client.from('priority_levels').select().order('sort_order'),
+    client.from('departments').select().order('name', ascending: true),
+    client
+        .from('job_categories')
+        .select()
+        .order('sort_order', ascending: true)
+        .order('name', ascending: true),
+    client
+        .from('asset_categories')
+        .select()
+        .order('sort_order', ascending: true)
+        .order('name', ascending: true),
+    client
+        .from('priority_levels')
+        .select()
+        .order('sort_order', ascending: true),
     client.from('system_settings').select().limit(1).maybeSingle(),
     client.from('job_status_transitions').select(),
   ]);

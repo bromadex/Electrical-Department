@@ -1,5 +1,5 @@
 import { expect, Page, test } from '@playwright/test';
-import { Api, expectShown, fill, open, people, q, reportFailure, shot, signIn, tap } from './support';
+import { Api, expectShown, fill, open, people, q, reportFailure, shot, shown, signIn, tap } from './support';
 
 // Phase 2 acceptance tests: time tracking (Test 3) and engineering approval
 // (Test 6), plus both themes. Uses the seeded job card "Replace damaged 63 A
@@ -126,6 +126,10 @@ test('Settings and audit log: a rule change is saved and shows in the audit trai
   await open(admin, '/admin/settings');
   await expectShown(admin, /P1 not acknowledged within its response target/);
   await expectShown(admin, /Hazards identified/);
+  // Rules are listed in their sort order: the P1 rule first.
+  const p1 = await shown(admin, /P1 not acknowledged within its response target/).first().boundingBox();
+  const review = await shown(admin, new RegExp(RULE)).first().boundingBox();
+  expect(p1!.y).toBeLessThan(review!.y);
   await shot(admin, 'p2-settings-escalation-safety');
 
   await tap(admin, new RegExp(RULE));
