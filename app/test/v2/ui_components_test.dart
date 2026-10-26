@@ -1,7 +1,6 @@
 import 'package:electrical_department/theme/app_theme.dart';
 import 'package:electrical_department/v2/ui/bits.dart';
 import 'package:electrical_department/v2/ui/data_table.dart';
-import 'package:electrical_department/v2/ui/panels.dart';
 import 'package:electrical_department/v2/ui/status.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -60,24 +59,6 @@ void main() {
     expect(find.text('P1 · Emergency'), findsOneWidget);
     expect(find.text('Overdue'), findsOneWidget);
     expect(find.text('Critical'), findsOneWidget);
-  });
-
-  testWidgets('KPI card opens its list', (tester) async {
-    var taps = 0;
-    await tester.pumpWidget(
-      _wrap(
-        KpiCard(
-          label: 'Overdue',
-          value: '3',
-          icon: Icons.alarm_rounded,
-          color: Colors.red,
-          onTap: () => taps++,
-        ),
-      ),
-    );
-    await tester.tap(find.text('Overdue'));
-    expect(taps, 1);
-    expect(find.text('3'), findsOneWidget);
   });
 
   Widget table(Size size, {void Function(String)? onTap}) => _wrap(

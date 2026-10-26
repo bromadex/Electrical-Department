@@ -8,8 +8,8 @@ import 'package:go_router/go_router.dart';
 
 import '../data/app_error.dart';
 import '../ui/form_sheet.dart';
-import '../jobs/jobs_repository.dart';
-import '../jobs/media.dart';
+import '../data/site_data.dart';
+import '../ui/media.dart';
 import '../services/core_providers.dart';
 import '../services/push_service.dart';
 import '../services/session_controller.dart';

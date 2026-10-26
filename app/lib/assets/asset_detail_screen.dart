@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../jobs/job_rules.dart';
-import '../jobs/jobs_repository.dart' show assetProvider, recurrencesProvider;
+import '../ui/time.dart';
+import '../data/site_data.dart';
 import '../ui/form_sheet.dart';
 import '../v2/jobcards/job_card_tile.dart';
 import '../v2/jobcards/repository.dart';

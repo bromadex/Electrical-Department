@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../chat/chat_repository.dart';
 import '../config/env.dart';
+import '../data/site_data.dart';
 import '../router.dart';
 import '../services/core_providers.dart';
 import '../services/session_controller.dart';
@@ -44,6 +45,8 @@ class AppShell extends ConsumerWidget {
     final session = ref.watch(sessionProvider);
     // Lists, settings and the site time zone the job card screens rely on.
     ref.watch(referenceDataProvider);
+    // People's names and the site's equipment, kept on the device.
+    ref.watch(siteDataProvider);
     final phone = MediaQuery.sizeOf(context).width < phoneMaxWidth;
     final title = shellTabs[shell.currentIndex].label;
 

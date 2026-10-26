@@ -5,8 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../data/local_db.dart';
-import '../jobs/job_editor.dart';
-import '../jobs/jobs_repository.dart';
+import '../ui/form_sheet.dart';
+import '../data/site_data.dart';
 import '../v2/jobcards/repository.dart' show openJobCardsByAssetProvider;
 import '../services/session_controller.dart';
 import '../theme/tokens.dart';
@@ -92,7 +92,7 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen> {
           edgeOffset: top,
           onRefresh: () async {
             ref.invalidate(openJobCardsByAssetProvider);
-            await ref.read(jobsSyncProvider.notifier).refresh();
+            await ref.read(siteDataProvider.notifier).refresh();
           },
           child: ListView(
             padding: EdgeInsets.fromLTRB(
@@ -248,7 +248,7 @@ class _AssetFormState extends ConsumerState<AssetForm> {
     }
     HapticFeedback.mediumImpact();
     await ref
-        .read(jobActionsProvider)
+        .read(siteActionsProvider)
         .saveAsset(
           id: widget.asset?.id,
           siteId: widget.asset?.siteId ?? site.id,

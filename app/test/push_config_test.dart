@@ -24,7 +24,7 @@ void main() {
   });
 
   test('notification links open the right screen', () {
-    expect(notificationPath('job:abc'), '/old-jobs/abc');
+    expect(notificationPath('job:abc'), isNull);
     expect(notificationPath('chat:xyz'), '/chat/xyz');
     expect(notificationPath('tool:t1'), '/tools/t1');
     expect(notificationPath('doc:d1'), '/documents/d1');

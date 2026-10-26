@@ -98,7 +98,7 @@ void main() {
     expect(notificationPath('jobcard:abc'), '/jobs/abc');
     expect(notificationPath('servicerequest:def'), '/requests/def');
     // Links to the retired jobs board open its old pages.
-    expect(notificationPath('job:old'), '/old-jobs/old');
+    expect(notificationPath('job:old'), isNull);
     expect(notificationPath('request:x'), '/requests');
     expect(notificationPath(null), isNull);
   });

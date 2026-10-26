@@ -6,7 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../data/app_error.dart';
-import '../jobs/jobs_repository.dart';
+import '../data/site_data.dart';
 import '../services/session_controller.dart';
 import '../theme/tokens.dart';
 import '../ui/bits.dart';

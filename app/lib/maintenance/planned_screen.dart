@@ -10,9 +10,8 @@ import '../ui/bits.dart';
 import '../ui/charts.dart';
 import '../ui/motion.dart';
 import '../ui/surfaces.dart';
-import 'job_editor.dart';
-import 'job_rules.dart';
-import 'jobs_repository.dart';
+import '../ui/form_sheet.dart';
+import '../data/site_data.dart';
 import '../widgets/app_back_button.dart';
 
 const _everyLabels = {
@@ -143,10 +142,10 @@ class RecurringScreen extends ConsumerWidget {
                                 ),
                               ),
                               Pill(
-                                label: JobPriority.parse(
+                                label: PlanPriority.parse(
                                   r['priority'] as String,
                                 ).label,
-                                color: JobPriority.parse(
+                                color: PlanPriority.parse(
                                   r['priority'] as String,
                                 ).color,
                                 dense: true,
@@ -186,7 +185,7 @@ class _RecurrenceFormState extends ConsumerState<_RecurrenceForm> {
   late final _description = TextEditingController(
     text: widget.existing?['description'] as String?,
   );
-  late JobPriority _priority = JobPriority.parse(
+  late PlanPriority _priority = PlanPriority.parse(
     (widget.existing?['priority'] as String?) ?? 'normal',
   );
   late String _every = (widget.existing?['every'] as String?) ?? 'weekly';
@@ -217,14 +216,14 @@ class _RecurrenceFormState extends ConsumerState<_RecurrenceForm> {
     if (site == null) return;
     HapticFeedback.mediumImpact();
     await ref
-        .read(jobActionsProvider)
+        .read(siteActionsProvider)
         .saveRecurrence(
           id: widget.existing?['id'] as String?,
           siteId: site.id,
           areaId: _areaId,
           title: _title.text,
           description: _description.text,
-          priority: _priority,
+          priority: _priority.name,
           every: _every,
           nextRun: _nextRun,
           dueDays: _dueDays,
@@ -294,9 +293,9 @@ class _RecurrenceFormState extends ConsumerState<_RecurrenceForm> {
           ),
           label('Priority'),
           Center(
-            child: GlassSegmented<JobPriority>(
+            child: GlassSegmented<PlanPriority>(
               value: _priority,
-              segments: {for (final p in JobPriority.values) p: p.label},
+              segments: {for (final p in PlanPriority.values) p: p.label},
               onChanged: (p) => setState(() => _priority = p),
             ),
           ),
@@ -432,4 +431,19 @@ class _RecurrenceFormState extends ConsumerState<_RecurrenceForm> {
       ),
     );
   }
+}
+
+/// A plan's priority; job cards it raises get P2 (urgent), P3 or P4 (low).
+enum PlanPriority {
+  low('Low', Color(0xFF8C8FA3)),
+  normal('Normal', BrandColors.info),
+  urgent('Urgent', Color(0xFFE5484D));
+
+  const PlanPriority(this.label, this.color);
+
+  final String label;
+  final Color color;
+
+  static PlanPriority parse(String s) =>
+      PlanPriority.values.firstWhere((v) => v.name == s, orElse: () => normal);
 }

@@ -52,6 +52,7 @@ class Pill extends StatelessWidget {
     this.color,
     this.icon,
     this.dense = false,
+    this.solid = false,
   });
 
   final String label;
@@ -59,32 +60,44 @@ class Pill extends StatelessWidget {
   final IconData? icon;
   final bool dense;
 
+  /// Filled with [color] and white text, for the loudest labels (critical).
+  final bool solid;
+
   @override
   Widget build(BuildContext context) {
-    final c = color ?? Theme.of(context).colorScheme.primary;
+    final theme = Theme.of(context);
+    final c = AppColors.adapt(
+      color ?? theme.colorScheme.primary,
+      theme.brightness,
+    );
+    final fg = solid ? Colors.white : c;
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: dense ? 8 : 10,
         vertical: dense ? 3 : 5,
       ),
       decoration: BoxDecoration(
-        color: c.withValues(alpha: 0.12),
+        color: solid ? c : c.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(Radii.pill),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: dense ? 12 : 14, color: c),
+            Icon(icon, size: dense ? 12 : 14, color: fg),
             const SizedBox(width: 4),
           ],
-          Text(
-            label,
-            style: TextStyle(
-              color: c,
-              fontSize: dense ? 11 : 12,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.1,
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: fg,
+                fontSize: dense ? 11 : 12,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.1,
+              ),
             ),
           ),
         ],
@@ -93,11 +106,12 @@ class Pill extends StatelessWidget {
   }
 }
 
-/// A human record code such as `J-0042`, styled the same everywhere.
+/// A record number such as `EL-JC-2026-0042`, styled the same everywhere.
 class RecordCode extends StatelessWidget {
-  const RecordCode(this.code, {super.key});
+  const RecordCode(this.code, {super.key, this.large = false});
 
   final String code;
+  final bool large;
 
   @override
   Widget build(BuildContext context) {
@@ -111,7 +125,7 @@ class RecordCode extends StatelessWidget {
       child: Text(
         code,
         style: TextStyle(
-          fontSize: 12,
+          fontSize: large ? 15 : 12,
           fontWeight: FontWeight.w700,
           color: scheme.onSurfaceVariant,
           fontFeatures: const [FontFeature.tabularFigures()],

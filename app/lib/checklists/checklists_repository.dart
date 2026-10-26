@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
-import '../jobs/jobs_repository.dart';
+import '../data/site_data.dart';
 import '../services/core_providers.dart';
 import '../services/session_controller.dart';
 import '../theme/theme_mode.dart';
@@ -277,7 +277,7 @@ class ChecklistActions {
     await _ref.read(outboxProvider).flush();
     _ref.invalidate(checklistStatusProvider);
     // Failed items raised jobs; bring them onto the board.
-    await _ref.read(jobsSyncProvider.notifier).refresh();
+    await _ref.read(siteDataProvider.notifier).refresh();
   }
 }
 

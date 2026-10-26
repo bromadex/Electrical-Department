@@ -32,16 +32,17 @@ class JobDocumentsPanel extends ConsumerWidget {
     if (all.isEmpty && linked.isEmpty) return const SizedBox.shrink();
     final theme = Theme.of(context);
 
-    return PanelCard(
+    return Panel(
       icon: CupertinoIcons.book,
       title: 'Documents',
-      trailing: canAttach && !closed
-          ? TextButton.icon(
-              onPressed: () => _attach(context, ref, all, linkedIds),
-              icon: const Icon(CupertinoIcons.paperclip, size: 18),
-              label: const Text('Attach'),
-            )
-          : null,
+      actions: [
+        if (canAttach && !closed)
+          TextButton.icon(
+            onPressed: () => _attach(context, ref, all, linkedIds),
+            icon: const Icon(CupertinoIcons.paperclip, size: 18),
+            label: const Text('Attach'),
+          ),
+      ],
       child: linked.isEmpty
           ? Text(
               'Attach the SOP or drawing for this work, e.g. the LOTO '

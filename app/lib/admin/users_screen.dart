@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/app_error.dart';
-import '../jobs/job_editor.dart';
+import '../ui/form_sheet.dart';
 import '../services/core_providers.dart';
 import '../services/session_controller.dart';
 import '../theme/tokens.dart';

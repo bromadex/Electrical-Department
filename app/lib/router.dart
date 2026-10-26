@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'admin/activity_screen.dart';
-import 'admin/targets_screen.dart';
 import 'admin/users_screen.dart';
 import 'assets/asset_detail_screen.dart';
 import 'assets/assets_screen.dart';
@@ -13,8 +12,7 @@ import 'checklists/checklist_run_screen.dart';
 import 'checklists/checklists_screen.dart';
 import 'documents/document_detail_screen.dart';
 import 'documents/documents_screen.dart';
-import 'jobs/job_detail_screen.dart';
-import 'jobs/recurring_screen.dart';
+import 'maintenance/planned_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/more_screen.dart';
@@ -87,17 +85,11 @@ GoRouter buildRouter(WidgetRef ref) {
       ),
       ...jobCardRoutes,
       jobCardDetailRoute,
-      // The retired jobs board's job pages, for old links and history.
-      GoRoute(
-        path: '/old-jobs/:id',
-        builder: (_, s) => JobDetailScreen(id: s.pathParameters['id']!),
-      ),
       GoRoute(
         path: '/chat/:id',
         builder: (_, s) => ConversationScreen(id: s.pathParameters['id']!),
       ),
       GoRoute(path: '/admin/users', builder: (_, _) => const UsersScreen()),
-      GoRoute(path: '/admin/targets', builder: (_, _) => const TargetsScreen()),
       GoRoute(path: '/reports', builder: (_, _) => const DailyReportScreen()),
       GoRoute(
         path: '/admin/activity',

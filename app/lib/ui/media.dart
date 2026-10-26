@@ -6,8 +6,28 @@ import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../theme/tokens.dart';
-import '../ui/surfaces.dart';
-import 'jobs_repository.dart';
+import 'surfaces.dart';
+
+/// A photo already uploaded ([url]) or still waiting to upload ([bytes]).
+class JobPhoto {
+  const JobPhoto({
+    required this.id,
+    required this.kind,
+    required this.path,
+    this.url,
+    this.bytes,
+  });
+
+  final String id;
+  final String kind;
+  final String path;
+
+  /// Signed URL (60 min) for uploaded photos.
+  final String? url;
+
+  /// Local bytes for photos still waiting to upload.
+  final Uint8List? bytes;
+}
 
 /// Picks photos, shrunk to about 1600 px JPEG before they are queued.
 class PhotoPicking {

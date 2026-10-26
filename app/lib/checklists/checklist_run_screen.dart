@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../jobs/media.dart';
+import '../ui/media.dart';
 import '../services/session_controller.dart';
 import '../theme/tokens.dart';
 import '../ui/bits.dart';

@@ -209,49 +209,154 @@ class SurfaceCard extends StatelessWidget {
   }
 }
 
-/// Card with an icon + title header, like the panels of a dashboard.
-class PanelCard extends StatelessWidget {
-  const PanelCard({
+/// Glass card with an optional header row (icon, title, subtitle, actions):
+/// the building block of dashboards and detail pages.
+class Panel extends StatelessWidget {
+  const Panel({
     super.key,
-    required this.icon,
-    required this.title,
+    this.title,
+    this.subtitle,
+    this.icon,
+    this.actions = const [],
     required this.child,
-    this.trailing,
-    this.padding = const EdgeInsets.all(Space.lg - 4),
+    this.padding = const EdgeInsets.all(Space.md),
   });
 
-  final IconData icon;
-  final String title;
+  final String? title;
+  final String? subtitle;
+  final IconData? icon;
+  final List<Widget> actions;
   final Widget child;
-  final Widget? trailing;
   final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return SurfaceCard(
-      padding: padding,
+      padding: EdgeInsets.zero,
+      radius: Radii.lg,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            children: [
-              Icon(icon, size: 22, color: theme.colorScheme.onSurfaceVariant),
-              const SizedBox(width: Space.sm),
-              Expanded(
-                child: Text(
-                  title,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+          if (title != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                Space.md,
+                Space.sm,
+                Space.xs,
+                0,
               ),
-              ?trailing,
-            ],
-          ),
-          const SizedBox(height: Space.md),
-          child,
+              child: Row(
+                children: [
+                  if (icon != null) ...[
+                    Icon(icon, size: 18, color: theme.colorScheme.primary),
+                    const SizedBox(width: Space.xs),
+                  ],
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(title!, style: theme.textTheme.titleSmall),
+                        if (subtitle != null)
+                          Text(
+                            subtitle!,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  ...actions,
+                  if (actions.isEmpty) const SizedBox(height: 40),
+                ],
+              ),
+            ),
+          Padding(padding: padding, child: child),
         ],
+      ),
+    );
+  }
+}
+
+/// Summary number that opens the matching filtered list.
+class KpiCard extends StatelessWidget {
+  const KpiCard({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+    this.caption,
+    this.onTap,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+  final String? caption;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final c = AppColors.adapt(color, theme.brightness);
+    return SurfaceCard(
+      padding: EdgeInsets.zero,
+      radius: Radii.lg,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.all(Space.sm),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: c.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(Radii.sm),
+              ),
+              child: Icon(icon, color: c, size: 22),
+            ),
+            const SizedBox(width: Space.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    value,
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                      height: 1.1,
+                    ),
+                  ),
+                  Text(
+                    label,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  if (caption != null)
+                    Text(
+                      caption!,
+                      style: theme.textTheme.labelSmall?.copyWith(color: c),
+                    ),
+                ],
+              ),
+            ),
+            if (onTap != null)
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 18,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+          ],
+        ),
       ),
     );
   }
