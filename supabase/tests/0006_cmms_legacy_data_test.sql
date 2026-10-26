@@ -77,8 +77,11 @@ select pg_temp.check(exists (select 1 from pg_policies
   where schemaname = 'storage' and policyname = 'legacy_job_photos_select'), 'job card viewers can read old photos');
 select pg_temp.check(not exists (select 1 from cron.job where jobname in ('jobs-overdue', 'jobs-recurrences')),
   'old schedules are removed');
-select pg_temp.check((select count(*) from cron.job where jobname in ('jobcards-overdue', 'legacy-recurrences')) = 2,
+-- 0008 replaced the hourly overdue notice with the escalation rules.
+select pg_temp.check((select count(*) from cron.job where jobname in ('jobcards-escalations', 'legacy-recurrences')) = 2,
   'new schedules are set');
+select pg_temp.check(not exists (select 1 from cron.job where jobname = 'jobcards-overdue'),
+  'the hourly overdue notice is retired');
 
 -- Recurring templates keep producing work until phase 3
 insert into public.legacy_job_recurrences (id, site_id, title, priority, every, next_run, due_days, assignee_id, created_by)
