@@ -95,12 +95,13 @@ select pg_temp.check(public.fn_open_direct('f0000000-0000-0000-0000-0000000000d1
   = public.fn_open_direct(gen_random_uuid(), 'f0000000-0000-0000-0000-000000000002'), 'one direct chat per pair');
 select pg_temp.fails($$select public.fn_open_direct(gen_random_uuid(), 'f0000000-0000-0000-0000-000000000003')$$,
   'NOT_ALLOWED', 'no direct chat with people without chat');
-select public.fn_create_job('f0000000-0000-0000-0000-0000000000e1', 'f0000000-0000-0000-0000-0000000000a1', null,
-  'Replace DB3 breaker', null, 'normal', null, null, null);
-select pg_temp.check(exists (select 1 from public.fn_search_records('DB3') where link = 'job:f0000000-0000-0000-0000-0000000000e1'),
-  'jobs can be tagged with #');
+select public.fn_register_job_card('f0000000-0000-0000-0000-0000000000e1', null,
+  'f0000000-0000-0000-0000-0000000000a1', null, 'Workshop', now(), 'Ch Sup', null, null, null, null, null, null,
+  'Replace DB3 breaker', 'Breaker on DB3 keeps tripping', 'minor', 'P3', null);
+select pg_temp.check(exists (select 1 from public.fn_search_records('DB3')
+  where link = 'jobcard:f0000000-0000-0000-0000-0000000000e1'), 'job cards can be tagged with #');
 select public.fn_send_message(gen_random_uuid(), 'f0000000-0000-0000-0000-0000000000d1', 'record', 'Replace DB3 breaker',
-  null, null, null, null, null, 'job:f0000000-0000-0000-0000-0000000000e1', null);
+  null, null, null, null, null, 'jobcard:f0000000-0000-0000-0000-0000000000e1', null);
 select pg_temp.fails($$select public.fn_send_message(gen_random_uuid(), 'f0000000-0000-0000-0000-0000000000d1', 'record', 'x',
   null, null, null, null, null, 'evil:f0000000-0000-0000-0000-0000000000e1', null)$$, 'INVALID', 'unknown record links are refused');
 select pg_temp.as_owner();

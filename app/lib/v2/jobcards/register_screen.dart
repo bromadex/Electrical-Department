@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../assets/asset_picker.dart';
 import '../assets/models.dart';
+import '../assets/repository.dart' show assetProvider;
 import '../reference/reference_data.dart';
 import '../requests/models.dart';
 import '../requests/repository.dart';
@@ -21,9 +22,21 @@ import 'repository.dart';
 /// Stage 1: receive and register a job card, directly or from a request
 /// another department submitted.
 class RegisterJobCardScreen extends ConsumerWidget {
-  const RegisterJobCardScreen({super.key, this.requestId});
+  const RegisterJobCardScreen({
+    super.key,
+    this.requestId,
+    this.title,
+    this.description,
+    this.assetId,
+  });
 
   final String? requestId;
+
+  /// Prefill for a new job card started elsewhere (a chat message, an
+  /// equipment page).
+  final String? title;
+  final String? description;
+  final String? assetId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -32,7 +45,12 @@ class RegisterJobCardScreen extends ConsumerWidget {
       return AsyncView(
         value: refData,
         onRetry: () => ref.invalidate(referenceDataProvider),
-        data: (data) => _RegisterForm(reference: data),
+        data: (data) => _RegisterForm(
+          reference: data,
+          title: title,
+          description: description,
+          assetId: assetId,
+        ),
       );
     }
     final request = ref.watch(serviceRequestProvider(requestId!));
@@ -49,10 +67,19 @@ class RegisterJobCardScreen extends ConsumerWidget {
 }
 
 class _RegisterForm extends ConsumerStatefulWidget {
-  const _RegisterForm({required this.reference, this.request});
+  const _RegisterForm({
+    required this.reference,
+    this.request,
+    this.title,
+    this.description,
+    this.assetId,
+  });
 
   final ReferenceData reference;
   final ServiceRequest? request;
+  final String? title;
+  final String? description;
+  final String? assetId;
 
   @override
   ConsumerState<_RegisterForm> createState() => _RegisterFormState();
@@ -69,9 +96,11 @@ class _RegisterFormState extends ConsumerState<_RegisterForm> {
   );
   final _assetNo = TextEditingController();
   final _equipmentLocation = TextEditingController();
-  late final _title = TextEditingController(text: widget.request?.title);
+  late final _title = TextEditingController(
+    text: widget.request?.title ?? widget.title,
+  );
   late final _description = TextEditingController(
-    text: widget.request?.description,
+    text: widget.request?.description ?? widget.description,
   );
 
   String? _siteId;
@@ -94,6 +123,17 @@ class _RegisterFormState extends ConsumerState<_RegisterForm> {
     _areaId = r?.areaId;
     _departmentId = r?.departmentId;
     _impact = r?.impact?.db;
+    final assetId = widget.assetId;
+    if (assetId != null) {
+      ref.read(assetProvider(assetId).future).then((a) {
+        if (mounted && _asset == null) {
+          setState(() {
+            _asset = a;
+            _siteId = a.siteId;
+          });
+        }
+      }, onError: (_) {});
+    }
   }
 
   @override

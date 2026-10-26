@@ -159,6 +159,14 @@ class MoreScreen extends ConsumerWidget {
               colors: const [Color(0xFF5B4B8A), BrandColors.info],
               onTap: () => context.push('/notifications'),
             ),
+            if (session.can('jobs.assign'))
+              ShortcutTile(
+                icon: Icons.event_repeat_rounded,
+                title: 'Planned maintenance',
+                subtitle: 'Raises job cards',
+                colors: const [BrandColors.success, BrandColors.info],
+                onTap: () => context.push('/jobs/recurring'),
+              ),
             if (session.perms.canEverywhere('admin.users')) ...[
               ShortcutTile(
                 icon: Icons.group_outlined,

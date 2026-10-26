@@ -85,10 +85,13 @@ select public.fn_submit_checklist('c0000000-0000-0000-0000-0000000000d1', 'c0000
 select pg_temp.check((select failed_count = 2 from public.checklist_runs
   where id = 'c0000000-0000-0000-0000-0000000000d1'), 'a failed tick and a low reading count as failed');
 select pg_temp.check((select count(*) = 1 from public.checklist_runs), 'sending the round twice saves it once');
-select pg_temp.check((select count(*) = 2 from public.jobs where title like 'Generator round:%'),
-  'each failed item raises a job');
-select pg_temp.check((select description like '%Reading: 11.2 V%' from public.jobs
-  where title = 'Generator round: Battery voltage'), 'the job says what was read');
+select pg_temp.check((select count(*) = 2 from public.job_cards where title like 'Generator round:%'),
+  'each failed item raises a job card');
+select pg_temp.check((select description like '%Reading: 11.2 V%' and maintenance_type = 'inspection'
+  from public.job_cards where title = 'Generator round: Battery voltage'), 'the job card says what was read');
+select pg_temp.check((select count(*) = 2 from public.checklist_answers
+  where run_id = 'c0000000-0000-0000-0000-0000000000d1' and job_card_id is not null),
+  'the answers link their job cards');
 select pg_temp.check((select done_at is not null and failed_count = 2
   from public.fn_site_checklists('c0000000-0000-0000-0000-0000000000a1')), 'the round shows as done');
 select pg_temp.as_owner();
@@ -119,7 +122,7 @@ select pg_temp.check((
     and jsonb_array_length(summary -> 'checklists_done') = 1
     and summary -> 'checklists_missed' = '["DB board inspection"]'::jsonb
   from public.fn_build_daily_report('c0000000-0000-0000-0000-0000000000a1', public._harare_today())),
-  'the report sums up jobs and checklists');
+  'the report sums up job cards and checklists');
 select pg_temp.fails($$select public.fn_approve_report((select id from public.daily_reports
   where site_id = 'c0000000-0000-0000-0000-0000000000a1'), 'ok')$$, 'NOT_ALLOWED', 'technicians cannot approve');
 select pg_temp.as_owner();

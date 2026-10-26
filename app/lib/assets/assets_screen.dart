@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../data/local_db.dart';
 import '../jobs/job_editor.dart';
 import '../jobs/jobs_repository.dart';
+import '../v2/jobcards/repository.dart' show openJobCardsByAssetProvider;
 import '../services/session_controller.dart';
 import '../theme/tokens.dart';
 import '../ui/bits.dart';
@@ -51,17 +52,14 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen> {
   @override
   Widget build(BuildContext context) {
     final assets = ref.watch(siteAssetsProvider).value ?? const [];
-    final jobs = ref.watch(siteJobsProvider).value ?? const [];
     final session = ref.watch(sessionProvider);
     final site = ref.watch(currentSiteProvider);
     final canEdit = site != null && session.can('jobs.assign', siteId: site.id);
     final areaNames = {for (final a in session.areas) a.id: a.name};
-    final openByAsset = <String, int>{};
-    for (final j in jobs) {
-      if (j.assetId != null && !{'done', 'cancelled'}.contains(j.status)) {
-        openByAsset[j.assetId!] = (openByAsset[j.assetId!] ?? 0) + 1;
-      }
-    }
+    final openByAsset = site == null
+        ? const <String, int>{}
+        : ref.watch(openJobCardsByAssetProvider(site.id)).value ??
+              const <String, int>{};
     final q = _query.toLowerCase();
     final shown = [
       for (final a in assets)
@@ -92,7 +90,10 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen> {
       body: MeshBackground(
         child: RefreshIndicator(
           edgeOffset: top,
-          onRefresh: ref.read(jobsSyncProvider.notifier).refresh,
+          onRefresh: () async {
+            ref.invalidate(openJobCardsByAssetProvider);
+            await ref.read(jobsSyncProvider.notifier).refresh();
+          },
           child: ListView(
             padding: EdgeInsets.fromLTRB(
               Space.md,

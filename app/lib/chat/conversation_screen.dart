@@ -7,7 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../data/app_error.dart';
-import '../jobs/job_editor.dart';
+import '../ui/form_sheet.dart';
 import '../jobs/jobs_repository.dart';
 import '../jobs/media.dart';
 import '../services/core_providers.dart';
@@ -97,7 +97,10 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
   }
 
   void _actions(ChatMessage m, bool mine, String? author) {
-    final canJob = ref.read(sessionProvider).can('jobs.create');
+    final site = ref.read(currentSiteProvider);
+    final canJob = ref
+        .read(sessionProvider)
+        .can('jc.register', siteId: site?.id);
     showModalBottomSheet<void>(
       context: context,
       builder: (sheet) => SafeArea(
@@ -144,18 +147,22 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
               if (canJob && m.body != null && m.recordLink == null)
                 ListTile(
                   leading: const Icon(CupertinoIcons.hammer),
-                  title: const Text('Make a job from this'),
+                  title: const Text('Make a job card from this'),
                   onTap: () {
                     Navigator.pop(sheet);
                     final body = m.body!;
                     final firstLine = body.split('\n').first;
-                    showJobEditor(
-                      context,
-                      title: firstLine.length > 120
-                          ? firstLine.substring(0, 120)
-                          : firstLine,
-                      description:
-                          '$body\n\nFrom chat${author == null ? '' : ' · $author'}',
+                    context.push(
+                      Uri(
+                        path: '/jobs/new',
+                        queryParameters: {
+                          'title': firstLine.length > 120
+                              ? firstLine.substring(0, 120)
+                              : firstLine,
+                          'description':
+                              '$body\n\nFrom chat${author == null ? '' : ' · $author'}',
+                        },
+                      ).toString(),
                     );
                   },
                 ),
@@ -512,7 +519,13 @@ class _Bubble extends StatelessWidget {
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    'Open ${m.recordLink?.split(':').first ?? 'record'}',
+                    switch (m.recordLink?.split(':').first) {
+                      'jobcard' || 'job' => 'Open job card',
+                      'asset' => 'Open equipment',
+                      'tool' => 'Open tool',
+                      'doc' => 'Open document',
+                      _ => 'Open',
+                    },
                     style: theme.textTheme.labelLarge?.copyWith(
                       color: mine ? Colors.white : BrandColors.info,
                     ),

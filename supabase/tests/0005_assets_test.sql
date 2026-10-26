@@ -96,16 +96,21 @@ select pg_temp.check((select asset_id is null and not isolation_required from pu
   where id = '90000000-0000-0000-0000-0000000000b1'), 'a new app edit can clear them');
 select pg_temp.as_owner();
 
--- Planned maintenance: a recurrence on an asset makes preventive jobs.
+-- Planned maintenance: a recurrence on an asset makes preventive job cards
+-- (0015), registered as the person who set it up.
 select pg_temp.act_as('90000000-0000-0000-0000-000000000001');
 select public.fn_save_recurrence('90000000-0000-0000-0000-0000000000c1', '90000000-0000-0000-0000-0000000000a1',
   null, 'Grease crusher motor', null, 'normal', 'monthly', current_date, 1, null, false,
   '90000000-0000-0000-0000-0000000000f1', true);
 select pg_temp.as_owner();
 select public.fn_run_recurrences();
-select pg_temp.check((select maintenance_type = 'preventive' and isolation_required
-  and asset_id = '90000000-0000-0000-0000-0000000000f1'
-  from public.jobs where recurrence_id = '90000000-0000-0000-0000-0000000000c1'),
-  'recurring jobs on an asset are preventive maintenance');
+select pg_temp.check((select maintenance_type = 'preventive' and source = 'preventive'
+  and isolation_required and asset_id = '90000000-0000-0000-0000-0000000000f1'
+  and registered_by = '90000000-0000-0000-0000-000000000001' and priority = 'P3'
+  from public.job_cards where site_id = '90000000-0000-0000-0000-0000000000a1'
+    and title = 'Grease crusher motor'),
+  'recurring jobs on an asset raise preventive job cards');
+select pg_temp.check(not exists (select 1 from public.jobs
+  where recurrence_id = '90000000-0000-0000-0000-0000000000c1'), 'and no jobs board job');
 
 rollback;

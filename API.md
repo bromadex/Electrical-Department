@@ -316,6 +316,12 @@ the four numbers come from `fn_dashboard`; the ➕ New sheet raises a job card (
 request for people without `jc.register`). The retired jobs board's pages stay at
 `/old-jobs/<id>` for old links. (Section 16 is left for chat, migration 0011.)
 
+**0015 (job cards everywhere).** A failed checklist item raises a job card
+(`checklist_answers.job_card_id`); planned maintenance (`job_recurrences`) raises preventive
+job cards, registered as the person who set the plan up (if they no longer can, the site's
+`jc.register` holders are told); the daily report counts job cards; chat `#` tags find job
+cards (`jobcard:<id>`). The jobs board's tables keep their data; nothing new is written there.
+
 **Shared with Version 1.** Profiles, sites, areas and roles (no renames); notifications
 and push (`notifications_push` sends v2 notifications too); the `activity` log (every v2
 table is audited); the asset register: `assets` gains optional columns (category,

@@ -3,10 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../jobs/job_card.dart';
-import '../jobs/job_editor.dart';
 import '../jobs/job_rules.dart';
-import '../jobs/jobs_repository.dart';
+import '../jobs/jobs_repository.dart' show assetProvider, recurrencesProvider;
+import '../ui/form_sheet.dart';
+import '../v2/jobcards/job_card_tile.dart';
+import '../v2/jobcards/repository.dart';
 import '../services/session_controller.dart';
 import '../theme/tokens.dart';
 import '../ui/bits.dart';
@@ -24,21 +25,23 @@ class AssetDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final asset = ref.watch(assetProvider(id)).value;
-    final jobs = ref.watch(assetJobsProvider(id)).value ?? const [];
+    final jobs = ref.watch(assetJobCardsProvider(id)).value ?? const [];
     final plans = (ref.watch(recurrencesProvider).value ?? const [])
         .where((r) => r['asset_id'] == id)
         .toList();
     final session = ref.watch(sessionProvider);
-    final people = ref.watch(peopleProvider).value ?? const {};
     final areaNames = {for (final a in session.areas) a.id: a.name};
     final theme = Theme.of(context);
     final top = MediaQuery.paddingOf(context).top + kToolbarHeight;
     final canEdit =
         asset != null && session.can('jobs.assign', siteId: asset.siteId);
     final open = jobs
-        .where((j) => !{'done', 'cancelled'}.contains(j.status))
+        .where((j) => !{'closed', 'cancelled'}.contains(j.status.db))
         .length;
-    final done = jobs.where((j) => j.status == 'done').toList();
+    final done = [
+      for (final j in jobs)
+        if (j.status.db == 'closed' && j.closedAt != null) j,
+    ];
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -65,9 +68,9 @@ class AssetDetailScreen extends ConsumerWidget {
       floatingActionButton: asset == null
           ? null
           : FloatingActionButton.extended(
-              onPressed: () => showJobEditor(context, assetId: asset.id),
+              onPressed: () => context.push('/jobs/new?asset=${asset.id}'),
               icon: const Icon(CupertinoIcons.add),
-              label: const Text('Job on this asset'),
+              label: const Text('Job card on this'),
             ),
       body: MeshBackground(
         child: asset == null
@@ -133,7 +136,10 @@ class AssetDetailScreen extends ConsumerWidget {
                                 const SizedBox(height: Space.md),
                                 Row(
                                   children: [
-                                    _Stat(label: 'Open jobs', value: '$open'),
+                                    _Stat(
+                                      label: 'Open job cards',
+                                      value: '$open',
+                                    ),
                                     _Stat(
                                       label: 'Done',
                                       value: '${done.length}',
@@ -144,11 +150,7 @@ class AssetDetailScreen extends ConsumerWidget {
                                           ? '—'
                                           : relativeTime(
                                               done
-                                                  .map(
-                                                    (j) =>
-                                                        j.closedAt ??
-                                                        j.updatedAt,
-                                                  )
+                                                  .map((j) => j.closedAt!)
                                                   .reduce(
                                                     (a, b) =>
                                                         a.isAfter(b) ? a : b,
@@ -195,22 +197,19 @@ class AssetDetailScreen extends ConsumerWidget {
                               child: Center(
                                 child: EmptyState(
                                   icon: CupertinoIcons.doc_text,
-                                  title: 'No jobs yet',
+                                  title: 'No job cards yet',
                                   message:
-                                      'Jobs on this asset will show here, '
-                                      'newest first.',
+                                      'Job cards on this equipment show '
+                                      'here, newest first.',
                                 ),
                               ),
                             ),
                           for (final (i, j) in jobs.indexed)
                             Padding(
                               padding: const EdgeInsets.only(bottom: Space.sm),
-                              child: JobCard(
+                              child: JobCardTile(
                                 job: j,
-                                areaName: areaNames[j.areaId],
-                                assigneeName: people[j.assigneeId],
-                                showStatus: true,
-                                onTap: () => context.push('/jobs/${j.id}'),
+                                onTap: () => context.push('/jobs/${j.number}'),
                               ),
                             ).entrance(context, index: (i + 1).clamp(0, 8)),
                         ],

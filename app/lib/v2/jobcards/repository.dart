@@ -645,3 +645,38 @@ class JobCardActions {
     }
   }
 }
+
+/// Job cards on one piece of equipment, newest first: its history.
+final assetJobCardsProvider = FutureProvider.autoDispose
+    .family<List<JobCard>, String>((ref, assetId) async {
+      ref.watch(jobCardsLiveProvider);
+      final rows = await ref
+          .watch(supabaseProvider)
+          .from('v_job_cards')
+          .select()
+          .eq('asset_id', assetId)
+          .eq('is_archived', false)
+          .order('received_at', ascending: false)
+          .limit(100);
+      return [for (final r in rows) JobCard(r)];
+    });
+
+/// Open job cards per piece of equipment at a site, for the register.
+final openJobCardsByAssetProvider = FutureProvider.autoDispose
+    .family<Map<String, int>, String>((ref, siteId) async {
+      ref.watch(jobCardsLiveProvider);
+      final rows = await ref
+          .watch(supabaseProvider)
+          .from('job_cards')
+          .select('asset_id')
+          .eq('site_id', siteId)
+          .eq('is_archived', false)
+          .not('asset_id', 'is', null)
+          .not('status', 'in', '(closed,cancelled)');
+      final counts = <String, int>{};
+      for (final r in rows) {
+        final id = r['asset_id'] as String;
+        counts[id] = (counts[id] ?? 0) + 1;
+      }
+      return counts;
+    });
