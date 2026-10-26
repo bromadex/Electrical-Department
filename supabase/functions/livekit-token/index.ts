@@ -65,9 +65,11 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return reply(405, { error: "INVALID: Use POST" });
 
-  const livekitUrl = Deno.env.get("LIVEKIT_URL") ?? "";
-  const apiKey = Deno.env.get("LIVEKIT_API_KEY") ?? "";
-  const apiSecret = Deno.env.get("LIVEKIT_API_SECRET") ?? "";
+  // Accept the address however it was pasted: trimmed, wss:// for https://.
+  const livekitUrl = (Deno.env.get("LIVEKIT_URL") ?? "").trim()
+    .replace(/^https:\/\//, "wss://").replace(/^http:\/\//, "ws://").replace(/\/+$/, "");
+  const apiKey = (Deno.env.get("LIVEKIT_API_KEY") ?? "").trim();
+  const apiSecret = (Deno.env.get("LIVEKIT_API_SECRET") ?? "").trim();
   if (!livekitUrl || !apiKey || !apiSecret) {
     return reply(503, { error: "UNAVAILABLE: Calls are not set up yet" });
   }

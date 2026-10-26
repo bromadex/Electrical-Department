@@ -69,6 +69,9 @@ class _CallScreenState extends ConsumerState<CallScreen> {
       _stage = _Stage.connecting;
       _error = null;
     });
+
+    // 1. The call pass from our server (checks you are in this chat).
+    final Map<String, dynamic> data;
     try {
       final res = await ref
           .read(supabaseProvider)
@@ -77,41 +80,69 @@ class _CallScreenState extends ConsumerState<CallScreen> {
             'livekit-token',
             body: {'conversation_id': widget.conversationId},
           );
-      final data = Map<String, dynamic>.from(res.data as Map);
-      final room = Room(
-        roomOptions: const RoomOptions(adaptiveStream: true, dynacast: true),
-      );
-      room.addListener(_changed);
-      await room.connect(data['url'] as String, data['token'] as String);
-      await room.localParticipant?.setMicrophoneEnabled(true);
-      if (!mounted) {
-        await room.disconnect();
-        return;
-      }
-      _clock = Timer.periodic(const Duration(seconds: 1), (_) => _changed());
-      setState(() {
-        _room = room;
-        _title = data['title'] as String?;
-        _since = DateTime.now();
-        _stage = _Stage.inCall;
-      });
+      data = Map<String, dynamic>.from(res.data as Map);
     } on FunctionException catch (e) {
       final details = e.details;
-      final msg = details is Map ? '${details['error'] ?? ''}' : '';
-      setState(() {
-        _stage = _Stage.ready;
-        _error = msg.contains('UNAVAILABLE')
+      final msg = details is Map ? '${details['error'] ?? ''}' : '$details';
+      return _fail(
+        msg.contains('UNAVAILABLE')
             ? 'Calls are not set up yet.'
             : msg.isNotEmpty
             ? msg.replaceFirst(RegExp(r'^[A-Z_]+: '), '')
-            : 'Could not start the call.';
-      });
+            : 'Could not get a pass for this call (${e.status}).',
+      );
     } catch (e) {
-      setState(() {
-        _stage = _Stage.ready;
-        _error = 'Could not connect. Check your signal and try again.';
-      });
+      return _fail('Could not reach the server. Check your signal. ($e)');
     }
+
+    // 2. The call server (LiveKit).
+    final room = Room(
+      roomOptions: const RoomOptions(adaptiveStream: true, dynacast: true),
+    );
+    try {
+      await room.connect(data['url'] as String, data['token'] as String);
+    } catch (e) {
+      await room.dispose();
+      return _fail('Could not connect to the call server. ($e)');
+    }
+    if (!mounted) {
+      await room.disconnect();
+      return;
+    }
+    room.addListener(_changed);
+    _clock = Timer.periodic(const Duration(seconds: 1), (_) => _changed());
+    setState(() {
+      _room = room;
+      _title = data['title'] as String?;
+      _since = DateTime.now();
+      _stage = _Stage.inCall;
+    });
+
+    // 3. The microphone. If it is blocked you stay in the call, muted.
+    try {
+      await room.localParticipant?.setMicrophoneEnabled(true);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            duration: Duration(seconds: 6),
+            content: Text(
+              'Your microphone is blocked. Allow it for this site '
+              '(the lock icon by the address) and tap Unmute.',
+            ),
+          ),
+        );
+      }
+    }
+    _changed();
+  }
+
+  void _fail(String message) {
+    if (!mounted) return;
+    setState(() {
+      _stage = _Stage.ready;
+      _error = message;
+    });
   }
 
   Future<void> _leave() async {
