@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import 'admin/users_screen.dart';
 import 'assets/asset_detail_screen.dart';
 import 'assets/assets_screen.dart';
+import 'checklists/checklist_run_screen.dart';
+import 'checklists/checklists_screen.dart';
 import 'documents/document_detail_screen.dart';
 import 'documents/documents_screen.dart';
 import 'jobs/job_detail_screen.dart';
@@ -99,6 +101,11 @@ GoRouter buildRouter(WidgetRef ref) {
       GoRoute(path: '/admin/users', builder: (_, _) => const UsersScreen()),
       GoRoute(path: '/assets', builder: (_, _) => const AssetsScreen()),
       GoRoute(path: '/tools', builder: (_, _) => const ToolsScreen()),
+      GoRoute(path: '/checklists', builder: (_, _) => const ChecklistsScreen()),
+      GoRoute(
+        path: '/checklists/:id',
+        builder: (_, s) => ChecklistRunScreen(id: s.pathParameters['id']!),
+      ),
       GoRoute(path: '/documents', builder: (_, _) => const DocumentsScreen()),
       GoRoute(
         path: '/documents/:id',

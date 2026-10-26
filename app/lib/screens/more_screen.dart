@@ -197,6 +197,13 @@ class MoreScreen extends ConsumerWidget {
           child: Column(
             children: [
               _Row(
+                icon: Icons.fact_check_outlined,
+                title: 'Checklists',
+                subtitle: 'Daily, weekly and monthly rounds',
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => context.push('/checklists'),
+              ),
+              _Row(
                 icon: Icons.menu_book_outlined,
                 title: 'Documents & SOPs',
                 subtitle: toSign > 0

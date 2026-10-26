@@ -49,6 +49,9 @@ class OutboxService {
     'fn_add_document_version': false,
     'fn_acknowledge_document': false,
     'fn_link_document': false,
+    'fn_save_checklist_template': false,
+    'fn_submit_checklist': false,
+    'fn_add_report_update': false,
   };
 
   /// Entries that failed this many times stop retrying and keep their error.

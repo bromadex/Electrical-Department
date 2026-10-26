@@ -272,6 +272,17 @@ Per-site documents with versions, read-and-sign acknowledgement, and links to jo
 - `fn_link_document(p_job, p_document, p_linked)`: the job's poster, assignee or a supervisor; same site only.
 - App: More → Library → Documents & SOPs (`/documents`, filters All / To sign / categories), `/documents/<id>` (open, sign, who has signed, versions, edit or new version). Images open in the app; PDFs and drawings open in the phone's or browser's viewer through a one-hour signed link. Jobs show a Documents panel to attach SOPs. Online only for now (no offline file copies yet).
 
+## 13. Checklists and daily report (migration 0008)
+
+- `checklist_templates` (`site_id, area_id, name, description, frequency daily|weekly|monthly, assignee_id`) and `checklist_items` (`position, label, kind check|number|text, unit, min_value, max_value, photo_required`).
+- `checklist_runs` (`template_id, site_id, run_date, done_by, done_at, notes, failed_count`) and `checklist_answers` (`ok, value, text_value, photo_path, comment, failed, job_id`).
+- `fn_save_checklist_template(p_client_ref, p_site, p_area, p_name, p_description, p_frequency, p_assignee, p_items jsonb, p_archived)`: `checklists.manage`; items `[{id, label, kind, unit, min, max, photo_required}]` in order; items left out are archived.
+- `fn_submit_checklist(p_client_ref, p_template, p_answers jsonb, p_notes)`: `jobs.close`; every item answered, photos where required; a not-OK tick or a reading outside its limits is failed and raises a job.
+- `fn_site_checklists(p_site)` → each template's `due_by` (end of its period), and this period's `done_at, done_by, failed_count`.
+- pg_cron 15:00 Harare: rounds whose period ends today and are not done remind the assignee (or everyone on site); 19:00: supervisors hear they were missed (`checklist:<id>`). Once per period each.
+- Daily report: `daily_reports` (`site_id, report_date, code R-, summary jsonb, status open|approved, supervisor_comment`) and `report_updates` (`body, photo_paths`). `fn_build_daily_report(p_site, p_date)` (also nightly 19:10 for every site) sums up jobs opened/closed, checklists done/missed and tools; `fn_add_report_update(p_client_ref, p_site, p_date, p_body, p_photo_paths)`; `fn_approve_report(p_report, p_comment)` (`reports.approve`). Photos go to `job-photos` under `<site_id>/checklist/...` and `<site_id>/report/...`.
+- App: More → Library → Checklists (`/checklists`): status per round (done, failed, due today), supervisors build templates; `/checklists/<id>` runs a round offline (templates cached on the device). The daily report screen and PDF export are next.
+
 ## 6. Feature sections (filled in as features are built)
 
 - 7. Jobs board — Clement, phase 1 (done, see above)
@@ -287,6 +298,7 @@ Per-site documents with versions, read-and-sign acknowledgement, and links to jo
 
 ## Changelog
 
+- v0.8 — checklists and daily report backend.
 - v0.7 — SOPs and documents (documents, versions, acknowledgements, job links).
 - v0.6 — tools register (tools, tool_issues, tool-files bucket, reminders).
 - v0.5 — asset register, planned maintenance, isolation flag (assets, jobs.asset_id/maintenance_type/isolation_required).
