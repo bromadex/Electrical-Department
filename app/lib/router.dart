@@ -15,11 +15,11 @@ import 'documents/document_detail_screen.dart';
 import 'documents/documents_screen.dart';
 import 'jobs/job_detail_screen.dart';
 import 'jobs/recurring_screen.dart';
-import 'screens/board_screen.dart';
+import 'screens/home_screen.dart';
+import 'screens/jobs_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/more_screen.dart';
 import 'screens/notifications_screen.dart';
-import 'screens/today_screen.dart';
 import 'reports/daily_report_screen.dart';
 import 'requests/requests_screen.dart';
 import 'services/core_providers.dart';
@@ -59,8 +59,8 @@ GoRouter buildRouter(WidgetRef ref) {
   ref.listenManual(authUserIdProvider, (_, id) => signedIn.value = id != null);
 
   final screens = <String, Widget>{
-    '/home': const TodayScreen(),
-    '/jobs': const BoardScreen(),
+    '/home': const HomeScreen(),
+    '/jobs': const JobsScreen(),
     '/chat': const ChatListScreen(),
     '/menu': const MoreScreen(),
   };

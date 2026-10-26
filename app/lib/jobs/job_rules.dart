@@ -91,13 +91,16 @@ bool isOverdue(LocalJob job, [DateTime? now]) {
   return job.dueAt != null && job.dueAt!.isBefore(now ?? DateTime.now());
 }
 
-/// Board filters.
+/// The one row of filters on the Jobs tab. Every filter but [done] shows
+/// only jobs still to finish.
 enum JobFilter {
-  all('All'),
+  active('All active'),
   mine('Mine'),
-  open('Open'),
+  unassigned('Needs someone'),
   urgent('Urgent'),
-  overdue('Overdue');
+  overdue('Overdue'),
+  waiting('Waiting'),
+  done('Done');
 
   const JobFilter(this.label);
 
@@ -112,6 +115,7 @@ bool matchesFilter(
   String query = '',
   DateTime? now,
 }) {
+  if (job.status == 'cancelled') return false;
   if (areaId != null && job.areaId != areaId) return false;
   final q = query.trim().toLowerCase();
   if (q.isNotEmpty &&
@@ -120,13 +124,15 @@ bool matchesFilter(
       !(job.description?.toLowerCase().contains(q) ?? false)) {
     return false;
   }
+  final done = job.status == 'done';
   return switch (filter) {
-    JobFilter.all => true,
-    JobFilter.mine =>
-      me != null && (job.assigneeId == me || job.createdBy == me),
-    JobFilter.open => job.status == 'open',
-    JobFilter.urgent => job.priority == 'urgent',
+    JobFilter.active => !done,
+    JobFilter.mine => !done && me != null && job.assigneeId == me,
+    JobFilter.unassigned => !done && job.assigneeId == null,
+    JobFilter.urgent => !done && job.priority == 'urgent',
     JobFilter.overdue => isOverdue(job, now),
+    JobFilter.waiting => job.status == 'waiting',
+    JobFilter.done => done,
   };
 }
 
