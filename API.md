@@ -283,6 +283,16 @@ Per-site documents with versions, read-and-sign acknowledgement, and links to jo
 - Daily report: `daily_reports` (`site_id, report_date, code R-, summary jsonb, status open|approved, supervisor_comment`) and `report_updates` (`body, photo_paths`). `fn_build_daily_report(p_site, p_date)` (also nightly 19:10 for every site) sums up jobs opened/closed, checklists done/missed and tools; `fn_add_report_update(p_client_ref, p_site, p_date, p_body, p_photo_paths)`; `fn_approve_report(p_report, p_comment)` (`reports.approve`). Photos go to `job-photos` under `<site_id>/checklist/...` and `<site_id>/report/...`.
 - App: More → Library → Checklists (`/checklists`): status per round (done, failed, due today), supervisors build templates; `/checklists/<id>` runs a round offline (templates cached on the device). The daily report screen and PDF export are next.
 
+## 14. Safety check, escalation, audit log (migration 0009)
+
+Adopted in a light form from Tafara's CMMS phase 2.
+
+- `job_safety_checks` (`job_id, user_id, items, reference, checked_at`). `fn_record_safety_check(p_client_ref, p_job, p_items, p_reference)`: the assignee or a supervisor; every item in `_safety_items()` and a lock or permit number. A job with `isolation_required` cannot move to `in_progress` without a check recorded since it was taken (trigger `jobs_safety_guard`).
+- `fn_escalate_jobs()` every 10 minutes: urgent jobs still open 30 minutes after posting → `jobs.assign` (once, `urgent_escalated_at`); jobs more than a day past due → `checklists.manage` (once, `overdue_escalated_at`).
+- `activity` is readable by `admin.users` (all sites) as well as `stats.view`: More → Admin → Audit log (`/admin/activity`).
+- Profiles without a name are named from their email (`_name_from_email`), on sign-up and once for existing accounts.
+- App: Start on an isolation job opens the safety check sheet; theme toggle in the top bar, light by default.
+
 ## 6. Feature sections (filled in as features are built)
 
 - 7. Jobs board — Clement, phase 1 (done, see above)
@@ -298,6 +308,7 @@ Per-site documents with versions, read-and-sign acknowledgement, and links to jo
 
 ## Changelog
 
+- v0.9 — safety check before isolated work, escalation, audit log, names from email.
 - v0.8 — checklists and daily report backend.
 - v0.7 — SOPs and documents (documents, versions, acknowledgements, job links).
 - v0.6 — tools register (tools, tool_issues, tool-files bucket, reminders).

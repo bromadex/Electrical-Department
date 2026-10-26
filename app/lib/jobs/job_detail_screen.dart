@@ -363,6 +363,10 @@ class _Actions extends ConsumerWidget {
       if (actions.contains(JobAction.start))
         FilledButton.icon(
           onPressed: () async {
+            if (job.isolationRequired) {
+              final ok = await showSafetyCheck(context, job);
+              if (ok != true) return;
+            }
             await a.setStatus(job, JobStatus.inProgress);
             done('Started');
           },

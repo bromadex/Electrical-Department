@@ -229,12 +229,23 @@ class MoreScreen extends ConsumerWidget {
           const SectionHeader('Admin'),
           SurfaceCard(
             padding: const EdgeInsets.symmetric(vertical: Space.xs),
-            child: _Row(
-              icon: Icons.group_outlined,
-              title: 'People',
-              subtitle: 'Accounts, roles and sites',
-              trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: () => context.push('/admin/users'),
+            child: Column(
+              children: [
+                _Row(
+                  icon: Icons.group_outlined,
+                  title: 'People',
+                  subtitle: 'Accounts, roles and sites',
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => context.push('/admin/users'),
+                ),
+                _Row(
+                  icon: Icons.history_rounded,
+                  title: 'Audit log',
+                  subtitle: 'Every change, who and when',
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => context.push('/admin/activity'),
+                ),
+              ],
             ),
           ).entrance(context, index: 3),
         ],

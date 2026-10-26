@@ -16,6 +16,7 @@ import 'brand_logo.dart';
 import 'notifications_button.dart';
 import 'site_picker.dart';
 import 'sync_banner.dart';
+import 'theme_toggle.dart';
 
 /// Phone: iOS-style large title and floating glass tab bar.
 /// Wider screens: floating capsule menu beside a large glass window.
@@ -245,6 +246,7 @@ class _PhoneTopBar extends StatelessWidget {
                 ),
               ),
               const SitePicker(),
+              const ThemeToggle(),
               const NotificationsButton(),
             ],
           ),
@@ -278,6 +280,8 @@ class _WindowHeader extends ConsumerWidget {
             ),
           ),
           const SitePicker(large: true),
+          const SizedBox(width: Space.sm),
+          const ThemeToggle(glass: true),
           const SizedBox(width: Space.sm),
           const NotificationsButton(glass: true),
           const SizedBox(width: Space.sm),

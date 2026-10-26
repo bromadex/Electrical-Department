@@ -668,6 +668,29 @@ class JobActions {
     await _queue('fn_assign_job', {'p_job': job.id, 'p_user': userId});
   }
 
+  /// Records the pre-work safety check on a job that needs isolation; the
+  /// server refuses to start such a job without one.
+  Future<void> recordSafetyCheck(
+    LocalJob job, {
+    required List<String> items,
+    required String reference,
+  }) async {
+    final id = _uuid.v4();
+    await _ref
+        .read(outboxProvider)
+        .enqueue(
+          'fn_record_safety_check',
+          {
+            'p_client_ref': id,
+            'p_job': job.id,
+            'p_items': items,
+            'p_reference': reference.trim(),
+          },
+          clientRef: id,
+          flushNow: false,
+        );
+  }
+
   Future<void> setStatus(
     LocalJob job,
     JobStatus status, {

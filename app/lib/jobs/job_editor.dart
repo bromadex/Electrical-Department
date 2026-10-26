@@ -680,3 +680,105 @@ class _AssignJob extends ConsumerWidget {
     );
   }
 }
+
+/// The pre-work safety check items; they match `_safety_items()` in
+/// migration 0009.
+const safetyItems = [
+  'Hazards identified',
+  'Correct PPE worn',
+  'Work area made safe',
+  'Isolation points identified and agreed',
+  'Lockout/tagout applied',
+  'Isolation verified',
+  'Tested before touch',
+];
+
+/// Before starting a job that needs isolation: tick every item and give the
+/// lock or permit number. Returns true when recorded.
+Future<bool?> showSafetyCheck(BuildContext context, LocalJob job) {
+  return showFormSheet<bool>(context, _SafetyCheck(job: job));
+}
+
+class _SafetyCheck extends ConsumerStatefulWidget {
+  const _SafetyCheck({required this.job});
+
+  final LocalJob job;
+
+  @override
+  ConsumerState<_SafetyCheck> createState() => _SafetyCheckState();
+}
+
+class _SafetyCheckState extends ConsumerState<_SafetyCheck> {
+  final _ticked = <String>{};
+  final _reference = TextEditingController();
+  String? _error;
+
+  @override
+  void dispose() {
+    _reference.dispose();
+    super.dispose();
+  }
+
+  Future<void> _confirm() async {
+    if (_ticked.length < safetyItems.length) {
+      setState(() => _error = 'Confirm every item');
+      return;
+    }
+    if (_reference.text.trim().isEmpty) {
+      setState(() => _error = 'Enter the lock or permit number');
+      return;
+    }
+    HapticFeedback.heavyImpact();
+    await ref
+        .read(jobActionsProvider)
+        .recordSafetyCheck(
+          widget.job,
+          items: safetyItems,
+          reference: _reference.text,
+        );
+    if (mounted) Navigator.pop(context, true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return _SheetFrame(
+      title: 'Safety check · ${widget.job.code ?? 'job'}',
+      action: FilledButton.icon(
+        onPressed: _confirm,
+        icon: const Icon(CupertinoIcons.lock_shield_fill),
+        label: const Text('Confirm and start'),
+      ),
+      children: [
+        Text(
+          'This job needs isolation. Confirm each step before work starts.',
+          style: TextStyle(color: scheme.onSurfaceVariant),
+        ),
+        const SizedBox(height: Space.sm),
+        for (final item in safetyItems)
+          CheckboxListTile.adaptive(
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+            value: _ticked.contains(item),
+            title: Text(item),
+            onChanged: (v) => setState(() {
+              v == true ? _ticked.add(item) : _ticked.remove(item);
+              _error = null;
+            }),
+          ),
+        const _Label('Lock or permit number'),
+        TextField(
+          controller: _reference,
+          decoration: const InputDecoration(
+            hintText: 'e.g. Lock 12 / PTW-0456',
+          ),
+        ),
+        if (_error != null)
+          Padding(
+            padding: const EdgeInsets.only(top: Space.sm),
+            child: Text(_error!, style: TextStyle(color: scheme.error)),
+          ),
+      ],
+    );
+  }
+}

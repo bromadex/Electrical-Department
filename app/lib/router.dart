@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'admin/activity_screen.dart';
 import 'admin/users_screen.dart';
 import 'assets/asset_detail_screen.dart';
 import 'assets/assets_screen.dart';
@@ -99,6 +100,10 @@ GoRouter buildRouter(WidgetRef ref) {
         builder: (_, s) => JobDetailScreen(id: s.pathParameters['id']!),
       ),
       GoRoute(path: '/admin/users', builder: (_, _) => const UsersScreen()),
+      GoRoute(
+        path: '/admin/activity',
+        builder: (_, _) => const ActivityScreen(),
+      ),
       GoRoute(path: '/assets', builder: (_, _) => const AssetsScreen()),
       GoRoute(path: '/tools', builder: (_, _) => const ToolsScreen()),
       GoRoute(path: '/checklists', builder: (_, _) => const ChecklistsScreen()),
