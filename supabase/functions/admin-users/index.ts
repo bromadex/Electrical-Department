@@ -1,4 +1,4 @@
-// Account management for system administrators (API.md, "Users").
+// Account management for system administrators (API.md section 9).
 //
 // The app cannot create sign-ins or set passwords itself: that needs the
 // service role key, which must never leave the server. This function holds

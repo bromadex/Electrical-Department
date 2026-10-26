@@ -3,37 +3,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../services/notifications_controller.dart';
+import '../services/push_service.dart';
 import '../theme/tokens.dart';
 import '../ui/bits.dart';
-import '../ui/format.dart';
-import '../ui/page.dart';
-
-/// Where a notification's link (`jobcard:<id>`, `request:<id>`) opens, or
-/// null when it points at nothing that still exists (e.g. the retired jobs
-/// board).
-String? notificationPath(String? link) {
-  if (link == null) return null;
-  final i = link.indexOf(':');
-  if (i < 0) return null;
-  final id = link.substring(i + 1);
-  return switch (link.substring(0, i)) {
-    'jobcard' => '/job-cards/$id',
-    'request' => '/requests/$id',
-    _ => null,
-  };
-}
+import '../ui/motion.dart';
 
 class NotificationsScreen extends ConsumerWidget {
   const NotificationsScreen({super.key});
 
   static String _group(DateTime at) {
-    final now = SiteTime.now();
-    final local = SiteTime.local(at);
-    final diff = DateTime(
-      now.year,
-      now.month,
-      now.day,
-    ).difference(DateTime(local.year, local.month, local.day)).inDays;
+    final now = DateTime.now();
+    final day = DateTime(at.year, at.month, at.day);
+    final today = DateTime(now.year, now.month, now.day);
+    final diff = today.difference(day).inDays;
     if (diff <= 0) return 'Today';
     if (diff == 1) return 'Yesterday';
     if (diff < 7) return 'This week';
@@ -42,71 +24,100 @@ class NotificationsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
     final state = ref.watch(notificationsProvider);
     final notifier = ref.read(notificationsProvider.notifier);
+    final items = state.items;
 
     final groups = <String, List<AppNotification>>{};
-    for (final n in state.items) {
-      groups.putIfAbsent(_group(n.createdAt), () => []).add(n);
+    for (final n in items) {
+      groups.putIfAbsent(_group(n.createdAt.toLocal()), () => []).add(n);
     }
+    var index = 0;
 
-    return AppPage(
-      title: 'Notifications',
-      subtitle: state.unread == 0 ? 'Nothing unread' : '${state.unread} unread',
-      maxWidth: 820,
-      actions: [
-        IconButton(
-          tooltip: 'Refresh',
-          onPressed: notifier.refresh,
-          icon: const Icon(Icons.refresh_rounded),
-        ),
-        if (state.unread > 0)
-          OutlinedButton.icon(
-            onPressed: () => notifier.markRead(),
-            icon: const Icon(Icons.done_all_rounded),
-            label: const Text('Mark all read'),
+    return Scaffold(
+      body: RefreshIndicator(
+        onRefresh: notifier.refresh,
+        edgeOffset: 120,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(
+            parent: BouncingScrollPhysics(),
           ),
-      ],
-      child: state.items.isEmpty
-          ? Card(
-              child: EmptyState(
-                icon: state.error == null
-                    ? Icons.notifications_none_rounded
-                    : Icons.cloud_off_rounded,
-                title: state.error == null
-                    ? 'All caught up'
-                    : 'You are offline',
-                message: state.error?.message ?? 'Assignments, critical faults, reviews and requests will appear here.',
-              ),
-            )
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (final MapEntry(key: label, value: list)
-                    in groups.entries) ...[
-                  SectionHeader(label),
-                  Card(
-                    clipBehavior: Clip.antiAlias,
-                    child: Column(
-                      children: [
-                        for (final (i, n) in list.indexed) ...[
-                          if (i > 0) const Divider(height: 1),
-                          _NotificationTile(
-                            key: ValueKey(n.id),
-                            notification: n,
-                            onTap: () {
-                              if (!n.isRead) notifier.markRead([n.id]);
-                              final path = notificationPath(n.link);
-                              if (path != null) context.go(path);
-                            },
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
+          slivers: [
+            SliverAppBar.large(
+              title: const Text('Notifications'),
+              backgroundColor: theme.colorScheme.surface,
+              actions: [
+                AnimatedSwitcher(
+                  duration: Motion.of(context, Motion.medium),
+                  child: state.unread > 0
+                      ? TextButton.icon(
+                          key: const ValueKey('all'),
+                          onPressed: () => notifier.markRead(),
+                          icon: const Icon(Icons.done_all_rounded, size: 18),
+                          label: const Text('Mark all read'),
+                        )
+                      : const SizedBox.shrink(),
+                ),
+                const SizedBox(width: Space.xs),
               ],
             ),
+            if (items.isEmpty)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Padding(
+                  padding: const EdgeInsets.all(Space.lg),
+                  child: Center(
+                    child: EmptyState(
+                      icon: Icons.notifications_off_outlined,
+                      title: state.error == null ? 'All caught up' : 'Offline',
+                      message:
+                          state.error?.message ??
+                          'New jobs, mentions and reminders will appear here.',
+                    ),
+                  ),
+                ),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(
+                  Space.md,
+                  0,
+                  Space.md,
+                  Space.xl,
+                ),
+                sliver: SliverList.list(
+                  children: [
+                    for (final MapEntry(key: label, value: list)
+                        in groups.entries) ...[
+                      Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 720),
+                          child: SectionHeader(label),
+                        ),
+                      ),
+                      for (final n in list)
+                        Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 720),
+                            child: _NotificationTile(
+                              key: ValueKey(n.id),
+                              notification: n,
+                              onRead: () {
+                                if (!n.isRead) notifier.markRead([n.id]);
+                                final path = notificationPath(n.link);
+                                if (path != null) context.push(path);
+                              },
+                            ).entrance(context, index: index++),
+                          ),
+                        ),
+                    ],
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -115,27 +126,20 @@ class _NotificationTile extends StatelessWidget {
   const _NotificationTile({
     super.key,
     required this.notification,
-    required this.onTap,
+    required this.onRead,
   });
 
   final AppNotification notification;
-  final VoidCallback onTap;
+  final VoidCallback onRead;
 
   static const _style = {
-    'registered': (Icons.fiber_new_outlined, AppColors.info),
-    'request': (Icons.inbox_outlined, AppColors.info),
-    'assigned': (Icons.assignment_ind_outlined, AppColors.info),
-    'reassigned': (Icons.swap_horiz_rounded, AppColors.info),
-    'critical': (Icons.report_rounded, AppColors.critical),
-    'overdue': (Icons.alarm_rounded, AppColors.critical),
-    'on_hold': (Icons.pause_circle_outline_rounded, AppColors.warning),
-    'review': (Icons.fact_check_outlined, AppColors.review),
-    'returned': (Icons.undo_rounded, AppColors.warning),
-    'closed': (Icons.check_circle_outline_rounded, AppColors.success),
-    'approval': (Icons.task_alt_rounded, AppColors.success),
-    'mentioned': (Icons.alternate_email_rounded, AppColors.info),
-    'reminder': (Icons.schedule_rounded, AppColors.warning),
-    'low_stock': (Icons.inventory_2_outlined, AppColors.warning),
+    'assigned': (Icons.assignment_ind_outlined, BrandColors.info),
+    'mentioned': (Icons.alternate_email_rounded, BrandColors.coral),
+    'overdue': (Icons.schedule_rounded, BrandColors.warning),
+    'reminder': (Icons.alarm_rounded, BrandColors.warning),
+    'approval': (Icons.task_alt_rounded, BrandColors.success),
+    'low_stock': (Icons.inventory_2_outlined, BrandColors.coral),
+    'meeting': (Icons.groups_outlined, BrandColors.info),
   };
 
   @override
@@ -145,77 +149,131 @@ class _NotificationTile extends StatelessWidget {
     final unread = !notification.isRead;
     final (icon, color) =
         _style[notification.type] ??
-        (Icons.notifications_outlined, AppColors.neutral);
+        (Icons.notifications_outlined, scheme.primary);
 
-    return Material(
-      color: unread
-          ? scheme.primary.withValues(alpha: 0.05)
-          : Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(Space.sm),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(Radii.sm),
-                ),
-                child: Icon(icon, color: color, size: 20),
-              ),
-              const SizedBox(width: Space.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+    final tile = AnimatedContainer(
+      duration: Motion.of(context, Motion.medium),
+      margin: const EdgeInsets.only(bottom: Space.xs),
+      padding: const EdgeInsets.all(Space.sm),
+      decoration: BoxDecoration(
+        color: unread
+            ? scheme.primary.withValues(alpha: 0.06)
+            : scheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(Radii.lg),
+        border: Border.all(
+          color: unread
+              ? scheme.primary.withValues(alpha: 0.18)
+              : scheme.outlineVariant.withValues(alpha: 0.4),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(Radii.md),
+            ),
+            child: Icon(icon, color: color, size: 22),
+          ),
+          const SizedBox(width: Space.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    Text(
-                      notification.title,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: unread ? FontWeight.w700 : FontWeight.w500,
-                      ),
-                    ),
-                    if (notification.body != null) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        notification.body!,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: scheme.onSurfaceVariant,
+                    Expanded(
+                      child: Text(
+                        notification.title,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: unread
+                              ? FontWeight.w700
+                              : FontWeight.w500,
                         ),
                       ),
-                    ],
-                    const SizedBox(height: 2),
+                    ),
                     Text(
-                      '${fmtRelative(notification.createdAt)} · ${fmtDateTime(notification.createdAt)}',
+                      _ago(notification.createdAt),
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: scheme.onSurfaceVariant,
                       ),
                     ),
                   ],
                 ),
-              ),
-              if (unread)
-                Padding(
-                  padding: const EdgeInsets.only(left: Space.xs, top: 6),
-                  child: Semantics(
-                    label: 'Unread',
-                    child: Container(
-                      width: 9,
-                      height: 9,
-                      decoration: BoxDecoration(
-                        color: scheme.primary,
-                        shape: BoxShape.circle,
-                      ),
+                if (notification.body != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    notification.body!,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: scheme.onSurfaceVariant,
                     ),
                   ),
-                ),
-            ],
+                ],
+              ],
+            ),
           ),
-        ),
+          AnimatedScale(
+            scale: unread ? 1 : 0,
+            duration: Motion.of(context, Motion.medium),
+            curve: Motion.spring,
+            child: Padding(
+              padding: const EdgeInsets.only(left: Space.xs, top: 6),
+              child: Container(
+                width: 9,
+                height: 9,
+                decoration: BoxDecoration(
+                  color: scheme.primary,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
+
+    if (!unread) return GestureDetector(onTap: onRead, child: tile);
+    return Dismissible(
+      key: ValueKey('dismiss-${notification.id}'),
+      direction: DismissDirection.startToEnd,
+      confirmDismiss: (_) async {
+        onRead();
+        return false;
+      },
+      background: Container(
+        margin: const EdgeInsets.only(bottom: Space.xs),
+        padding: const EdgeInsets.only(left: Space.lg),
+        alignment: Alignment.centerLeft,
+        decoration: BoxDecoration(
+          color: BrandColors.success.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(Radii.lg),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.done_rounded, color: BrandColors.success),
+            SizedBox(width: Space.xs),
+            Text(
+              'Mark read',
+              style: TextStyle(
+                color: BrandColors.success,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+      child: GestureDetector(onTap: onRead, child: tile),
+    );
+  }
+
+  static String _ago(DateTime at) {
+    final d = DateTime.now().difference(at);
+    if (d.inMinutes < 1) return 'now';
+    if (d.inHours < 1) return '${d.inMinutes}m';
+    if (d.inDays < 1) return '${d.inHours}h';
+    return '${d.inDays}d';
   }
 }

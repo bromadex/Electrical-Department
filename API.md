@@ -1,20 +1,20 @@
 # Bravura Electrical - API.md
 
-App <-> Supabase contract · v0.2 job card & maintenance management
+App <-> Supabase contract · v0.1 foundation
 
 The contract between the Flutter app (Android + web) and Supabase. **Every**
 table, view, function, bucket and realtime channel the app uses is listed here.
 Change it in the same pull request as the migration or screen that needs it.
-Version: v0.2 (CMMS phase 1: job cards, requests, assets, dashboard, admin).
+Version: v0.1 (foundation, week 1).
 
 ## 1. Conventions
 
 | Topic | Rule |
 | --- | --- |
-| Time zone | All "today" logic uses the site time zone in `system_settings.timezone` (default `Africa/Harare`). Timestamps stored as `timestamptz` (UTC); every lifecycle time is set by the server, never by the device. |
+| Time zone | All "today" logic uses `Africa/Harare`. Timestamps stored as `timestamptz` (UTC). |
 | IDs | `uuid` primary keys (`gen_random_uuid()`). |
-| Record codes | Job cards and requests: `EL-JC-2026-0001`, `EL-SR-2026-0001` (prefix, digits and yearly reset in `system_settings`), from `_next_doc_no(kind, at)`, row-locked, never reused. Other records keep per-site codes from `next_code(site, prefix)` (`T-` tool, `S-` SOP, `M-` meeting, `MR-` material request …). Always made inside the insert function, never by the app. |
-| Links | Text form `<kind>:<uuid>`: `jobcard:<id>` → `/job-cards/<id>`, `request:<id>` → `/requests/<id>`. Used in notifications and activity. `/job-cards/<number>` also works. |
+| Record codes | Human codes per site, never reused: `J-0001` job, `T-` tool, `S-` SOP/document, `M-` meeting, `R-` daily report, `MR-` material request, `I-` store item, `PO-` purchase, `P-` project. Made by `next_code(site, prefix)` inside the insert function, never by the app. |
+| Links | Text form `<kind>:<uuid>`, e.g. `job:7f3c…`. Used in notifications, chat cards, activity. App route: `/jobs/<code>` on web. |
 | Archive, never delete | Every table has `is_archived boolean default false`. No DELETE policies. "Delete" in the app = archive. |
 | Audit | `activity` rows are written by database triggers only. |
 | Permissions | Checked by code with `_can(code, site)` in RLS and functions; the app hides UI with `can('code')`. Never check role names. |
@@ -67,39 +67,28 @@ or `admin.users`. Only `admin.users` (all sites) may change `active` or
 
 ### roles, permissions, role_permissions, user_roles
 
-- `roles(id, name)` — Electrician, Electrical Engineer, Department Manager,
-  Requester, Storekeeper, System Administrator (renamed in 0004 from
-  Technician, Supervisor and Admin; existing assignments carried over).
+- `roles(id, name)` — Technician, Storekeeper, Supervisor, Admin.
 - `permissions(code pk, description)` — see list below.
 - `role_permissions(role_id, permission_code)`.
 - `user_roles(user_id, role_id, site_id null = all sites)`; revoking a role = archiving the row.
 
 Read: self (own roles) and `admin.users`. Write: `admin.users` (all sites).
 
-Permission codes:
-- Job cards and requests (0004): `jc.view`, `jc.register`, `jc.assess`,
-  `jc.assign`, `jc.execute`, `jc.review`, `jc.cancel`, `jc.reopen`,
-  `jc.escalate`, `jc.self_approve`, `req.submit`, `req.triage`.
-- Assets, settings and oversight (0004): `assets.view`, `assets.manage`,
-  `settings.manage`, `audit.view`, `reports.view`.
-- From 0001, kept for later modules: `chat.use`, `chat.manage`, `tools.view`,
-  `tools.issue`, `docs.view`, `docs.manage`, `checklists.manage`,
-  `reports.approve`, `store.view`, `store.issue`, `store.receive`,
-  `store.adjust`, `mr.create`, `mr.approve`, `po.manage`, `projects.manage`,
-  `meetings.manage`, `stats.view`, `admin.users`, `admin.sites`.
-- `jobs.*` were archived in 0003 with the old jobs board.
+Permission codes (v0.1):
+`jobs.view`, `jobs.create`, `jobs.assign`, `jobs.close`, `chat.use`,
+`chat.manage`, `tools.view`, `tools.issue`, `docs.view`, `docs.manage`,
+`checklists.manage`, `reports.approve`, `store.view`, `store.issue`,
+`store.receive`, `store.adjust`, `mr.create`, `mr.approve`, `po.manage`,
+`projects.manage`, `meetings.manage`, `stats.view`, `admin.users`, `admin.sites`.
 
-Job card grants (seeded in 0004; change with a new migration). The 0001 grants
-for chat, tools, store and so on are unchanged:
+Default role grants (seeded in 0001; change with a new migration):
 
-| role | job card permissions |
+| role | permissions |
 | --- | --- |
-| Electrician | jc.view, jc.register, jc.execute, req.submit, req.triage, assets.view |
-| Electrical Engineer | jc.view, jc.register, jc.assess, jc.assign, jc.execute, jc.review, jc.cancel, jc.reopen, jc.escalate, req.submit, req.triage, assets.view, assets.manage, reports.view |
-| Department Manager | jc.view, jc.reopen, jc.escalate, req.submit, assets.view, reports.view, stats.view, audit.view |
-| Requester | req.submit |
-| Storekeeper | jc.view, req.submit, assets.view |
-| System Administrator | everything except `jc.self_approve` (approving your own work stays an explicit, audited grant) |
+| Technician | jobs.view, jobs.create, jobs.close, chat.use, tools.view, docs.view, store.view, mr.create |
+| Storekeeper | jobs.view, chat.use, tools.view, tools.issue, docs.view, store.view, store.issue, store.receive, store.adjust, mr.create, po.manage |
+| Supervisor | jobs.view, jobs.create, jobs.assign, jobs.close, chat.use, chat.manage, tools.view, tools.issue, docs.view, docs.manage, checklists.manage, reports.approve, store.view, mr.create, mr.approve, projects.manage, meetings.manage, stats.view |
+| Admin | all |
 
 ### activity
 
@@ -117,10 +106,10 @@ per feature). Write: triggers only.
 | id | uuid | |
 | user_id | uuid | recipient |
 | site_id | uuid | |
-| type | text | assigned, mentioned, overdue, reminder, approval, low_stock, meeting, general, and from 0004: registered, critical, reassigned, on_hold, review, returned, closed, request |
+| type | text | assigned, mentioned, overdue, reminder, approval, low_stock, meeting, general |
 | title | text | |
 | body | text | |
-| link | text | `jobcard:<uuid>`, `request:<uuid>` |
+| link | text | `job:<uuid>` etc. |
 | read_at | timestamptz | null = unread |
 | created_at | timestamptz | |
 
@@ -160,8 +149,7 @@ Error codes so far: `NOT_ALLOWED`, `INVALID`.
 
 | bucket | used for | read | write |
 | --- | --- | --- | --- |
-| job-files | job card and request photos, test sheets, documents (25 MB, images, PDF, Office, text) | `jc.view` at the site; request files also `req.triage` and the requester | see section 7.6 |
-| job-photos | photos from the retired jobs board (read-only) | `jc.view` at the site | nobody |
+| job-photos | before/after photos | `jobs.view` at the site | `jobs.create` / `jobs.close` |
 | chat-files | photos, voice notes, files | conversation members | members |
 | documents | SOPs, drawings, PDFs | `docs.view` | `docs.manage` |
 | meeting-audio | meeting recordings (deleted after 30 days) | `meetings.manage` + attendees | attendees |
@@ -179,216 +167,167 @@ meetings (section 16); until then nobody can read or write them.
   the user has a role at (`currentSiteProvider`).
 - Outbox: `outbox(client_ref, action, payload jsonb, tries, last_error, created_at)`; each action maps to one function in this file.
   Network errors retry (every 30 s and on app resume); `CODE:` errors from the server stop
-  after one try and are shown to the user. Outbox actions: `fn_mark_read`, `fn_register_device`.
-  Job card status and time actions are never queued offline, so server times stay true.
-- Realtime channels: `notifications:<user_id>`; job card lists and the dashboard refresh on
-  changes to `job_cards`, `job_assignments`, `job_comments`, `job_attachments` and
-  `service_requests` (all in the `supabase_realtime` publication, filtered by RLS).
-- Reference data loaded once after sign-in (`referenceDataProvider`): `departments`,
-  `job_categories`, `asset_categories`, `priority_levels`, `system_settings`,
-  `job_status_transitions`.
-- My Assigned Jobs is cached in drift (`local_job_cards`) for poor signal.
+  after one try and are shown to the user. Outbox actions so far: `fn_mark_read`, `fn_register_device`.
+- Realtime channels: `notifications:<user_id>` (week 1). Features add theirs here.
 
-## 6. Feature sections
+## 7. Jobs board (migration 0002)
 
-- 7. Job card & maintenance management — phase 1 (below)
-- Later phases add: work sessions and time tracking, verification and escalation rules,
-  audit log screen (phase 2); SOP library, asset register details, preventive maintenance,
-  calendar (phase 3); materials, email notifications, reports and analytics (phase 4);
-  QR codes, offline work, monitoring-ready measurements (phase 5).
+### Tables (read-only for the app; writes go through functions)
 
-## 7. Job card & maintenance management (0003–0006)
+| table | key columns | read |
+| --- | --- | --- |
+| `jobs` | `id`, `site_id`, `area_id`, `code` (J-0001, unique per site), `title`, `description`, `priority` (low/normal/urgent), `status` (open/taken/in_progress/waiting/done/cancelled), `waiting_reason`, `due_at`, `lat`, `lng`, `created_by`, `assignee_id`, `taken_at`, `closed_at`, `closed_by`, `close_note`, `recurrence_id`, `overdue_notified_at` | `jobs.view` at the site |
+| `job_photos` | `id`, `job_id`, `kind` (before/after), `path` | job readers |
+| `job_comments` | `id`, `job_id`, `author_id`, `body` | job readers |
+| `job_recurrences` | `id`, `site_id`, `area_id`, `title`, `priority`, `every` (daily/weekly/monthly), `next_run`, `due_days`, `assignee_id` | `jobs.view` at the site |
 
-0003 retired the jobs board: `jobs`, `job_photos`, `job_comments` and `job_recurrences`
-are now `legacy_*` (kept, no app writes) and their functions and cron jobs are gone.
-0006 copied every legacy job into a job card (new number, old code in `legacy_code`;
-open → registered, taken → assigned, waiting → on_hold, done → closed; urgent → P2,
-normal → P3, low → P4) and runs due legacy recurring templates daily at 04:00 until
-phase 3 replaces them with PM plans.
-
-All tables below are read-only for the app (RLS select); every write goes through a function.
-
-### 7.1 Configuration and reference tables
-
-| table | what | read | write |
-| --- | --- | --- | --- |
-| `system_settings` | one row: timezone, jobcard_prefix, request_prefix, number_digits, number_reset_yearly, response_ends_at (acknowledged \| assessed \| assigned), at_risk_percent, hold_alert_hours, handover_note_required, company_name, department_name, logo_path | active users | `fn_save_settings` |
-| `priority_levels` | P1–P4: name, description, response_minutes, completion_minutes, targets_confirmed (false = seeded default, shown as "Default — confirm") | active users | `fn_save_priority` |
-| `departments` | code, name, is_electrical | active users | `fn_save_department` |
-| `job_categories`, `asset_categories` | name, sort_order | active users | `fn_save_job_category`, `fn_save_asset_category` |
-| `escalation_contacts` | site (null = all), priority_code, user | `settings.manage` | `fn_save_escalation_contact` |
-| `job_status_transitions` | allowed (from_status, to_status) pairs | active users | migrations only |
-| `doc_sequences` | (kind, year, last_no) for record numbers | none | `_next_doc_no` |
-
-`profiles.department_id` links a person to a department.
-
-### 7.2 Assets
-
-`assets`: asset_no (unique, upper case), name, category_id, site_id, area_id, location,
-manufacturer, model, serial_no, electrical_rating, voltage_v, current_a, power_kw,
-installed_on, operational_status (in_service \| out_of_service \| standby \|
-decommissioned), criticality (high \| medium \| low), department_id,
-maintenance_frequency, warranty_expires_on, warranty_notes, notes.
-Read: `assets.view`, `jc.view` or `req.submit` at the site. Write: `fn_save_asset`
-(`assets.manage`).
-
-### 7.3 Service requests
-
-`service_requests`: request_no, requested_by, site/area/location, department_id,
-reporter_name, contact, asset_id or equipment text, title, description,
-operational_impact (none \| minor \| reduced_output \| production_stopped \|
-safety_hazard), status (submitted \| returned \| registered \| rejected \| withdrawn),
-status_reason, job_card_id. `request_attachments` hold its files.
-A request never becomes a work order by itself: someone with `req.triage` registers
-a job card from it. Read: the requester, or `req.triage` / `jc.view` at the site.
-
-### 7.4 Job cards
-
-`job_cards` holds every stage: receipt (number, source, received_at, reporter, department,
-site/area/location, asset or equipment details, category, title, description, impact,
-priority, requested completion), assessment (valid, maintenance_type, severity,
-safety_risk, equipment_state, competencies, personnel, resources, isolation / permit /
-LOTO required, expected duration, target_response_at, target_completion_at, notes),
-plan (responsible_id, planned start, estimated hours, materials, tools, safety
-precautions, procedure), critical flag and reason, closure fields, status_reason, and
-every lifecycle timestamp. Related tables:
-
-| table | what |
-| --- | --- |
-| `job_assignments` | responsible and supporting people; ended_at, end_reason, handover_note; one current responsible per job |
-| `job_status_history` | from, to, reason, user, server time; written by trigger on every status change |
-| `job_comments` | kind (comment \| finding \| instruction \| handover \| assistance), visibility (internal \| requester), mentions; append-only |
-| `job_attachments` | kind (photo_before \| photo_after \| photo \| test_sheet \| document \| other), bucket, path, caption |
-| `job_closures` | one row per approved closure (so reopening never loses one): closed_at, completion summary, findings, corrective action, equipment state after, performed_by, verified_by, self_approved, legacy |
-
-Job cards and their records are readable with `jc.view` at the site. Requesters never
-read these tables; they follow their request through `fn_request_tracking`.
-
-**Statuses** (`job_status_transitions`): registered → awaiting_clarification |
-awaiting_assignment → assigned → accepted → in_progress → awaiting_review → closed.
-Work can stop and resume through on_hold, awaiting_materials, awaiting_isolation,
-awaiting_specialist and awaiting_production_clearance. A rejected review goes back to
-accepted; closed → reopened → assigned or accepted; any open status → cancelled.
-Holds, cancel, reopen, return for clarification and rejection need a reason.
-P1, critical severity and extreme safety risk make a job critical automatically.
-
-**`v_job_cards`** (`security_invoker`, so the job card RLS applies) adds names
-(site, area, reporter, department, category, responsible, assigned by, registered by),
-`equipment_display`, `asset_no_display`, `priority_rank`, and computed fields:
-is_new, is_awaiting_assignment, is_active, is_working, is_waiting, is_critical_open,
-is_overdue, is_awaiting_review; response_minutes, elapsed_minutes, remaining_minutes,
-overdue_minutes, response_target_met, status_changed_at, and `sla_state`
-(on_time \| at_risk \| overdue \| completed_on_time \| completed_late \| no_target \|
-cancelled). Overdue comes only from the deadline, never from priority.
-
-### 7.5 Functions
-
-Requests:
+### Functions
 
 | function | who | what |
 | --- | --- | --- |
-| `fn_submit_request(p_client_ref, p_site, p_area, p_location, p_department, p_reporter_name, p_contact, p_asset, p_equipment, p_title, p_description, p_impact)` | `req.submit` at the site | new request; notifies `req.triage` holders |
-| `fn_triage_request(p_request, p_action 'return'\|'reject', p_reason)` | `req.triage` | returns for more detail or rejects, with a reason |
-| `fn_resubmit_request(p_request, p_title, p_description, p_impact, p_note)` | the requester | after a return |
-| `fn_withdraw_request(p_request, p_reason)` | the requester | while not registered |
-| `fn_add_request_attachment(p_client_ref, p_request, p_path, p_file_name, p_content_type, p_size)` | requester or `req.triage` | records an uploaded file |
-| `fn_request_tracking(p_request)` | requester, `req.triage` or `jc.view` | jsonb: `request`, `site_name`, `area_name`, `department_name`, `attachments`, `job` (number, status, priority, times, responsible) and `updates` (requester-visible comments) |
+| `fn_create_job(p_client_ref, p_site, p_area, p_title, p_description, p_priority, p_due_at, p_lat, p_lng)` | `jobs.create` | job id = client ref; urgent → notify `jobs.assign` |
+| `fn_edit_job(p_job, p_title, p_description, p_area, p_priority, p_due_at)` | poster or `jobs.assign` | open jobs only |
+| `fn_take_job(p_job)` | `jobs.close` | open → taken; `CONFLICT` if someone else took it |
+| `fn_assign_job(p_job, p_user)` | `jobs.assign` | null = back to open; notifies the assignee |
+| `fn_set_job_status(p_job, p_status, p_reason)` | assignee or `jobs.assign` (cancel: poster or `jobs.assign`) | in_progress, waiting (reason required), open (hand back), cancelled |
+| `fn_close_job(p_job, p_note)` | assignee with `jobs.close`, or `jobs.assign` | needs a note and ≥1 after photo; notifies the poster |
+| `fn_add_job_photo(p_client_ref, p_job, p_kind, p_path)` | `jobs.create` or `jobs.close` | path `<site>/job/<job>/<file>` in `job-photos` |
+| `fn_comment_job(p_client_ref, p_job, p_body)` | job readers | notifies poster and assignee |
+| `fn_job_assignees(p_site)` | job readers | people with `jobs.close` at the site + open job count |
+| `fn_job_history(p_job)` | job readers | activity timeline |
+| `fn_save_recurrence(p_client_ref, p_site, …, p_archived)` | `jobs.assign` | create/update/stop a recurring job |
+| `fn_run_recurrences()` | pg_cron 04:00 UTC (06:00 Harare) | posts due recurring jobs |
+| `fn_notify_overdue()` | pg_cron hourly | notifies assignee (or supervisors) once per overdue job |
 
-Job cards (all take `p_job uuid` first unless shown):
+Errors: `NOT_ALLOWED`, `NOT_FOUND`, `INVALID`, `CONFLICT`.
 
-| function | who | what |
-| --- | --- | --- |
-| `fn_register_job_card(p_client_ref, p_request, p_site, p_area, p_location, p_received_at, p_reporter_name, p_department, p_asset, p_equipment_name, p_equipment_asset_no, p_equipment_location, p_category, p_title, p_description, p_impact, p_priority, p_requested_completion_at)` | `jc.register` | numbered job card, directly or from a request; needs description, source and a location |
-| `fn_assess_job_card(p_job, p_valid, p_maintenance_type, p_severity, p_safety_risk, p_safety_notes, p_equipment_state, p_competencies, p_personnel, p_resources, p_isolation, p_permit, p_loto, p_duration_hours, p_priority, p_target_response_at, p_target_completion_at, p_notes)` | `jc.assess` | invalid → cancelled; valid → awaiting assignment |
-| `fn_return_for_clarification(p_job, p_reason)`, `fn_provide_clarification(p_job, p_note)` | `jc.assess`; the registrar, `jc.register` or the requester | the answer is saved as a comment and the job goes back to registered |
-| `fn_assign_job_card(p_job, p_responsible, p_support uuid[], p_planned_start_at, p_target_completion_at, p_estimated_hours, p_materials, p_tools, p_safety, p_procedure, p_handover_note, p_reason)` | `jc.assign` | assign or reassign (with a reason); a handover note is needed when reassigning started work and `handover_note_required` is on |
-| `fn_unassign_job_card(p_job, p_reason)` | `jc.assign` | back to awaiting assignment |
-| `fn_accept_job_card(p_job)` | the responsible person | ends response time when `response_ends_at = acknowledged` |
-| `fn_set_job_card_status(p_job, p_status, p_reason)` | the assigned team (`jc.execute`) or `jc.assign` | in_progress or a hold; the responsible person starting work also accepts |
-| `fn_escalate_job_card(p_job, p_critical, p_reason)` | `jc.escalate` | critical on/off; alerts engineers and escalation contacts |
-| `fn_submit_job_card(p_job, p_summary, p_findings, p_corrective_action, p_equipment_state_after, p_checks_confirmed)` | responsible (`jc.execute`) or `jc.assign` | → awaiting_review |
-| `fn_review_job_card(p_job, p_decision 'approve'\|'reject', p_notes)` | `jc.review`, not the performer unless `jc.self_approve` | approve → closed; reject → accepted |
-| `fn_cancel_job_card(p_job, p_reason)`, `fn_reopen_job_card(p_job, p_reason)` | `jc.cancel`, `jc.reopen` | |
-| `fn_comment_job_card(p_client_ref, p_job, p_body, p_kind, p_visibility, p_mentions uuid[])` | `jc.view` at the site, or the requester (visibility forced to requester) | mentions notify |
-| `fn_add_job_attachment(p_client_ref, p_job, p_kind, p_path, p_file_name, p_content_type, p_size, p_caption)` | `jc.register`, `jc.assess` or `jc.execute` at the site; not on closed or cancelled jobs | records an uploaded file |
-| `fn_job_card_timeline(p_job)` | `jc.view` | status changes, assignments, comments, files and activity in time order |
+### App side
+- Outbox actions: every function above except the cron and read ones.
+- Photos upload first (pending uploads table), then their `fn_add_job_photo`.
+- Cache: jobs at the current site (open + closed in the last 30 days) and people's names in drift.
+- Realtime: `jobs:<site_id>` (jobs), `job:<job_id>` (comments, photos).
+- Routes: `/board`, `/jobs/<id>`, `/jobs/recurring`. Notification link `job:<uuid>` opens `/jobs/<uuid>`.
 
-Reads, search and dashboard:
+## 8. Push notifications (migration 0003)
 
-| function | returns |
-| --- | --- |
-| `fn_workload(p_site)` | per person holding `jc.execute` at the site: user_id, full_name, responsible_open, support_open, overdue, critical, estimated_hours (for assignment) |
-| `fn_site_people(p_site)` | id, full_name of active people who can see job cards at the site (for @mentions) |
-| `fn_dashboard(p_site, p_from, p_to)` | jsonb: `cards`, `open_vs_closed`, `by_priority`, `by_area`, `by_equipment`, `by_technician`, `by_type`, `trend`, `overdue_ageing`, `avg_response_minutes`, `avg_closure_minutes`, `response_target`, `completion_target`, `alerts{critical, overdue, approaching, awaiting_review, on_hold_long, production_impact}`; `p_site` null = all the user's sites |
-| `fn_search(p_query)` | rows (kind jobcard \| asset \| request, id, ref, title, subtitle) the user may see |
+Every row inserted into `notifications` is also sent to the person's phones and browsers.
 
-Administration (`settings.manage` or `admin.users` at all sites):
-`fn_save_settings(p_timezone, p_jobcard_prefix, p_request_prefix, p_number_digits,
-p_number_reset_yearly, p_response_ends_at, p_at_risk_percent, p_hold_alert_hours,
-p_handover_note_required, p_company_name, p_department_name, p_logo_path)`,
-`fn_save_priority(p_code, p_name, p_description, p_response_minutes, p_completion_minutes)`,
-`fn_save_department(p_id, p_code, p_name, p_is_electrical, p_archived)`,
-`fn_save_job_category(p_id, p_name, p_description, p_sort_order, p_archived)`,
-`fn_save_asset_category(p_id, p_name, p_sort_order, p_archived)`,
-`fn_save_escalation_contact(p_id, p_site, p_priority, p_user, p_archived)`,
-`fn_save_asset(p_id, p_site, p_area, p_asset_no, p_name, p_category, p_location,
-p_manufacturer, p_model, p_serial_no, p_rating, p_voltage_v, p_current_a, p_power_kw,
-p_installed_on, p_status, p_criticality, p_department, p_maintenance_frequency,
-p_warranty_expires_on, p_warranty_notes, p_notes, p_archived)` (`assets.manage`),
-`fn_admin_users()` (people with email, last sign-in and roles),
-`fn_set_user_profile(p_user, p_full_name, p_phone, p_department, p_home_site, p_active)`,
-`fn_set_user_roles(p_user, p_roles jsonb [{role_id, site_id}])`. At least one active
-administrator must always remain; nobody can deactivate themselves.
+- Table `push_config` (one row, no client access): `endpoint` of the push-send function and a random `secret`.
+- Trigger `notifications_push`: after insert on `notifications`, posts `{notification_id}` to the endpoint through pg_net with header `x-push-secret`. Does nothing while `endpoint` is null (local and test databases). A push failure never blocks the notification.
+- `fn_register_device(p_token, p_platform)` (0001) and `fn_unregister_device(p_token)`: the signed-in person's own devices only. The app unregisters before sign-out.
+- Service role only: `fn_push_job(p_notification, p_secret)` → `{id, type, title, body, link, tokens[]}`; `fn_push_drop_tokens(p_secret, p_tokens)` archives tokens FCM rejects.
+- `fn_set_push_endpoint(p_url)`: owner only, called by CI after deploying the function.
+- Edge function `push-send` (no JWT, checks the secret): sends through FCM HTTP v1 with the `FIREBASE_SERVICE_ACCOUNT` secret. Urgent types (`critical`, `overdue`, `assigned`, `reassigned`) go high priority.
+- Links: `job:<id>` → `/jobs/<id>`, `chat:<id>` → `/chat/<id>`. Browser notifications open `APP_URL/#/<path>`.
+- App: push stays off until `FirebaseConfig` has the project id and the platform's API key. Users switch alerts on from the Today card or More → Alerts on this device.
 
-Scheduled (pg_cron): `jobcards-overdue` at :10 every hour notifies the responsible
-person and assigner once per deadline (`fn_notify_overdue_job_cards`);
-`legacy-recurrences` daily at 04:00.
+## 9. Users (migration 0004)
 
-Error codes: `NOT_ALLOWED`, `INVALID`, `NOT_FOUND`, `CONFLICT`.
+For system administrators only: `admin.users` at all sites (site-only admins are refused).
 
-### 7.6 Files
+- `fn_admin_users()` → `id, email, full_name, phone, home_site_id, active, last_sign_in_at, created_at, roles` where `roles` is `[{role, site_id}]` (`site_id` null = all sites).
+- `fn_set_user_profile(p_user, p_full_name, p_phone, p_home_site, p_active)`: name needed; you cannot switch yourself off.
+- `fn_set_user_roles(p_user, p_roles jsonb)`: replaces all of a person's roles with `[{"role": "Technician", "site_id": uuid|null}]`. You cannot remove your own admin rights.
+- Edge function `admin-users` (POST, caller's token): `{action: "create", email, password, full_name}` → `{id}`; `{action: "reset_password", user_id, password}` → `{ok: true}`. Errors are `{error: "CODE: message"}`. The sign-up trigger creates the profile; roles are then set with `fn_set_user_roles`.
+- App: More → Admin → People (`/admin/users`). Online only.
 
-Bucket `job-files`, path `<site_id>/jobcard/<job_id>/<file>` or
-`<site_id>/request/<request_id>/<file>`. Upload, then record with
-`fn_add_job_attachment` / `fn_add_request_attachment`. Job card files: read with
-`jc.view`; upload with `jc.register`, `jc.assess` or `jc.execute` at the site.
-Request files: read by the requester and `req.triage` / `jc.view` at the site; upload
-with `req.submit` or `req.triage`. The `fn_add_*` functions check the rest.
+## 10. Assets and planned maintenance (migration 0005)
 
-### 7.7 Edge function `admin-users`
+A light asset register; jobs can point at an asset, so each asset has a job history.
 
-`POST /functions/v1/admin-users` with the user's token. The caller must hold
-`admin.users` at all sites (checked through `my_permissions`). Holds the service key;
-the app never does.
+- Table `assets`: `site_id, area_id, tag` (upper case, unique among live assets at a site), `name, kind, make_model, serial_no, notes`, `is_archived`. Readable with `jobs.view` at the site.
+- `fn_save_asset(p_client_ref, p_site, p_area, p_tag, p_name, p_kind, p_make_model, p_serial_no, p_notes, p_archived)`: supervisors (`jobs.assign`); insert or edit by id; archive to remove.
+- `jobs` gains `asset_id`, `maintenance_type` (`corrective` | `preventive`, default corrective) and `isolation_required` (default false).
+- `fn_create_job(..., p_asset, p_maintenance_type, p_isolation_required)` and `fn_edit_job(..., p_asset, p_maintenance_type, p_isolation_required)`: new trailing parameters with defaults, so calls from older apps still work. In `fn_edit_job` a null `p_maintenance_type` leaves the asset, type and isolation unchanged.
+- `job_recurrences` gains `asset_id` and `isolation_required`; `fn_save_recurrence(..., p_asset, p_isolation_required)`. Planned maintenance = a recurring job on an asset: `fn_run_recurrences` marks those jobs `preventive`.
+- App: Board → Assets (`/assets`), asset page (`/assets/<id>`) with open/done counts, planned maintenance and job history, "Job on this asset". The job form has Asset, "Isolation (lock-out) required" and "Planned maintenance"; jobs needing isolation show a lock and a LOTO warning. Assets are cached on the device with the jobs (drift schema v3).
 
-| body | result |
-| --- | --- |
-| `{"action": "create", "email", "password", "full_name"}` | `{"id"}`; the sign-in is confirmed, the profile made by trigger; the app then calls `fn_set_user_profile` and `fn_set_user_roles` |
-| `{"action": "reset_password", "user_id", "password"}` | `{"ok": true}` |
+## 11. Tools register (migration 0006)
 
-Passwords need 8–72 characters. Errors: `{"error": "CODE: message"}` with HTTP 400,
-401, 403, 404 or 409. CI deploys it from `main` when the `SUPABASE_ACCESS_TOKEN`
-secret is set.
+Who holds which tool, when it is due back, and when calibration is due.
 
-### 7.8 Notifications sent
+- Table `tools`: `site_id, code (T-0001), name, kind, serial_no, condition (good | needs_repair | damaged | lost), calibration_due, notes, photo_path, holder_id, issued_at, due_back, last_counted_at`. Read with `tools.view`.
+- Table `tool_issues`: one row per time a tool goes out: `issued_to, issued_by, issued_at, due_back, signature_path, returned_at, returned_by, return_condition, return_note`.
+- `fn_save_tool(p_client_ref, p_site, p_name, p_kind, p_serial_no, p_calibration_due, p_notes, p_condition, p_archived, p_photo_path)`: `tools.issue`; new tools get the next T- code. A tool that is out cannot be removed.
+- `fn_issue_tool(p_client_ref, p_tool, p_to, p_due_back, p_signature_path)`: `tools.issue`; the person must hold `tools.view` at the site; damaged or lost tools cannot go out. Notifies the person (`tool:<id>`).
+- `fn_return_tool(p_tool, p_condition, p_note)`: `tools.issue`; a note is needed unless the tool is good; supervisors hear about damaged returns.
+- `fn_count_tools(p_site, p_tools uuid[])`: monthly count; sets `last_counted_at` on the tools seen.
+- `fn_site_people(p_site, p_code)` → `id, full_name` of active people holding a permission at a site (pickers).
+- pg_cron `tools-reminders` daily 07:15 Harare: overdue returns (holder and store, once) and calibration due within 7 days (store, once per due date).
+- Storage bucket `tool-files`: `<site_id>/tool/<tool_id>/signature-<id>.png` and photos; read `tools.view`, upload `tools.issue`.
+- App: Store tab (tools summary, my tools) → `/tools` register (search; All, In store, Out, Mine, Attention), `/tools/<id>` (issue with on-screen signature, take back with condition, history with signatures), `/tools/count`. Cached offline (drift schema v4); all writes go through the outbox.
 
-- New or updated request → `req.triage` holders at the site ("Urgent" when production
-  stopped or a safety hazard).
-- Job card registered or clarified → `jc.assess` holders; P1 or critical → engineers at
-  the site and escalation contacts at once.
-- Assigned, reassigned, taken off, on hold, mentioned → the people involved; submitted
-  for review → `jc.review` holders; closed, returned for more work, reopened, cancelled →
-  the responsible person and registrar.
-- The requester: request returned or not accepted, registered, more information needed,
-  work started, requester-visible updates, complete, cancelled.
-- Overdue (hourly) → the responsible person and assigner, or `jc.assign` holders when
-  unassigned.
+## 12. SOPs and documents (migration 0007)
+
+Per-site documents with versions, read-and-sign acknowledgement, and links to jobs.
+
+- Table `documents`: `site_id, code (S-0001), title, category (sop | drawing | manual | form | other), needs_ack, current_version`. Read with `docs.view`.
+- Table `document_versions`: `document_id, version, path, file_name, mime_type, size_bytes, note`. Files live in the `documents` bucket at `<site_id>/doc/<document_id>/<file>` (upload needs `docs.manage`).
+- Table `document_acks`: `document_id, version, user_id, acked_at`. You read your own; supervisors read all.
+- Table `job_documents`: `job_id, document_id`.
+- `fn_save_document(p_client_ref, p_site, p_title, p_category, p_needs_ack, p_archived)`: `docs.manage`; new documents get the next S- code.
+- `fn_add_document_version(p_client_ref, p_document, p_path, p_file_name, p_mime_type, p_size_bytes, p_note)`: `docs.manage`; the path must be in the site's folder; becomes the current version. If the document needs acknowledgement, everyone with `docs.view` is notified (`doc:<id>`).
+- `fn_acknowledge_document(p_document, p_version)`: the current version only (`CONFLICT` if a newer one exists).
+- `fn_document_acks(p_document)` → `user_id, full_name, acked_at` for the current version (supervisors).
+- `fn_link_document(p_job, p_document, p_linked)`: the job's poster, assignee or a supervisor; same site only.
+- App: More → Library → Documents & SOPs (`/documents`, filters All / To sign / categories), `/documents/<id>` (open, sign, who has signed, versions, edit or new version). Images open in the app; PDFs and drawings open in the phone's or browser's viewer through a one-hour signed link. Jobs show a Documents panel to attach SOPs. Online only for now (no offline file copies yet).
+
+## 13. Checklists and daily report (migration 0008)
+
+- `checklist_templates` (`site_id, area_id, name, description, frequency daily|weekly|monthly, assignee_id`) and `checklist_items` (`position, label, kind check|number|text, unit, min_value, max_value, photo_required`).
+- `checklist_runs` (`template_id, site_id, run_date, done_by, done_at, notes, failed_count`) and `checklist_answers` (`ok, value, text_value, photo_path, comment, failed, job_id`).
+- `fn_save_checklist_template(p_client_ref, p_site, p_area, p_name, p_description, p_frequency, p_assignee, p_items jsonb, p_archived)`: `checklists.manage`; items `[{id, label, kind, unit, min, max, photo_required}]` in order; items left out are archived.
+- `fn_submit_checklist(p_client_ref, p_template, p_answers jsonb, p_notes)`: `jobs.close`; every item answered, photos where required; a not-OK tick or a reading outside its limits is failed and raises a job.
+- `fn_site_checklists(p_site)` → each template's `due_by` (end of its period), and this period's `done_at, done_by, failed_count`.
+- pg_cron 15:00 Harare: rounds whose period ends today and are not done remind the assignee (or everyone on site); 19:00: supervisors hear they were missed (`checklist:<id>`). Once per period each.
+- Daily report: `daily_reports` (`site_id, report_date, code R-, summary jsonb, status open|approved, supervisor_comment`) and `report_updates` (`body, photo_paths`). `fn_build_daily_report(p_site, p_date)` (also nightly 19:10 for every site) sums up jobs opened/closed, checklists done/missed and tools; `fn_add_report_update(p_client_ref, p_site, p_date, p_body, p_photo_paths)`; `fn_approve_report(p_report, p_comment)` (`reports.approve`). Photos go to `job-photos` under `<site_id>/checklist/...` and `<site_id>/report/...`.
+- App: More → Library → Checklists (`/checklists`): status per round (done, failed, due today), supervisors build templates; `/checklists/<id>` runs a round offline (templates cached on the device). The daily report screen and PDF export are next.
+
+## 14. Safety check, escalation, audit log (migration 0009)
+
+Adopted in a light form from Tafara's CMMS phase 2.
+
+- `job_safety_checks` (`job_id, user_id, items, reference, checked_at`). `fn_record_safety_check(p_client_ref, p_job, p_items, p_reference)`: the assignee or a supervisor; every item in `_safety_items()` and a lock or permit number. A job with `isolation_required` cannot move to `in_progress` without a check recorded since it was taken (trigger `jobs_safety_guard`).
+- `fn_escalate_jobs()` every 10 minutes: urgent jobs still open 30 minutes after posting → `jobs.assign` (once, `urgent_escalated_at`); jobs more than a day past due → `checklists.manage` (once, `overdue_escalated_at`).
+- `activity` is readable by `admin.users` (all sites) as well as `stats.view`: More → Admin → Audit log (`/admin/activity`).
+- Profiles without a name are named from their email (`_name_from_email`), on sign-up and once for existing accounts.
+- App: Start on an isolation job opens the safety check sheet; theme toggle in the top bar, light by default.
+
+## 15. Requests and priority targets (migration 0010)
+
+Adopted in a light form from Tafara's PR #19, on top of the jobs board.
+
+- Permission `req.create` (new role **Requester**, and every existing role). Record code `RQ-`.
+- Table `job_requests`: `site_id, area_id, code, title, description, department, priority, status (new | accepted | declined), requested_by, decided_by, decided_at, decline_reason, job_id`. Requesters read their own; `jobs.assign` reads the site's.
+- `fn_create_request(p_client_ref, p_site, p_area, p_title, p_description, p_department, p_priority)`: notifies `jobs.assign` (`request:<id>`).
+- `fn_accept_request(p_request, p_priority, p_assignee)`: posts the request as a job (description names the requester and RQ- code), optionally assigns it, tells the requester. `fn_decline_request(p_request, p_reason)`: reason required, tells the requester. When the job is done the requester is told (trigger `jobs_tell_requester`).
+- Table `priority_targets` (`priority, respond_minutes, close_hours`; defaults urgent 30 min / 24 h, normal 4 h / 72 h, low 24 h / 7 days). A job inserted without `due_at` gets `created_at + close_hours` (trigger `jobs_default_due`). The urgent escalation uses the urgent response time. `fn_set_priority_target(p_priority, p_respond_minutes, p_close_hours)`: `admin.users` at all sites.
+- App: More → Library → Requests (`/requests`: incoming for supervisors, mine for everyone; new request form; accept as a job with priority and assignee, or decline with a reason); More → Admin → Priority targets (`/admin/targets`). "Requests to decide" appears under Needs attention.
+
+## 6. Feature sections (filled in as features are built)
+
+- 7. Jobs board — Clement, phase 1 (done, see above)
+- 8. Push notifications — phase 1 (done, see above)
+- 9. Daily checklists + daily report — Clement, phase 2
+- 10. Group chat — Tafara, phase 2
+- 11. Tools — phase 3 (done, see above)
+- 12. SOPs & documents — phase 3 (done, see above)
+- 13. Electrical store — Clement, phase 4
+- 14. Material requests, purchases, BOQ — Tafara, phase 4
+- 15. Projects, calendar, roster — Clement, phase 5
+- 16. Meetings, transcription, minutes — Tafara, phase 5
 
 ## Changelog
 
-- v0.2 — job card & maintenance management, phase 1: roles renamed and new permission
-  codes; settings, priorities, departments, categories, escalation contacts; assets;
-  service requests; job cards with assessment, assignment, holds, escalation, review and
-  closure; `v_job_cards`; dashboard and search functions; user administration and the
-  `admin-users` edge function; `job-files` bucket; jobs board retired and its data copied in.
+- v0.10 — requests from other departments, priority targets.
+- v0.9 — safety check before isolated work, escalation, audit log, names from email.
+- v0.8 — checklists and daily report backend.
+- v0.7 — SOPs and documents (documents, versions, acknowledgements, job links).
+- v0.6 — tools register (tools, tool_issues, tool-files bucket, reminders).
+- v0.5 — asset register, planned maintenance, isolation flag (assets, jobs.asset_id/maintenance_type/isolation_required).
+- v0.4 — user management (fn_admin_users, fn_set_user_profile, fn_set_user_roles, admin-users function).
+- v0.3 — push notifications (push_config, notifications_push trigger, push-send function).
+
+- v0.2 — jobs board (jobs, photos, comments, recurrences, overdue alerts).
+
 - v0.1 — foundation (sites, areas, profiles, roles/permissions, activity, notifications, device tokens, codes, buckets).

@@ -7,7 +7,7 @@ final sharedPrefsProvider = Provider<SharedPreferences>(
   (ref) => throw UnimplementedError('sharedPrefsProvider must be overridden'),
 );
 
-/// System / light / dark, remembered on the device.
+/// Light (the default), dark or system, remembered on the device.
 final themeModeProvider = NotifierProvider<ThemeModeNotifier, ThemeMode>(
   ThemeModeNotifier.new,
 );
@@ -20,7 +20,7 @@ class ThemeModeNotifier extends Notifier<ThemeMode> {
     final saved = ref.watch(sharedPrefsProvider).getString(_key);
     return ThemeMode.values.firstWhere(
       (m) => m.name == saved,
-      orElse: () => ThemeMode.system,
+      orElse: () => ThemeMode.light,
     );
   }
 

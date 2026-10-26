@@ -9,7 +9,6 @@ class LocalProfiles extends Table {
   TextColumn get fullName => text()();
   TextColumn get phone => text().nullable()();
   TextColumn get homeSiteId => text().nullable()();
-  TextColumn get departmentId => text().nullable()();
   TextColumn get avatarUrl => text().nullable()();
   BoolColumn get active => boolean()();
 
@@ -58,12 +57,81 @@ class Outbox extends Table {
   Set<Column> get primaryKey => {clientRef};
 }
 
-/// The job cards assigned to the signed-in user, as v_job_cards rows (JSON),
-/// so My Assigned Jobs opens with poor signal.
-class LocalJobCards extends Table {
+/// Jobs at the user's sites (API.md section 7). `pending` marks rows changed
+/// on this device that the server has not confirmed yet.
+class LocalJobs extends Table {
   TextColumn get id => text()();
-  TextColumn get payload => text()();
-  DateTimeColumn get syncedAt => dateTime()();
+  TextColumn get siteId => text()();
+  TextColumn get areaId => text().nullable()();
+  TextColumn get code => text().nullable()();
+  TextColumn get title => text()();
+  TextColumn get description => text().nullable()();
+  TextColumn get priority => text()();
+  TextColumn get status => text()();
+  TextColumn get waitingReason => text().nullable()();
+  DateTimeColumn get dueAt => dateTime().nullable()();
+  RealColumn get lat => real().nullable()();
+  RealColumn get lng => real().nullable()();
+  TextColumn get createdBy => text().nullable()();
+  TextColumn get assigneeId => text().nullable()();
+  DateTimeColumn get closedAt => dateTime().nullable()();
+  TextColumn get closeNote => text().nullable()();
+  TextColumn get recurrenceId => text().nullable()();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+  BoolColumn get pending => boolean().withDefault(const Constant(false))();
+  TextColumn get assetId => text().nullable()();
+  TextColumn get maintenanceType =>
+      text().withDefault(const Constant('corrective'))();
+  BoolColumn get isolationRequired =>
+      boolean().withDefault(const Constant(false))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// The asset register at the user's sites (API.md section 10).
+class LocalAssets extends Table {
+  TextColumn get id => text()();
+  TextColumn get siteId => text()();
+  TextColumn get areaId => text().nullable()();
+  TextColumn get tag => text()();
+  TextColumn get name => text()();
+  TextColumn get kind => text().nullable()();
+  TextColumn get makeModel => text().nullable()();
+  TextColumn get serialNo => text().nullable()();
+  TextColumn get notes => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// The tools register at the current site (API.md section 11).
+class LocalTools extends Table {
+  TextColumn get id => text()();
+  TextColumn get siteId => text()();
+  TextColumn get code => text().nullable()();
+  TextColumn get name => text()();
+  TextColumn get kind => text().nullable()();
+  TextColumn get serialNo => text().nullable()();
+  TextColumn get condition => text()();
+  DateTimeColumn get calibrationDue => dateTime().nullable()();
+  TextColumn get notes => text().nullable()();
+  TextColumn get photoPath => text().nullable()();
+  TextColumn get holderId => text().nullable()();
+  DateTimeColumn get issuedAt => dateTime().nullable()();
+  DateTimeColumn get dueBack => dateTime().nullable()();
+  DateTimeColumn get lastCountedAt => dateTime().nullable()();
+  BoolColumn get pending => boolean().withDefault(const Constant(false))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Names of people, for showing who posted or holds a job.
+class LocalPeople extends Table {
+  TextColumn get id => text()();
+  TextColumn get fullName => text()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -92,8 +160,11 @@ class PendingUploads extends Table {
     LocalSites,
     LocalAreas,
     Outbox,
-    LocalJobCards,
+    LocalJobs,
+    LocalPeople,
     PendingUploads,
+    LocalAssets,
+    LocalTools,
   ],
 )
 class LocalDb extends _$LocalDb {
@@ -116,18 +187,16 @@ class LocalDb extends _$LocalDb {
   MigrationStrategy get migration => MigrationStrategy(
     onUpgrade: (m, from, to) async {
       if (from < 2) {
+        await m.createTable(localJobs);
+        await m.createTable(localPeople);
         await m.createTable(pendingUploads);
+      } else if (from < 3) {
+        await m.addColumn(localJobs, localJobs.assetId);
+        await m.addColumn(localJobs, localJobs.maintenanceType);
+        await m.addColumn(localJobs, localJobs.isolationRequired);
       }
-      if (from < 3) {
-        // The jobs board cache is replaced by the job card cache.
-        await customStatement('DROP TABLE IF EXISTS local_jobs');
-        await customStatement('DROP TABLE IF EXISTS local_people');
-        await m.createTable(localJobCards);
-      }
-      if (from < 4) {
-        // The request form starts with the person's own department.
-        await m.addColumn(localProfiles, localProfiles.departmentId);
-      }
+      if (from < 3) await m.createTable(localAssets);
+      if (from < 4) await m.createTable(localTools);
     },
   );
 
@@ -148,24 +217,6 @@ class LocalDb extends _$LocalDb {
         b.insertAll(localPermissions, permissions);
         b.insertAll(localSites, sites);
         b.insertAll(localAreas, areas);
-      });
-    });
-  }
-
-  /// Replaces the cached assigned job cards (id → JSON row).
-  Future<void> replaceMyJobs(Map<String, String> rows) {
-    final now = DateTime.now();
-    return transaction(() async {
-      await delete(localJobCards).go();
-      await batch((b) {
-        b.insertAll(localJobCards, [
-          for (final e in rows.entries)
-            LocalJobCardsCompanion.insert(
-              id: e.key,
-              payload: e.value,
-              syncedAt: now,
-            ),
-        ]);
       });
     });
   }

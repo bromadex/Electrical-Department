@@ -21,18 +21,6 @@ class AppError implements Exception {
       return AppError('SERVER', error.message);
     }
     if (error is AuthException) return AppError('AUTH', error.message);
-    if (error is FunctionException) {
-      final details = error.details;
-      final text = details is Map
-          ? details['error']?.toString()
-          : details?.toString();
-      final match = RegExp(r'^([A-Z_]+): (.+)$').firstMatch(text ?? '');
-      if (match != null) return AppError(match.group(1)!, match.group(2)!);
-      return AppError(
-        'SERVER',
-        text ?? error.reasonPhrase ?? 'The server could not do that.',
-      );
-    }
     if (error is StorageException) {
       final status = int.tryParse(error.statusCode ?? '');
       if (status == 401 || status == 403) {

@@ -1,14 +1,11 @@
 # Bravura Electrical
 
-Electrical Department Job Card & Maintenance Management System: an Android +
-web app, built from one Flutter codebase on Supabase. Faults and requests are
-received, registered, assessed, assigned, worked, verified and closed as
-numbered job cards, with a live dashboard, an asset register and role-based
-access per site.
+Android + web app for the Bravura Electrical department, built from one
+Flutter codebase on Supabase. See the build plan for features and roadmap.
 
 ```
 app/        Flutter app (Android + web)
-supabase/   migrations/, tests/, functions/, seed.sql
+supabase/   migrations/, tests/, seed.sql
 API.md      app <-> Supabase contract
 ```
 
@@ -18,13 +15,13 @@ that changes it.
 
 ## Way of working
 
-- One branch per phase or feature (`feat/cmms-phase-1`), pull request into
-  `main`, reviewed before merging.
+- One branch per feature (`feat/jobs-board`), pull request into `main`, the
+  other developer reviews before merging.
 - Database changes are new numbered files in `supabase/migrations/`
-  (`0007_…sql`) with a matching test in `supabase/tests/`.
-  Never edit a migration that has been applied to production.
-- Merging to `main` applies new migrations to Supabase, deploys edge functions
-  and deploys the web app. Tagging `v1.2.3` builds the APK.
+  (`0002_jobs.sql` …) with a matching `supabase/tests/0002_jobs_test.sql`.
+  Never edit a migration that has been applied.
+- Merging to `main` applies new migrations to Supabase and deploys the web app.
+  Tagging `v1.2.3` builds the APK.
 
 ## Run the app
 
@@ -43,56 +40,18 @@ Flavors: `dev` installs as "Electrical DEV" (`com.bravura.electrical_department.
 and shows a DEV label; `prod` installs as "Bravura Electrical". Both can be on
 one phone.
 
-### Local Supabase
-
-`config/dev.example.json` points at a local Supabase, so development never
-touches real data. It runs in Docker. On Windows, Docker Engine inside WSL
-works and needs no Docker Desktop licence:
-
-1. In an administrator PowerShell: `wsl --install -d Ubuntu`, then restart.
-2. In Ubuntu: `sudo apt update && sudo apt install -y docker.io` and
-   `sudo usermod -aG docker $USER` (close and reopen Ubuntu).
-3. Install the Supabase CLI (same version as CI, see
-   `.github/workflows/supabase.yml`) from its GitHub releases.
-4. In the repo folder (`/mnt/c/...` from Ubuntu):
+`config/dev.example.json` points at a local Supabase. Start one with Docker:
 
 ```bash
 supabase start      # applies migrations and supabase/seed.sql
-supabase db reset   # start again from migrations + seed
 ```
 
-API on `127.0.0.1:54321`, Studio on `127.0.0.1:54323`, test mail inbox on
-`127.0.0.1:54324`.
-
-Seeded users (password `Passw0rd!`, all `@bravura.test`):
-
-| email | person | role |
-| --- | --- | --- |
-| `admin@` | Tendai Moyo | System Administrator |
-| `engineer@` | Farai Chikwanha | Electrical Engineer, Kamativi |
-| `electrician@` | Tatenda Ncube | Electrician, Kamativi and Selous |
-| `electrician2@` | Kudakwashe Sibanda | Electrician, Kamativi |
-| `manager@` | Nyasha Mlambo | Department Manager, all sites; P1 escalation contact |
-| `requester@` | Blessing Dube | Requester (Production), Kamativi |
-| `store@` | Rudo Mutasa | Storekeeper, Kamativi |
-
-The seed also adds work areas, 20 assets, requests and job cards in every
-state, including overdue and P1 jobs.
-
-### Checks
-
-```bash
-dart format lib test
-flutter analyze
-flutter test
-```
+Seeded test users (password `Passw0rd!`): `admin@bravura.test`,
+`supervisor@bravura.test`, `tech@bravura.test`, `store@bravura.test`.
 
 After changing tables in `app/lib/data/local_db.dart`, run
 `dart run build_runner build`. Generated `*.g.dart` files are committed; CI
 fails if they are stale.
-
-Database tests are plain SQL in `supabase/tests/`; with local Supabase running:
-`psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -f supabase/tests/<file>.sql`.
 
 ## CI and deploys
 
@@ -100,17 +59,16 @@ Database tests are plain SQL in `supabase/tests/`; with local Supabase running:
 | --- | --- | --- |
 | `App` | every push and PR | `flutter analyze`, `flutter test`, format and generated-code checks |
 | `App` | push to `main` | web build deployed to Vercel production |
-| `App` | pull request | web preview deployed to Vercel; link in the run summary (built against production Supabase) |
+| `App` | pull request | web preview deployed to Vercel; link in the run summary |
 | `App` | tag `v*` | release APK attached to a GitHub release (+ Firebase App Distribution) |
-| `Supabase database` | changes under `supabase/` | edge function type check, migrations + lint + SQL tests on a throwaway database, preview of pending migrations |
-| `Supabase database` | push to `main` | new migrations applied to Supabase, edge functions deployed |
+| `Supabase database` | changes under `supabase/` | migrations + SQL tests on a throwaway database; preview of pending migrations |
+| `Supabase database` | push to `main` | new migrations applied to Supabase |
 
 GitHub settings (**Settings → Secrets and variables → Actions**):
 
 | Name | Kind | Value |
 | --- | --- | --- |
 | `SUPABASE_DB_URL` | secret | Session pooler connection string (Supabase **Connect → Session pooler**) |
-| `SUPABASE_ACCESS_TOKEN` | secret | optional, deploys edge functions; supabase.com **Account → Access Tokens** |
 | `SUPABASE_URL` | variable | `https://<project-ref>.supabase.co` |
 | `SUPABASE_ANON_KEY` | variable | publishable key (`sb_publishable_…`) |
 | `VERCEL_TOKEN` | secret | Vercel **Account Settings → Tokens** |
@@ -128,26 +86,19 @@ migration names and deploy URLs, never table data or secrets.
 
 ## Users
 
-Accounts are created by a System Administrator, not by sign-up from the app.
-In Supabase, turn off **Authentication → Sign In / Providers → Allow new users
-to sign up**.
+Accounts are created by an admin, not by sign-up from the app:
 
-**The first administrator.** Add yourself under **Authentication → Users → Add
-user** (tick *Auto Confirm User*); a profile is created automatically. Then
-run this in the **SQL Editor**:
+1. In Supabase, turn off **Authentication → Sign In / Providers → Allow new users to sign up**.
+2. Add each person under **Authentication → Users → Add user** (tick *Auto Confirm User*).
+   A profile is created automatically.
+3. Give them a role. For the very first admin, run this in the **SQL Editor**:
 
-```sql
-insert into public.user_roles (user_id, role_id, site_id)
-select u.id, r.id, null            -- null = all sites
-from auth.users u, public.roles r
-where u.email = 'you@example.com' and r.name = 'System Administrator';
-```
-
-**Everyone else.** In the app, **User Management → Add user** creates the
-account with a temporary password (give it to the person in person) and sets
-their department, home site and roles per site. This needs the `admin-users`
-edge function, deployed by CI when `SUPABASE_ACCESS_TOKEN` is set; until then,
-add people in the Supabase dashboard as above and set their roles in the app.
+   ```sql
+   insert into public.user_roles (user_id, role_id, site_id)
+   select u.id, r.id, null            -- null = all sites
+   from auth.users u, public.roles r
+   where u.email = 'you@example.com' and r.name = 'Admin';
+   ```
 
 ## Branding
 

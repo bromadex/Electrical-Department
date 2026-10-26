@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../services/core_providers.dart';
 import '../theme/tokens.dart';
+import '../ui/motion.dart';
+import '../ui/surfaces.dart';
 import '../widgets/brand_logo.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -20,6 +23,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _busy = false;
   bool _obscure = true;
   String? _error;
+  int _errorCount = 0;
 
   @override
   void dispose() {
@@ -52,6 +56,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     setState(() {
       _busy = false;
       _error = error;
+      if (error != null) _errorCount++;
     });
   }
 
@@ -59,7 +64,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final wide = MediaQuery.sizeOf(context).width >= Breakpoints.desktop;
+    final wide = MediaQuery.sizeOf(context).width >= 900;
 
     final form = Form(
       key: _formKey,
@@ -69,17 +74,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (!wide) ...[
-              const Center(child: BrandLogo(width: 140)),
+              const Center(child: Floating(child: BrandLogo(width: 150)))
+                  .entrance(context),
               const SizedBox(height: Space.lg),
             ],
-            Text('Sign in', style: theme.textTheme.headlineSmall),
+            Text(
+              'Welcome back',
+              style: theme.textTheme.headlineMedium,
+            ).entrance(context, index: 1),
             const SizedBox(height: Space.xxs),
             Text(
-              'Electrical Department job cards and maintenance',
+              'Sign in to the Electrical Department',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: scheme.onSurfaceVariant,
               ),
-            ),
+            ).entrance(context, index: 2),
             const SizedBox(height: Space.lg),
             TextFormField(
               controller: _email,
@@ -93,7 +102,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               validator: (v) => (v == null || !v.contains('@'))
                   ? 'Enter a valid email'
                   : null,
-            ),
+            ).entrance(context, index: 3),
             const SizedBox(height: Space.sm),
             TextFormField(
               controller: _password,
@@ -103,10 +112,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 suffixIcon: IconButton(
                   tooltip: _obscure ? 'Show password' : 'Hide password',
                   onPressed: () => setState(() => _obscure = !_obscure),
-                  icon: Icon(
-                    _obscure
-                        ? Icons.visibility_outlined
-                        : Icons.visibility_off_outlined,
+                  icon: AnimatedSwitcher(
+                    duration: Motion.of(context, Motion.fast),
+                    child: Icon(
+                      _obscure
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
+                      key: ValueKey(_obscure),
+                    ),
                   ),
                 ),
               ),
@@ -115,173 +128,141 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               onFieldSubmitted: (_) => _signIn(),
               validator: (v) =>
                   (v == null || v.isEmpty) ? 'Enter your password' : null,
-            ),
-            if (_error != null) ...[
-              const SizedBox(height: Space.sm),
-              Container(
-                padding: const EdgeInsets.all(Space.sm),
-                decoration: BoxDecoration(
-                  color: AppColors.critical.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(Radii.sm),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.error_outline_rounded,
-                      color: AppColors.critical,
-                      size: 20,
-                    ),
-                    const SizedBox(width: Space.xs),
-                    Expanded(
-                      child: Text(
-                        _error!,
-                        style: const TextStyle(color: AppColors.critical),
+            ).entrance(context, index: 4),
+            AnimatedSize(
+              duration: Motion.of(context, Motion.medium),
+              curve: Motion.emphasized,
+              child: _error == null
+                  ? const SizedBox(width: double.infinity)
+                  : Padding(
+                      padding: const EdgeInsets.only(top: Space.sm),
+                      child: Container(
+                        padding: const EdgeInsets.all(Space.sm),
+                        decoration: BoxDecoration(
+                          color: scheme.errorContainer,
+                          borderRadius: BorderRadius.circular(Radii.md),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.error_outline_rounded,
+                              color: scheme.onErrorContainer,
+                              size: 20,
+                            ),
+                            const SizedBox(width: Space.xs),
+                            Expanded(
+                              child: Text(
+                                _error!,
+                                style: TextStyle(
+                                  color: scheme.onErrorContainer,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ],
+            ),
+            const SizedBox(height: Space.lg),
+            Pressable(
+              onTap: _busy ? null : _signIn,
+              child: FilledButton(
+                onPressed: _busy ? null : _signIn,
+                child: AnimatedSwitcher(
+                  duration: Motion.of(context, Motion.medium),
+                  child: _busy
+                      ? SizedBox.square(
+                          key: const ValueKey('busy'),
+                          dimension: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: scheme.onPrimary,
+                          ),
+                        )
+                      : const Row(
+                          key: ValueKey('idle'),
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('Sign in'),
+                            SizedBox(width: Space.xs),
+                            Icon(Icons.arrow_forward_rounded, size: 20),
+                          ],
+                        ),
                 ),
               ),
-            ],
-            const SizedBox(height: Space.lg),
-            FilledButton(
-              onPressed: _busy ? null : _signIn,
-              style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(48),
-              ),
-              child: _busy
-                  ? const SizedBox.square(
-                      dimension: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2.5),
-                    )
-                  : const Text('Sign in'),
-            ),
-            const SizedBox(height: Space.md),
-            Text(
-              'Forgot your password? Ask a system administrator to set a temporary one.',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-              ),
-            ),
+            ).entrance(context, index: 5),
           ],
         ),
       ),
     );
 
-    final card = Card(
-      child: Padding(padding: const EdgeInsets.all(Space.lg), child: form),
+    Widget card = GlassSurface(
+      padding: const EdgeInsets.all(Space.lg + 4),
+      child: form,
     );
-
-    if (!wide) {
-      return Scaffold(
-        body: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(Space.md),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 440),
-                child: card,
-              ),
-            ),
-          ),
-        ),
-      );
+    if (_errorCount > 0 && !Motion.reduced(context)) {
+      card = card
+          .animate(key: ValueKey(_errorCount))
+          .shakeX(hz: 5, amount: 6, duration: 420.ms);
     }
 
     return Scaffold(
-      body: Row(
-        children: [
-          const Expanded(flex: 5, child: _BrandPanel()),
-          Expanded(
-            flex: 6,
-            child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(Space.xl),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 420),
-                  child: card,
-                ),
-              ),
+      body: MeshBackground(
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(Space.lg),
+              child: wide
+                  ? ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 980),
+                      child: Row(
+                        children: [
+                          Expanded(child: const _Hero().entrance(context)),
+                          const SizedBox(width: Space.xxl),
+                          SizedBox(width: 420, child: card),
+                        ],
+                      ),
+                    )
+                  : ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 440),
+                      child: card,
+                    ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }
 }
 
-/// Navy brand panel on the left of wide screens.
-class _BrandPanel extends StatelessWidget {
-  const _BrandPanel();
+/// Left-hand brand panel on wide screens.
+class _Hero extends StatelessWidget {
+  const _Hero();
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    const muted = Color(0xFFB4C2D9);
-    Widget point(IconData icon, String text) => Padding(
-      padding: const EdgeInsets.only(bottom: Space.sm),
-      child: Row(
-        children: [
-          Icon(icon, color: muted, size: 20),
-          const SizedBox(width: Space.sm),
-          Expanded(
-            child: Text(
-              text,
-              style: theme.textTheme.bodyLarge?.copyWith(color: Colors.white),
-            ),
-          ),
-        ],
-      ),
-    );
-
-    return ColoredBox(
-      color: AppColors.navy900,
-      child: Padding(
-        padding: const EdgeInsets.all(Space.xxl),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: Space.md,
-                vertical: Space.sm,
-              ),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(Radii.md),
-              ),
-              child: const BrandLogo(width: 150),
-            ),
-            const SizedBox(height: Space.xl),
-            Text(
-              'Electrical Department',
-              style: theme.textTheme.headlineMedium?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            Text(
-              'Job Card & Maintenance Management',
-              style: theme.textTheme.titleMedium?.copyWith(color: muted),
-            ),
-            const SizedBox(height: Space.xl),
-            point(
-              Icons.assignment_outlined,
-              'Every fault registered, numbered and timed',
-            ),
-            point(
-              Icons.engineering_outlined,
-              'Assessed, assigned and tracked to closure',
-            ),
-            point(
-              Icons.fact_check_outlined,
-              'Closed only after engineering review',
-            ),
-            point(Icons.insights_outlined, 'Live dashboard for every site'),
-          ],
+    final scheme = theme.colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Floating(child: BrandLogo(width: 220)),
+        const SizedBox(height: Space.xl),
+        Text(
+          'Every job.\nEvery site.\nOne team.',
+          style: theme.textTheme.displaySmall?.copyWith(height: 1.1),
         ),
-      ),
+        const SizedBox(height: Space.md),
+        Text(
+          'Jobs, checklists, tools, the store and the team chat for '
+          'Bravura Electrical — on the phone and on the web.',
+          style: theme.textTheme.bodyLarge?.copyWith(
+            color: scheme.onSurfaceVariant,
+            height: 1.5,
+          ),
+        ),
+      ],
     );
   }
 }
