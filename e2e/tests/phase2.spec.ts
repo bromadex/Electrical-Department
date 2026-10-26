@@ -176,7 +176,7 @@ test('Both themes: light and dark', async ({ browser }) => {
     await expectShown(tech, /Work assigned to you/);
     await shot(tech, `theme-${scheme}-phone-my-jobs`);
   }
-  const login = await (await browser.newContext({ colorScheme: 'dark', viewport: { width: 1440, height: 900 } })).newPage();
+  const login = await (await browser.newContext({ colorScheme: 'dark', reducedMotion: 'reduce', viewport: { width: 1440, height: 900 } })).newPage();
   await open(login, '/login');
   await expectShown(login, /Sign in to the Electrical Department/);
   await shot(login, 'theme-dark-login');

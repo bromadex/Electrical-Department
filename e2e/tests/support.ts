@@ -80,14 +80,15 @@ export async function signIn(
   colorScheme: 'light' | 'dark' = 'light',
 ): Promise<Page> {
   // The app follows the device's light or dark setting until changed.
-  const context = await browser.newContext({ viewport, colorScheme });
+  const context = await browser.newContext({ viewport, colorScheme, reducedMotion: 'reduce' });
   const page = await context.newPage();
   pages.push(page);
   await open(page, '/login');
   await fill(page, /Email/, email);
   await fill(page, /Password/, PASSWORD);
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-  await page.waitForURL((u) => !u.hash.startsWith('#/login') && !u.hash.startsWith('#/home'), {
+  // Signing in lands on Home (/home), a real page in the main app.
+  await page.waitForURL((u) => !u.hash.startsWith('#/login'), {
     timeout: 60_000,
   });
   return page;

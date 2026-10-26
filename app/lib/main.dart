@@ -100,6 +100,15 @@ class _ElectricalDepartmentAppState
       themeAnimationDuration: const Duration(milliseconds: 400),
       routerConfig: _router,
       scrollBehavior: const _IosScrollBehavior(),
+      // Acceptance test builds run as if the device asked for reduced motion:
+      // the moving wallpaper behind the glass is redrawn every frame, which a
+      // headless browser without a graphics card cannot keep up with.
+      builder: const bool.fromEnvironment('E2E')
+          ? (context, child) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(disableAnimations: true),
+              child: child!,
+            )
+          : null,
     );
   }
 }

@@ -25,7 +25,7 @@ const auditTables = [
   ('job_submissions', 'Submissions'),
   ('job_reviews', 'Reviews'),
   ('job_closures', 'Closures'),
-  ('job_comments', 'Comments'),
+  ('job_card_comments', 'Comments'),
   ('job_attachments', 'Files'),
   ('service_requests', 'Requests'),
   ('assets', 'Equipment'),

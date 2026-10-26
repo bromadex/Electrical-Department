@@ -29,7 +29,7 @@ class JobCardsLive extends Notifier<int> {
     for (final table in const [
       'job_cards',
       'job_assignments',
-      'job_comments',
+      'job_card_comments',
       'job_attachments',
       'service_requests',
       'job_work_sessions',
@@ -180,7 +180,7 @@ final jobCardExtrasProvider = FutureProvider.autoDispose
             .eq('job_card_id', id)
             .order('assigned_at', ascending: true),
         client
-            .from('job_comments')
+            .from('job_card_comments')
             .select('*, author:profiles!author_id(full_name)')
             .eq('job_card_id', id)
             .eq('is_archived', false)
@@ -260,7 +260,7 @@ final sitePeopleProvider = FutureProvider.autoDispose
     .family<List<Person>, String>((ref, siteId) async {
       final rows = await ref
           .watch(supabaseProvider)
-          .rpc('fn_site_people', params: {'p_site': siteId});
+          .rpc('fn_jc_site_people', params: {'p_site': siteId});
       return [
         for (final r in rows as List)
           Person(r['id'] as String, r['full_name'] as String? ?? ''),
