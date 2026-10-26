@@ -403,6 +403,15 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                               prev.authorId == m.authorId &&
                               m.createdAt.difference(prev.createdAt).inMinutes <
                                   5;
+                          if (m.kind == 'system') {
+                            return Column(
+                              children: [
+                                if (newDay) _DaySeparator(m.createdAt),
+                                if (m.id == firstNew) const _NewMessagesLine(),
+                                _SystemRow(message: m),
+                              ],
+                            );
+                          }
                           // Groups: the avatar sits beside the last message
                           // of each run from one person.
                           final lastOfRun =
@@ -485,6 +494,73 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
 
 /// Side padding that keeps the thread to a readable width on desktop.
 double _side(double w) => w > 900 ? (w - 900) / 2 : 0;
+
+/// A line from the app itself, e.g. "Clement started a call" with Join.
+class _SystemRow extends StatelessWidget {
+  const _SystemRow({required this.message});
+
+  final ChatMessage message;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final m = message;
+    final call = m.recordLink?.startsWith('call:') ?? false;
+    final time =
+        '${m.createdAt.hour.toString().padLeft(2, '0')}:${m.createdAt.minute.toString().padLeft(2, '0')}';
+    // Joining makes sense while the call can still be going.
+    final recent = DateTime.now().difference(m.createdAt).inHours < 2;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: Space.sm),
+      child: Center(
+        child: GlassSurface(
+          radius: 99,
+          padding: const EdgeInsets.fromLTRB(6, 6, 14, 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (call)
+                Container(
+                  width: 30,
+                  height: 30,
+                  decoration: const BoxDecoration(
+                    color: BrandColors.success,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    CupertinoIcons.phone_fill,
+                    size: 15,
+                    color: Colors.white,
+                  ),
+                ),
+              const SizedBox(width: Space.xs),
+              Flexible(
+                child: Text(
+                  '${m.body ?? ''} · $time',
+                  style: theme.textTheme.labelMedium,
+                ),
+              ),
+              if (call && recent) ...[
+                const SizedBox(width: Space.sm),
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: BrandColors.success,
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                  ),
+                  onPressed: () => context.push(
+                    '/chat/${m.recordLink!.substring(5)}/call?join=1',
+                  ),
+                  child: const Text('Join'),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 /// Where the unread messages start.
 class _NewMessagesLine extends StatelessWidget {
