@@ -77,7 +77,8 @@ List<NavItem> visibleNavItems(PermissionSet p) => [
     if (i.visible(p)) i,
 ];
 
-/// Up to four entries for the phone's bottom bar, field work first.
+/// Up to three entries for the phone's bottom bar, field work first (the
+/// bar also holds the + and Menu).
 List<NavItem> phoneNavItems(PermissionSet p) {
   const order = [
     '/v2/my-jobs',
@@ -89,7 +90,7 @@ List<NavItem> phoneNavItems(PermissionSet p) {
   ];
   final visible = visibleNavItems(p);
   return [for (final path in order) ...visible.where((i) => i.path == path)]
-      .take(4)
+      .take(3)
       .toList();
 }
 

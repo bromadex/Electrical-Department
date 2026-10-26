@@ -1,8 +1,10 @@
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../data/permission_set.dart';
 import '../services/session_controller.dart';
 import '../theme/tokens.dart';
 import '../ui/motion.dart';
@@ -44,6 +46,7 @@ class V2Shell extends ConsumerWidget {
     if (MediaQuery.sizeOf(context).width < phoneMaxWidth) {
       final inset = MediaQuery.paddingOf(context);
       final bar = phoneNavItems(session.perms);
+      final creates = createOptions(session.perms);
       return Scaffold(
         backgroundColor: Colors.transparent,
         body: MeshBackground(
@@ -77,6 +80,9 @@ class V2Shell extends ConsumerWidget {
                   items: bar,
                   current: current,
                   onMenu: () => _showMenu(context, items, current),
+                  onCreate: creates.isEmpty
+                      ? null
+                      : () => _showCreate(context, creates),
                 ),
               ),
             ],
@@ -164,6 +170,63 @@ class V2Shell extends ConsumerWidget {
   }
 }
 
+/// What the phone bar's + can start, by permission.
+List<NavItem> createOptions(PermissionSet p) => [
+  if (p.can('jc.register'))
+    NavItem(
+      '/v2/job-cards/new',
+      'New job card',
+      Icons.assignment_add,
+      Icons.assignment_add,
+      (_) => true,
+    ),
+  if (p.can('req.submit'))
+    NavItem(
+      '/v2/my-requests/new',
+      'New request',
+      Icons.outbox_outlined,
+      Icons.outbox_rounded,
+      (_) => true,
+    ),
+];
+
+/// Phones: the + opens the only option at once, or a sheet to choose.
+void _showCreate(BuildContext context, List<NavItem> options) {
+  HapticFeedback.lightImpact();
+  if (options.length == 1) {
+    context.go(options.single.path);
+    return;
+  }
+  showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: Colors.transparent,
+    builder: (sheet) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(Space.sm),
+        child: GlassSurface(
+          radius: 30,
+          strong: true,
+          padding: const EdgeInsets.symmetric(vertical: Space.xs),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final o in options)
+                ListTile(
+                  leading: Icon(o.icon),
+                  title: Text(o.label),
+                  onTap: () {
+                    Navigator.pop(sheet);
+                    context.go(o.path);
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 /// The way back to the main app (Home), first in every job cards menu.
 final versionOneItem = NavItem(
   '/home',
@@ -195,7 +258,7 @@ class _WindowHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'JOB CARDS · NEW SYSTEM',
+                  'JOB CARDS',
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: BrandColors.coral,
                     fontWeight: FontWeight.w800,
@@ -239,16 +302,39 @@ class _PhoneTopBar extends StatelessWidget {
       radius: 0,
       blur: 30,
       child: Padding(
-        padding: EdgeInsets.fromLTRB(Space.md + 4, top, Space.xs, 0),
+        padding: EdgeInsets.fromLTRB(Space.xxs, top, Space.xs, 0),
         child: SizedBox(
           height: V2Shell.phoneTopBar,
           child: Row(
             children: [
+              IconButton(
+                tooltip: 'Back to main app',
+                onPressed: () => context.go('/home'),
+                icon: const Icon(Icons.arrow_back_rounded),
+              ),
               Expanded(
-                child: Text(
-                  title,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.headlineMedium?.copyWith(fontSize: 26),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'JOB CARDS',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: BrandColors.coral,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        height: 1.1,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const GlobalSearchButton(),
@@ -403,17 +489,26 @@ class _FloatingTabBar extends StatelessWidget {
     required this.items,
     required this.current,
     required this.onMenu,
+    this.onCreate,
   });
 
   final List<NavItem> items;
   final NavItem? current;
   final VoidCallback onMenu;
 
+  /// The round + in the middle, as in the main app; null hides it.
+  final VoidCallback? onCreate;
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final count = items.length + 1;
-    final index = items.indexWhere((i) => identical(i, current));
+    // The + sits after the second entry and takes a slot of its own.
+    final plusAt = onCreate == null
+        ? -1
+        : (items.length < 2 ? items.length : 2);
+    final count = items.length + 1 + (onCreate == null ? 0 : 1);
+    final found = items.indexWhere((i) => identical(i, current));
+    final index = found < 0 || plusAt < 0 || found < plusAt ? found : found + 1;
     return DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(34),
@@ -455,7 +550,13 @@ class _FloatingTabBar extends StatelessWidget {
                     ),
                   Row(
                     children: [
-                      for (final item in items)
+                      for (final (i, item) in items.indexed) ...[
+                        if (i == plusAt)
+                          Expanded(
+                            child: Center(
+                              child: _CreateButton(onTap: onCreate!),
+                            ),
+                          ),
                         Expanded(
                           child: _TabItem(
                             icon: identical(item, current)
@@ -465,6 +566,11 @@ class _FloatingTabBar extends StatelessWidget {
                             selected: identical(item, current),
                             onTap: () => context.go(item.path),
                           ),
+                        ),
+                      ],
+                      if (plusAt == items.length)
+                        Expanded(
+                          child: Center(child: _CreateButton(onTap: onCreate!)),
                         ),
                       Expanded(
                         child: _TabItem(
@@ -491,6 +597,42 @@ class _FloatingTabBar extends StatelessWidget {
     'My Requests' => 'Requests',
     _ => label,
   };
+}
+
+/// The round + in the middle of the phone tab bar (as in the main app).
+class _CreateButton extends StatelessWidget {
+  const _CreateButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'New',
+      excludeSemantics: true,
+      child: Pressable(
+        onTap: onTap,
+        scale: 0.88,
+        child: Container(
+          width: 52,
+          height: 52,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: BrandColors.brandGradient,
+            boxShadow: [
+              BoxShadow(
+                color: BrandColors.maroon.withValues(alpha: 0.45),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: const Icon(CupertinoIcons.add, color: Colors.white, size: 28),
+        ),
+      ),
+    );
+  }
 }
 
 class _TabItem extends StatelessWidget {

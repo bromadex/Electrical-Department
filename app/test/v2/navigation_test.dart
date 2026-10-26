@@ -68,9 +68,9 @@ void main() {
     }
   });
 
-  test('the phone bar puts field work first and keeps four entries', () {
+  test('the phone bar puts field work first and keeps three entries', () {
     final bar = phoneNavItems(admin);
-    expect(bar, hasLength(4));
+    expect(bar, hasLength(3));
     expect(bar.first.path, '/v2/my-jobs');
   });
 

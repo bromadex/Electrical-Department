@@ -90,7 +90,7 @@ test('Test 4: a job past its deadline shows as overdue', async ({ browser }) => 
   await expectShown(page, /Overdue/);
   await shot(page, '04-overdue-job-cards');
   await open(page, '/v2/dashboard');
-  await expectShown(page, /Needs attention/);
+  await expectShown(page, /Needs you/);
   await shot(page, '04-dashboard');
 });
 
@@ -123,6 +123,7 @@ test('Test 5: a P1 job updates the critical dashboard and sends notifications', 
   await open(manager, '/v2/dashboard');
   await manager.getByRole('button', { name: /Switch site|Harare/ }).first().click();
   await tap(manager, 'All my sites', true);
+  await tap(manager, /critical job cards?/);
   await expectShown(manager, number);
   await shot(manager, '05-manager-dashboard');
 });
@@ -245,10 +246,12 @@ for (const [name, viewport] of [
     const job = await jobByTitle(api, 'Conveyor 3 VFD fault F0002');
     const engineer = await signIn(browser, people.engineer, viewport);
     await open(engineer, '/v2/dashboard');
-    await expectShown(engineer, /Total job cards/);
+    await expectShown(engineer, /Needs you/);
     await shot(engineer, `12-${name}-dashboard`);
     await open(engineer, '/v2/job-cards');
-    await expect(engineer.getByRole('button', { name: /New job card/ }).first()).toBeVisible();
+    // Phones start a job card from the + in the bottom bar.
+    const create = name === 'phone' ? 'New' : /New job card/;
+    await expect(engineer.getByRole('button', { name: create, exact: name === 'phone' }).first()).toBeVisible();
     await shot(engineer, `12-${name}-job-cards`);
     await open(engineer, `/v2/job-cards/${job.number}`);
     await expectShown(engineer, 'Conveyor 3 VFD fault F0002');
