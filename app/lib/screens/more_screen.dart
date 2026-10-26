@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../config/env.dart';
 import '../documents/documents_repository.dart';
-import '../requests/requests_screen.dart';
 import '../services/core_providers.dart';
 import '../services/notifications_controller.dart';
 import '../services/push_service.dart';
@@ -27,7 +26,6 @@ class MoreScreen extends ConsumerWidget {
     final unread = ref.watch(notificationsProvider.select((s) => s.unread));
     final push = ref.watch(pushProvider);
     final toSign = ref.watch(toSignCountProvider);
-    final newRequests = ref.watch(newRequestCountProvider);
     final profile = session.profile;
     final email = ref.read(supabaseProvider).auth.currentUser?.email ?? '';
     final name = (profile?.fullName.isNotEmpty ?? false)
@@ -93,14 +91,6 @@ class MoreScreen extends ConsumerWidget {
         const SectionHeader('Everything'),
         TileGrid(
           tiles: [
-            if (session.can('jc.view') || session.can('req.submit'))
-              ShortcutTile(
-                icon: Icons.assignment_outlined,
-                title: 'Job cards',
-                subtitle: 'New system · trial',
-                colors: const [Color(0xFF7B1E3A), Color(0xFFD8A7B1)],
-                onTap: () => context.go('/v2'),
-              ),
             ShortcutTile(
               icon: Icons.summarize_outlined,
               title: 'Daily report',
@@ -108,16 +98,30 @@ class MoreScreen extends ConsumerWidget {
               colors: const [BrandColors.maroon, BrandColors.coral],
               onTap: () => context.push('/reports'),
             ),
-            ShortcutTile(
-              icon: Icons.move_to_inbox_outlined,
-              title: 'Work requests',
-              subtitle: newRequests > 0
-                  ? '$newRequests waiting'
-                  : 'Other departments',
-              badge: newRequests,
-              colors: const [BrandColors.info, Color(0xFF6A8FE8)],
-              onTap: () => context.push('/requests'),
-            ),
+            if (session.can('req.triage'))
+              ShortcutTile(
+                icon: Icons.move_to_inbox_outlined,
+                title: 'Requests',
+                subtitle: 'From other departments',
+                colors: const [BrandColors.info, Color(0xFF6A8FE8)],
+                onTap: () => context.push('/requests'),
+              ),
+            if (session.can('req.submit'))
+              ShortcutTile(
+                icon: Icons.outbox_outlined,
+                title: 'My requests',
+                subtitle: 'Work you asked for',
+                colors: const [Color(0xFF6A8FE8), BrandColors.blush],
+                onTap: () => context.push('/my-requests'),
+              ),
+            if (session.can('jc.view'))
+              ShortcutTile(
+                icon: Icons.insights_outlined,
+                title: 'Job statistics',
+                subtitle: 'Trends and times',
+                colors: const [BrandColors.maroonDeep, BrandColors.info],
+                onTap: () => context.push('/job-stats'),
+              ),
             ShortcutTile(
               icon: Icons.fact_check_outlined,
               title: 'Checklists',
@@ -155,14 +159,6 @@ class MoreScreen extends ConsumerWidget {
               colors: const [Color(0xFF5B4B8A), BrandColors.info],
               onTap: () => context.push('/notifications'),
             ),
-            if (session.can('jobs.assign'))
-              ShortcutTile(
-                icon: Icons.event_repeat_rounded,
-                title: 'Planned maintenance',
-                subtitle: 'Jobs that repeat',
-                colors: const [BrandColors.success, BrandColors.info],
-                onTap: () => context.push('/jobs/recurring'),
-              ),
             if (session.perms.canEverywhere('admin.users')) ...[
               ShortcutTile(
                 icon: Icons.group_outlined,
@@ -173,17 +169,17 @@ class MoreScreen extends ConsumerWidget {
               ),
               ShortcutTile(
                 icon: Icons.timer_outlined,
-                title: 'Response times',
-                subtitle: 'Per priority',
+                title: 'Job card settings',
+                subtitle: 'Priorities, numbering',
                 colors: const [Color(0xFF3B3F4A), Color(0xFF6B7080)],
-                onTap: () => context.push('/admin/targets'),
+                onTap: () => context.push('/admin/job-settings'),
               ),
               ShortcutTile(
                 icon: Icons.history_rounded,
                 title: 'Activity log',
                 subtitle: 'Every change',
                 colors: const [Color(0xFF3B3F4A), Color(0xFF6B7080)],
-                onTap: () => context.push('/admin/activity'),
+                onTap: () => context.push('/admin/audit'),
               ),
             ],
           ],

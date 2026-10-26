@@ -47,9 +47,12 @@ class DashboardScreen extends ConsumerWidget {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _NeedsYou(data: d),
+                  NeedsYouCard(data: d),
                   const SizedBox(height: Space.md),
-                  _Numbers(data: d, siteName: site == null ? null : siteName),
+                  JobCardNumbers(
+                    data: d,
+                    siteName: site == null ? null : siteName,
+                  ),
                   const SizedBox(height: Space.md),
                   _Charts(data: d),
                 ],
@@ -58,14 +61,14 @@ class DashboardScreen extends ConsumerWidget {
             return Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(flex: 3, child: _NeedsYou(data: d)),
+                Expanded(flex: 3, child: NeedsYouCard(data: d)),
                 const SizedBox(width: Space.md),
                 Expanded(
                   flex: 2,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _Numbers(
+                      JobCardNumbers(
                         data: d,
                         siteName: site == null ? null : siteName,
                       ),
@@ -83,7 +86,8 @@ class DashboardScreen extends ConsumerWidget {
   }
 }
 
-typedef _Item = ({
+/// One row in "Needs you".
+typedef NeedsYouItem = ({
   IconData icon,
   Color color,
   String title,
@@ -93,10 +97,13 @@ typedef _Item = ({
 
 /// Everything waiting on someone, most pressing first. One row per kind;
 /// a single job card opens directly, several open the filtered list.
-class _NeedsYou extends ConsumerWidget {
-  const _NeedsYou({required this.data});
+class NeedsYouCard extends ConsumerWidget {
+  const NeedsYouCard({super.key, required this.data, this.extra = const []});
 
   final DashboardData data;
+
+  /// Rows from outside job cards (Home adds checklists, documents and tools).
+  final List<NeedsYouItem> extra;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -104,9 +111,8 @@ class _NeedsYou extends ConsumerWidget {
     final perms = ref.watch(sessionProvider.select((s) => s.perms));
     final mine = ref.watch(myJobsProvider).value ?? const [];
     final d = data;
-    void list(String view) => context.go('/v2/job-cards?view=$view');
-    void job(Map<String, dynamic> r) =>
-        context.go('/v2/job-cards/${r['number']}');
+    void list(String view) => context.go('/jobs?view=$view');
+    void job(Map<String, dynamic> r) => context.push('/jobs/${r['number']}');
 
     String one(Map<String, dynamic> r) => '${r['number']} · ${r['title']}';
     String? detail(Map<String, dynamic> r, String extra) => [
@@ -115,7 +121,7 @@ class _NeedsYou extends ConsumerWidget {
       extra,
     ].whereType<String>().where((s) => s.isNotEmpty).join(' · ');
 
-    _Item? kind({
+    NeedsYouItem? kind({
       required String key,
       required int count,
       required String several,
@@ -151,7 +157,7 @@ class _NeedsYou extends ConsumerWidget {
     final overdue = d.card('overdue');
     final unassigned = d.card('awaiting_assignment');
     final review = d.card('awaiting_review');
-    final items = <_Item>[
+    final items = <NeedsYouItem>[
       ?kind(
         key: 'critical',
         count: critical,
@@ -198,16 +204,17 @@ class _NeedsYou extends ConsumerWidget {
           color: AppColors.burgundy,
           title: '${mine.single.number} · ${mine.single.title}',
           detail: 'Assigned to you · ${mine.single.status.label}',
-          onTap: () => context.go('/v2/job-cards/${mine.single.number}'),
+          onTap: () => context.push('/jobs/${mine.single.number}'),
         )
       else if (mine.length > 1)
         (
           icon: Icons.engineering_outlined,
           color: AppColors.burgundy,
           title: '${mine.length} job cards assigned to you',
-          detail: 'Most urgent first in My Assigned Jobs',
-          onTap: () => context.go('/v2/my-jobs'),
+          detail: 'Most urgent first in My jobs',
+          onTap: () => context.push('/jobs/mine'),
         ),
+      ...extra,
     ];
 
     return SurfaceCard(
@@ -241,7 +248,9 @@ class _NeedsYou extends ConsumerWidget {
                   const SizedBox(height: Space.xs),
                   Text('All caught up', style: theme.textTheme.titleSmall),
                   Text(
-                    'No job card is waiting on you.',
+                    extra.isEmpty && data.cards.isNotEmpty
+                        ? 'No job card is waiting on you.'
+                        : 'Nothing is waiting on you.',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodySmall,
                   ),
@@ -262,7 +271,7 @@ class _NeedsYou extends ConsumerWidget {
 class _Row extends StatelessWidget {
   const _Row({required this.item});
 
-  final _Item item;
+  final NeedsYouItem item;
 
   @override
   Widget build(BuildContext context) {
@@ -320,8 +329,8 @@ class _Row extends StatelessWidget {
 }
 
 /// Four numbers in one card; each opens the job cards list with that filter.
-class _Numbers extends StatelessWidget {
-  const _Numbers({required this.data, required this.siteName});
+class JobCardNumbers extends StatelessWidget {
+  const JobCardNumbers({super.key, required this.data, required this.siteName});
 
   final DashboardData data;
   final String? siteName;
@@ -362,7 +371,7 @@ class _Numbers extends StatelessWidget {
                 Expanded(
                   child: InkWell(
                     borderRadius: BorderRadius.circular(Radii.md),
-                    onTap: () => context.go('/v2/job-cards?view=$view'),
+                    onTap: () => context.go('/jobs?view=$view'),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 6),
                       child: Column(

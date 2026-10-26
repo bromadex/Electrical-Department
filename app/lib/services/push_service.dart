@@ -28,8 +28,9 @@ enum PushState {
 /// the app works as before, only without pushes.
 /// Where a notification link opens in the app: `job:<id>` → `/jobs/<id>`,
 /// `chat:<id>` → `/chat/<id>`, `tool:<id>` → `/tools/<id>`,
-/// `doc:<id>` → `/documents/<id>`; Job Cards Version 2: `jobcard:<id>` →
-/// `/v2/job-cards/<id>`, `servicerequest:<id>` → `/v2/requests/<id>`. Unknown links
+/// `doc:<id>` → `/documents/<id>`, `jobcard:<id>` → `/jobs/<id>`,
+/// `servicerequest:<id>` → `/requests/<id>`; links to the retired jobs board
+/// (`job:<id>`) open its old page. Unknown links
 /// open nothing.
 String? notificationPath(String? link) {
   if (link == null) return null;
@@ -37,9 +38,9 @@ String? notificationPath(String? link) {
   if (i <= 0 || i == link.length - 1) return null;
   final id = link.substring(i + 1);
   return switch (link.substring(0, i)) {
-    'jobcard' => '/v2/job-cards/$id',
-    'servicerequest' => '/v2/requests/$id',
-    'job' => '/jobs/$id',
+    'jobcard' => '/jobs/$id',
+    'servicerequest' => '/requests/$id',
+    'job' => '/old-jobs/$id',
     'chat' => '/chat/$id',
     'tool' => '/tools/$id',
     'asset' => '/assets/$id',

@@ -106,7 +106,7 @@ class _SubmitRequestScreenState extends ConsumerState<SubmitRequestScreen> {
           );
       if (!mounted) return;
       showSnack(context, 'Request $number sent to the electrical department');
-      context.go('/v2/my-requests');
+      context.canPop() ? context.pop() : context.go('/my-requests');
     } catch (e) {
       if (mounted) {
         setState(() => _busy = false);
@@ -293,7 +293,11 @@ class _SubmitRequestScreenState extends ConsumerState<SubmitRequestScreen> {
               spacing: Space.xs,
               children: [
                 OutlinedButton(
-                  onPressed: _busy ? null : () => context.go('/v2/my-requests'),
+                  onPressed: _busy
+                      ? null
+                      : () => context.canPop()
+                            ? context.pop()
+                            : context.go('/my-requests'),
                   child: const Text('Cancel'),
                 ),
                 FilledButton.icon(

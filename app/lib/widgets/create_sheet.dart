@@ -5,10 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../documents/documents_screen.dart';
-import '../jobs/job_editor.dart';
 import '../reports/daily_report_screen.dart';
+import '../ui/form_sheet.dart';
 import '../reports/reports_repository.dart';
-import '../requests/requests_screen.dart';
 import '../services/session_controller.dart';
 import '../theme/tokens.dart';
 import '../ui/motion.dart';
@@ -50,23 +49,31 @@ class _CreateSheet extends ConsumerWidget {
     }
 
     final actions = <_Action>[
-      if (can('jobs.create'))
+      if (can('jc.register'))
         (
           icon: CupertinoIcons.exclamationmark_triangle_fill,
           title: 'Report a fault',
-          hint: 'Log a new job',
+          hint: 'New job card',
           colors: const [BrandColors.maroon, BrandColors.coral],
-          run: (c) => then(c, (h) => showJobEditor(h)),
+          run: (c) => then(c, (h) => h.push('/jobs/new')),
         )
-      else if (can('req.create'))
+      else if (can('req.submit'))
         (
           icon: CupertinoIcons.paperplane_fill,
           title: 'Request work',
           hint: 'Ask the electrical team',
           colors: const [BrandColors.maroon, BrandColors.coral],
-          run: (c) => then(c, (h) => showFormSheet(h, const RequestForm())),
+          run: (c) => then(c, (h) => h.push('/my-requests/new')),
         ),
-      if (can('jobs.view'))
+      if (can('jc.execute'))
+        (
+          icon: CupertinoIcons.person_crop_circle_badge_checkmark,
+          title: 'My jobs',
+          hint: 'Start, pause, submit',
+          colors: const [Color(0xFF8E2D45), BrandColors.info],
+          run: (c) => then(c, (h) => h.push('/jobs/mine')),
+        ),
+      if (can('jc.view'))
         (
           icon: CupertinoIcons.square_pencil,
           title: 'Today\'s report',
@@ -80,7 +87,7 @@ class _CreateSheet extends ConsumerWidget {
             ),
           ),
         ),
-      if (can('jobs.view'))
+      if (can('jc.view'))
         (
           icon: CupertinoIcons.checkmark_rectangle_fill,
           title: 'Do a checklist',
@@ -112,11 +119,11 @@ class _CreateSheet extends ConsumerWidget {
           colors: const [BrandColors.coral, BrandColors.blush],
           run: (c) => then(c, (h) => showFormSheet(h, const DocumentForm())),
         ),
-      if (can('jobs.assign'))
+      if (can('req.triage'))
         (
           icon: CupertinoIcons.tray_arrow_down_fill,
-          title: 'Work requests',
-          hint: 'From other teams',
+          title: 'Requests',
+          hint: 'From other departments',
           colors: const [BrandColors.maroonDeep, BrandColors.maroon],
           run: (c) => then(c, (h) => h.push('/requests')),
         ),

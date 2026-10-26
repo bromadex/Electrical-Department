@@ -95,10 +95,10 @@ void main() {
   });
 
   test('notification links open the right screen', () {
-    expect(notificationPath('jobcard:abc'), '/v2/job-cards/abc');
-    expect(notificationPath('servicerequest:def'), '/v2/requests/def');
-    // Version 1's own links keep working beside them.
-    expect(notificationPath('job:old'), '/jobs/old');
+    expect(notificationPath('jobcard:abc'), '/jobs/abc');
+    expect(notificationPath('servicerequest:def'), '/requests/def');
+    // Links to the retired jobs board open its old pages.
+    expect(notificationPath('job:old'), '/old-jobs/old');
     expect(notificationPath('request:x'), '/requests');
     expect(notificationPath(null), isNull);
   });

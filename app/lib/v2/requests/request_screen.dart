@@ -75,13 +75,6 @@ class _RequestViewState extends ConsumerState<_RequestView> {
     return AppPage(
       title: r.requestNo,
       subtitle: r.title,
-      leading: IconButton(
-        tooltip: 'Back',
-        onPressed: () => context.canPop()
-            ? context.pop()
-            : context.go(mine ? '/v2/my-requests' : '/v2/requests'),
-        icon: const Icon(Icons.arrow_back_rounded),
-      ),
       maxWidth: 1000,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -161,8 +154,7 @@ class _RequestViewState extends ConsumerState<_RequestView> {
               actions: [
                 if (canSeeJob)
                   TextButton(
-                    onPressed: () =>
-                        context.go('/v2/job-cards/${job['number']}'),
+                    onPressed: () => context.push('/jobs/${job['number']}'),
                     child: const Text('Open job card'),
                   ),
               ],
@@ -250,8 +242,7 @@ class _RequestViewState extends ConsumerState<_RequestView> {
                   r.status == RequestStatus.submitted &&
                   session.can('jc.register', siteId: r.siteId))
                 FilledButton.icon(
-                  onPressed: () =>
-                      context.go('/v2/job-cards/new?request=${r.id}'),
+                  onPressed: () => context.push('/jobs/new?request=${r.id}'),
                   icon: const Icon(Icons.assignment_add),
                   label: const Text('Register job card'),
                 ),

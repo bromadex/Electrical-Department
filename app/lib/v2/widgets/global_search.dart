@@ -24,9 +24,9 @@ class SearchHit {
   final String subtitle;
 
   String get route => switch (kind) {
-    'job_card' => '/v2/job-cards/$ref',
+    'job_card' => '/jobs/$ref',
     'asset' => '/assets/$id',
-    _ => '/v2/requests/$id',
+    _ => '/requests/$id',
   };
 
   IconData get icon => switch (kind) {

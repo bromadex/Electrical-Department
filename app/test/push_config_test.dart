@@ -24,12 +24,12 @@ void main() {
   });
 
   test('notification links open the right screen', () {
-    expect(notificationPath('job:abc'), '/jobs/abc');
+    expect(notificationPath('job:abc'), '/old-jobs/abc');
     expect(notificationPath('chat:xyz'), '/chat/xyz');
     expect(notificationPath('tool:t1'), '/tools/t1');
     expect(notificationPath('doc:d1'), '/documents/d1');
-    expect(notificationPath('jobcard:abc'), '/v2/job-cards/abc');
-    expect(notificationPath('servicerequest:r1'), '/v2/requests/r1');
+    expect(notificationPath('jobcard:abc'), '/jobs/abc');
+    expect(notificationPath('servicerequest:r1'), '/requests/r1');
     expect(notificationPath('job:'), isNull);
     expect(notificationPath(null), isNull);
   });

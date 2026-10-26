@@ -74,10 +74,7 @@ class JobCardsScreen extends ConsumerWidget {
     void update(JobCardFilter f) {
       final q = f.toQuery();
       context.go(
-        Uri(
-          path: '/v2/job-cards',
-          queryParameters: q.isEmpty ? null : q,
-        ).toString(),
+        Uri(path: '/jobs', queryParameters: q.isEmpty ? null : q).toString(),
       );
     }
 
@@ -88,7 +85,7 @@ class JobCardsScreen extends ConsumerWidget {
         // Phones start a job card from the + in the bottom bar.
         if (perms.can('jc.register') && width >= Breakpoints.phone)
           FilledButton.icon(
-            onPressed: () => context.go('/v2/job-cards/new'),
+            onPressed: () => context.push('/jobs/new'),
             icon: const Icon(Icons.add_rounded),
             label: const Text('New job card'),
           ),
@@ -127,7 +124,7 @@ class JobCardsScreen extends ConsumerWidget {
                   onSort: (key, asc) => update(
                     filter.copyWith(sort: key, ascending: asc, page: 0),
                   ),
-                  onTap: (j) => context.go('/v2/job-cards/${j.number}'),
+                  onTap: (j) => context.push('/jobs/${j.number}'),
                   highlight: (j) => j.isOverdue || j.isCriticalOpen
                       ? AppColors.critical.withValues(alpha: 0.06)
                       : j.sla == SlaState.atRisk
@@ -136,7 +133,7 @@ class JobCardsScreen extends ConsumerWidget {
                   cardBelow: tableFrom,
                   cardBuilder: (j) => JobCardTile(
                     job: j,
-                    onTap: () => context.go('/v2/job-cards/${j.number}'),
+                    onTap: () => context.push('/jobs/${j.number}'),
                   ),
                   columns: _columns(workArea: width >= 1400),
                 ),

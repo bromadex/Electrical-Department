@@ -19,7 +19,7 @@ class MyRequestsScreen extends ConsumerWidget {
       subtitle: 'Electrical faults and work you have asked for',
       actions: [
         FilledButton.icon(
-          onPressed: () => context.go('/v2/my-requests/new'),
+          onPressed: () => context.push('/my-requests/new'),
           icon: const Icon(Icons.add_rounded),
           label: const Text('New request'),
         ),
@@ -33,7 +33,7 @@ class MyRequestsScreen extends ConsumerWidget {
                 title: 'No requests yet',
                 message: 'Report an electrical fault or ask for work, and follow it here.',
                 action: FilledButton.icon(
-                  onPressed: () => context.go('/v2/my-requests/new'),
+                  onPressed: () => context.push('/my-requests/new'),
                   icon: const Icon(Icons.add_rounded),
                   label: const Text('New request'),
                 ),
@@ -46,7 +46,7 @@ class MyRequestsScreen extends ConsumerWidget {
                       padding: const EdgeInsets.only(bottom: Space.xs),
                       child: RequestTile(
                         request: r,
-                        onTap: () => context.go('/v2/requests/${r.id}'),
+                        onTap: () => context.push('/requests/${r.id}'),
                       ),
                     ),
                 ],

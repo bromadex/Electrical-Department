@@ -14,6 +14,7 @@ import '../theme/tokens.dart';
 import '../ui/bits.dart';
 import '../ui/motion.dart';
 import '../ui/surfaces.dart';
+import '../v2/reference/reference_data.dart';
 import 'brand_logo.dart';
 import 'create_sheet.dart';
 import 'notifications_button.dart';
@@ -41,6 +42,8 @@ class AppShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(sessionProvider);
+    // Lists, settings and the site time zone the job card screens rely on.
+    ref.watch(referenceDataProvider);
     final phone = MediaQuery.sizeOf(context).width < phoneMaxWidth;
     final title = shellTabs[shell.currentIndex].label;
 
@@ -432,8 +435,17 @@ class _NavCapsule extends ConsumerWidget {
     final session = ref.watch(sessionProvider);
     final site = ref.watch(currentSiteProvider);
     final links = [
-      if (session.can('jc.view') || session.can('req.submit'))
-        ('/v2', 'Job cards', CupertinoIcons.doc_checkmark),
+      if (session.can('jc.execute', siteId: site?.id))
+        (
+          '/jobs/mine',
+          'My jobs',
+          CupertinoIcons.person_crop_circle_badge_checkmark,
+        ),
+      if (session.can('req.triage', siteId: site?.id))
+        ('/requests', 'Requests', CupertinoIcons.tray_arrow_down),
+      if (session.can('req.submit', siteId: site?.id) &&
+          !session.can('jc.view', siteId: site?.id))
+        ('/my-requests', 'My requests', CupertinoIcons.paperplane),
       for (final l in _links)
         if (l.$1 != '/tools' || session.can('tools.view', siteId: site?.id))
           if (l.$1 != '/documents' ||
@@ -597,9 +609,7 @@ class _NavCapsule extends ConsumerWidget {
                       message: labels ? '' : label,
                       preferBelow: false,
                       child: Pressable(
-                        onTap: () => path == '/v2'
-                            ? context.go(path)
-                            : context.push(path),
+                        onTap: () => context.push(path),
                         scale: 0.92,
                         child: row(icon, label, scheme.onSurfaceVariant),
                       ),

@@ -154,7 +154,7 @@ class _RegisterFormState extends ConsumerState<_RegisterForm> {
           );
       if (!mounted) return;
       showSnack(context, 'Registered $number');
-      context.go('/v2/job-cards/$number');
+      context.pushReplacement('/jobs/$number');
     } catch (e) {
       if (mounted) {
         setState(() => _busy = false);

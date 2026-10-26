@@ -43,12 +43,15 @@ function reply(status: number, body: Record<string, unknown>): Response {
   });
 }
 
-/** `job:<id>` → `/jobs/<id>`, `chat:<id>` → `/chat/<id>`, `tool:<id>` → `/tools/<id>`, `doc:<id>` → `/documents/<id>`. */
+/** Same mapping as the app's notificationPath: `jobcard:<id>` → `/jobs/<id>`, `servicerequest:<id>` → `/requests/<id>`, `chat:<id>` → `/chat/<id>`, and so on. */
 function appPath(link: string | null): string | null {
   if (!link) return null;
   const [kind, id] = link.split(":", 2);
   if (!id) return null;
-  if (kind === "job") return `/jobs/${id}`;
+  if (kind === "jobcard") return `/jobs/${id}`;
+  if (kind === "servicerequest") return `/requests/${id}`;
+  if (kind === "asset") return `/assets/${id}`;
+  if (kind === "job") return `/old-jobs/${id}`;
   if (kind === "chat") return `/chat/${id}`;
   if (kind === "tool") return `/tools/${id}`;
   if (kind === "doc") return `/documents/${id}`;

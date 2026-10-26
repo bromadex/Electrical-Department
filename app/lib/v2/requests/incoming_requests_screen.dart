@@ -91,15 +91,14 @@ class _IncomingRequestsScreenState
                       padding: const EdgeInsets.only(bottom: Space.xs),
                       child: RequestTile(
                         request: r,
-                        onTap: () => context.go('/v2/requests/${r.id}'),
+                        onTap: () => context.push('/requests/${r.id}'),
                         actions: r.status != RequestStatus.submitted
                             ? const []
                             : [
                                 if (canRegister)
                                   FilledButton.icon(
-                                    onPressed: () => context.go(
-                                      '/v2/job-cards/new?request=${r.id}',
-                                    ),
+                                    onPressed: () =>
+                                        context.go('/jobs/new?request=${r.id}'),
                                     icon: const Icon(Icons.assignment_add),
                                     label: const Text('Register job card'),
                                   ),

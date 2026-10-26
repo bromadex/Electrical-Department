@@ -506,12 +506,6 @@ class _JobCardViewState extends ConsumerState<_JobCardView>
     return AppPage(
       title: job.number,
       subtitle: job.title,
-      leading: IconButton(
-        tooltip: 'Back',
-        onPressed: () =>
-            context.canPop() ? context.pop() : context.go('/v2/job-cards'),
-        icon: const Icon(Icons.arrow_back_rounded),
-      ),
       actions: [
         IconButton(
           tooltip: 'Refresh',
@@ -811,13 +805,13 @@ class _Overview extends StatelessWidget {
             children: [
               if (job.requestId != null)
                 TextButton.icon(
-                  onPressed: () => context.go('/v2/requests/${job.requestId}'),
+                  onPressed: () => context.push('/requests/${job.requestId}'),
                   icon: const Icon(Icons.move_to_inbox_outlined),
                   label: Text('Open request ${job.requestNo ?? ''}'),
                 ),
               if (job.assetId != null)
                 TextButton.icon(
-                  onPressed: () => context.go('/assets/${job.assetId}'),
+                  onPressed: () => context.push('/assets/${job.assetId}'),
                   icon: const Icon(Icons.precision_manufacturing_outlined),
                   label: const Text('Open equipment record'),
                 ),

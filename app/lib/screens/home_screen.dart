@@ -7,9 +7,6 @@ import '../chat/chat_repository.dart';
 import '../checklists/checklists_repository.dart';
 import '../data/local_db.dart';
 import '../documents/documents_repository.dart';
-import '../jobs/job_rules.dart';
-import '../jobs/jobs_repository.dart';
-import '../requests/requests_screen.dart';
 import '../services/core_providers.dart';
 import '../services/notifications_controller.dart';
 import '../services/push_service.dart';
@@ -21,9 +18,14 @@ import '../ui/motion.dart';
 import '../ui/page.dart';
 import '../ui/surfaces.dart';
 import '../ui/tiles.dart';
-import '../widgets/create_sheet.dart';
+import '../v2/dashboard/dashboard_data.dart';
+import '../v2/dashboard/dashboard_screen.dart';
+import '../v2/my_jobs/my_jobs_screen.dart' show myJobsProvider;
+import '../v2/requests/models.dart';
+import '../v2/requests/repository.dart';
+import '../v2/requests/request_tile.dart';
+import '../v2/site_filter.dart';
 import '../widgets/push_prompt.dart';
-import 'jobs_screen.dart';
 
 bool _sameDay(DateTime a, DateTime b) =>
     a.year == b.year && a.month == b.month && a.day == b.day;
@@ -41,10 +43,11 @@ class HomeScreen extends ConsumerWidget {
       maxWidth: 1180,
       onRefresh: () async {
         ref.invalidate(checklistStatusProvider);
+        ref.invalidate(dashboardProvider);
+        ref.invalidate(myJobsProvider);
         await Future.wait([
           ref.read(sessionProvider.notifier).refresh(),
           ref.read(notificationsProvider.notifier).refresh(),
-          ref.read(jobsSyncProvider.notifier).refresh(),
         ]);
       },
       children: [
@@ -143,107 +146,37 @@ class _Greeting extends ConsumerWidget {
   }
 }
 
-typedef _Item = ({
-  IconData icon,
-  Color color,
-  String title,
-  String? subtitle,
-  VoidCallback onTap,
-});
-
-/// Everything waiting on me, most pressing first.
+/// What needs me: job cards first (critical, overdue, to assign, to verify,
+/// mine), then checklists due, documents to sign and tools to return.
 class _ToDo extends ConsumerWidget {
   const _ToDo();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
     final session = ref.watch(sessionProvider);
     final site = ref.watch(currentSiteProvider);
     final me = ref.watch(authUserIdProvider);
-    final jobs = ref.watch(siteJobsProvider).value ?? const <LocalJob>[];
     final tools = ref.watch(siteToolsProvider).value ?? const <LocalTool>[];
     final templates = ref.watch(checklistTemplatesProvider).value ?? const [];
     final status = ref.watch(checklistStatusProvider).value ?? const {};
     final toSign = ref.watch(toSignCountProvider);
-    final requests = ref.watch(newRequestCountProvider);
-    final isSuper = site != null && session.can('jobs.assign', siteId: site.id);
+    bool can(String code) => site != null && session.can(code, siteId: site.id);
     final now = DateTime.now();
 
-    final open = [
-      for (final j in jobs)
-        if (j.status != 'done' && j.status != 'cancelled') j,
-    ];
-    final mine = [
-      for (final j in open)
-        if (j.assigneeId == me) j,
-    ]..sort(compareJobs);
-    final urgentFree = open
-        .where((j) => j.priority == 'urgent' && j.assigneeId == null)
-        .length;
-    final rounds = [
+    final extra = <NeedsYouItem>[
       for (final t in templates)
         if (status[t.id] case final s?
             when !s.done && _sameDay(s.dueBy.toLocal(), now))
-          if (t.assigneeId == null || t.assigneeId == me || isSuper) t,
-    ];
-    final myTools = [
-      for (final t in tools)
-        if (t.holderId == me) t,
-    ];
-
-    final items = <_Item>[
-      if (urgentFree > 0 && isSuper)
-        (
-          icon: CupertinoIcons.exclamationmark_octagon_fill,
-          color: const Color(0xFFE5484D),
-          title: urgentFree == 1
-              ? '1 urgent job has nobody'
-              : '$urgentFree urgent jobs have nobody',
-          subtitle: 'Assign someone now',
-          onTap: () => openJobs(context, ref, JobFilter.unassigned),
-        ),
-      if (requests > 0)
-        (
-          icon: CupertinoIcons.tray_arrow_down_fill,
-          color: BrandColors.info,
-          title: requests == 1
-              ? '1 work request to decide'
-              : '$requests work requests to decide',
-          subtitle: 'Accept or decline',
-          onTap: () => context.push('/requests'),
-        ),
-      for (final j in mine.take(4))
-        (
-          icon: JobStatus.parse(j.status).icon,
-          color: isOverdue(j)
-              ? const Color(0xFFE5484D)
-              : JobStatus.parse(j.status).color,
-          title: j.title,
-          subtitle: [
-            ?j.code,
-            JobStatus.parse(j.status).label,
-            if (j.dueAt != null)
-              isOverdue(j) ? 'overdue' : 'due ${relativeTime(j.dueAt!)}',
-          ].join(' · '),
-          onTap: () => context.push('/jobs/${j.id}'),
-        ),
-      if (mine.length > 4)
-        (
-          icon: CupertinoIcons.ellipsis_circle,
-          color: BrandColors.maroon,
-          title: '${mine.length - 4} more of my jobs',
-          subtitle: null,
-          onTap: () => openJobs(context, ref, JobFilter.mine),
-        ),
-      for (final t in rounds.take(3))
-        (
-          icon: CupertinoIcons.checkmark_rectangle,
-          color: BrandColors.success,
-          title: t.name,
-          subtitle: 'Checklist due today',
-          onTap: () => context.push('/checklists/${t.id}'),
-        ),
+          if (t.assigneeId == null ||
+              t.assigneeId == me ||
+              can('checklists.manage'))
+            (
+              icon: CupertinoIcons.checkmark_rectangle,
+              color: BrandColors.success,
+              title: t.name,
+              detail: 'Checklist due today',
+              onTap: () => context.push('/checklists/${t.id}'),
+            ),
       if (toSign > 0)
         (
           icon: CupertinoIcons.signature,
@@ -251,23 +184,74 @@ class _ToDo extends ConsumerWidget {
           title: toSign == 1
               ? '1 document to read and sign'
               : '$toSign documents to read and sign',
-          subtitle: 'SOPs and safety notices',
+          detail: 'SOPs and safety notices',
           onTap: () => context.push('/documents'),
         ),
-      for (final t in myTools)
-        (
-          icon: CupertinoIcons.wrench_fill,
-          color: toolOverdue(t) ? const Color(0xFFE5484D) : BrandColors.warning,
-          title: 'Return ${t.name}',
-          subtitle: t.dueBack == null
-              ? t.code
-              : toolOverdue(t)
-              ? '${t.code} · was due back ${t.dueBack!.day}/${t.dueBack!.month}'
-              : '${t.code} · due back ${t.dueBack!.day}/${t.dueBack!.month}',
-          onTap: () => context.push('/tools/${t.id}'),
-        ),
+      for (final t in tools)
+        if (t.holderId == me)
+          (
+            icon: CupertinoIcons.wrench_fill,
+            color: toolOverdue(t)
+                ? const Color(0xFFE5484D)
+                : BrandColors.warning,
+            title: 'Return ${t.name}',
+            detail: t.dueBack == null
+                ? t.code
+                : '${t.code} · ${toolOverdue(t) ? 'was due' : 'due'} back '
+                      '${t.dueBack!.day}/${t.dueBack!.month}',
+            onTap: () => context.push('/tools/${t.id}'),
+          ),
     ];
 
+    if (!can('jc.view')) return _MyRequests(extra: extra);
+
+    final data = ref.watch(
+      dashboardProvider((
+        ref.watch(siteFilterProvider),
+        ref.watch(dashRangeProvider),
+      )),
+    );
+    final incoming = data.value?.incomingRequests ?? 0;
+    if (can('req.triage') && incoming > 0) {
+      extra.insert(0, (
+        icon: CupertinoIcons.tray_arrow_down_fill,
+        color: BrandColors.info,
+        title: incoming == 1
+            ? '1 request to register'
+            : '$incoming requests to register',
+        detail: 'From other departments',
+        onTap: () => context.push('/requests'),
+      ));
+    }
+    return switch (data) {
+      AsyncValue(:final value?) => NeedsYouCard(data: value, extra: extra),
+      AsyncError() => SurfaceCard(
+        child: Text(
+          'Job cards load when you are connected.',
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+      ),
+      _ => const SurfaceCard(child: Skeleton(height: 120)),
+    };
+  }
+}
+
+/// Home for people who only request work: their requests and how they stand.
+class _MyRequests extends ConsumerWidget {
+  const _MyRequests({required this.extra});
+
+  final List<NeedsYouItem> extra;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final requests = ref.watch(myRequestsProvider).value ?? const [];
+    final open = [
+      for (final r in requests)
+        if (r.status != RequestStatus.rejected &&
+            r.status != RequestStatus.withdrawn)
+          r,
+    ];
     return SurfaceCard(
       padding: const EdgeInsets.fromLTRB(Space.md, Space.md, Space.md, 6),
       child: Column(
@@ -275,205 +259,75 @@ class _ToDo extends ConsumerWidget {
         children: [
           Row(
             children: [
-              Text('To do', style: theme.textTheme.titleMedium),
-              const SizedBox(width: Space.xs),
-              if (items.isNotEmpty)
-                Pill(
-                  label: '${items.length}',
-                  color: BrandColors.maroon,
-                  dense: true,
-                ),
+              Text('My requests', style: theme.textTheme.titleMedium),
               const Spacer(),
-              if (mine.isNotEmpty)
-                TextButton(
-                  onPressed: () => openJobs(context, ref, JobFilter.mine),
-                  child: const Text('My jobs'),
-                ),
+              TextButton(
+                onPressed: () => context.push('/my-requests'),
+                child: const Text('See all'),
+              ),
             ],
           ),
-          if (items.isEmpty)
+          if (open.isEmpty)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: Space.lg),
+              padding: const EdgeInsets.symmetric(vertical: Space.md),
               child: Column(
                 children: [
-                  const Icon(
-                    CupertinoIcons.checkmark_seal_fill,
-                    color: BrandColors.success,
-                    size: 40,
-                  ),
-                  const SizedBox(height: Space.xs),
-                  Text('All caught up', style: theme.textTheme.titleSmall),
                   Text(
-                    'Nothing is waiting on you. Tap + to start something.',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodySmall,
+                    'Need electrical work done?',
+                    style: theme.textTheme.titleSmall,
                   ),
                   const SizedBox(height: Space.sm),
-                  FilledButton.tonalIcon(
-                    onPressed: () => showCreateSheet(context),
-                    icon: const Icon(CupertinoIcons.add),
-                    label: const Text('New'),
+                  FilledButton.icon(
+                    onPressed: () => context.push('/my-requests/new'),
+                    icon: const Icon(CupertinoIcons.paperplane),
+                    label: const Text('Request work'),
                   ),
                 ],
               ),
             )
           else
-            for (final (i, it) in items.indexed) ...[
-              if (i > 0) const Divider(height: 1),
-              _ToDoRow(item: it),
-            ],
+            for (final r in open.take(4))
+              Padding(
+                padding: const EdgeInsets.only(bottom: Space.xs),
+                child: RequestTile(
+                  request: r,
+                  onTap: () => context.push('/requests/${r.id}'),
+                ),
+              ),
+          for (final e in extra)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(e.icon, color: e.color),
+              title: Text(e.title),
+              subtitle: e.detail == null ? null : Text(e.detail!),
+              onTap: e.onTap,
+            ),
         ],
       ),
     );
   }
 }
 
-class _ToDoRow extends StatelessWidget {
-  const _ToDoRow({required this.item});
-
-  final _Item item;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return InkWell(
-      onTap: item.onTap,
-      borderRadius: BorderRadius.circular(Radii.md),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        child: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: item.color.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(Radii.md),
-              ),
-              child: Icon(item.icon, color: item.color, size: 20),
-            ),
-            const SizedBox(width: Space.sm),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleSmall,
-                  ),
-                  if (item.subtitle != null)
-                    Text(
-                      item.subtitle!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            Icon(
-              CupertinoIcons.chevron_right,
-              size: 16,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Four numbers for the site; each opens the matching jobs.
+/// The four job card numbers for the site.
 class _SiteNumbers extends ConsumerWidget {
   const _SiteNumbers();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final jobs = ref.watch(siteJobsProvider).value ?? const <LocalJob>[];
     final site = ref.watch(currentSiteProvider);
-    final now = DateTime.now();
-    final open = [
-      for (final j in jobs)
-        if (j.status != 'done' && j.status != 'cancelled') j,
-    ];
-    final numbers = [
-      ('Open', open.length, BrandColors.maroon, JobFilter.active),
-      (
-        'Urgent',
-        open.where((j) => j.priority == 'urgent').length,
-        const Color(0xFFE5484D),
-        JobFilter.urgent,
-      ),
-      (
-        'Overdue',
-        open.where(isOverdue).length,
-        BrandColors.warning,
-        JobFilter.overdue,
-      ),
-      (
-        'Done today',
-        jobs
-            .where(
-              (j) =>
-                  j.status == 'done' &&
-                  j.closedAt != null &&
-                  _sameDay(j.closedAt!.toLocal(), now),
-            )
-            .length,
-        BrandColors.success,
-        JobFilter.done,
-      ),
-    ];
-
-    return SurfaceCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Jobs at ${site?.name ?? 'this site'}',
-            style: theme.textTheme.titleMedium,
-          ),
-          const SizedBox(height: Space.sm),
-          Row(
-            children: [
-              for (final (label, value, color, filter) in numbers)
-                Expanded(
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(Radii.md),
-                    onTap: () => openJobs(context, ref, filter),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 6),
-                      child: Column(
-                        children: [
-                          AnimatedCount(
-                            value: value,
-                            style: theme.textTheme.headlineMedium?.copyWith(
-                              color: value > 0 ? color : null,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          Text(
-                            label,
-                            maxLines: 1,
-                            style: theme.textTheme.labelMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ],
-      ),
+    final session = ref.watch(sessionProvider);
+    if (site == null || !session.can('jc.view', siteId: site.id)) {
+      return const SizedBox.shrink();
+    }
+    final data = ref.watch(
+      dashboardProvider((
+        ref.watch(siteFilterProvider),
+        ref.watch(dashRangeProvider),
+      )),
     );
+    final d = data.value;
+    if (d == null) return const SizedBox.shrink();
+    return JobCardNumbers(data: d, siteName: site.name);
   }
 }
 
@@ -494,14 +348,6 @@ class _Shortcuts extends ConsumerWidget {
         const SectionHeader('Go to'),
         TileGrid(
           tiles: [
-            if (session.can('jc.view') || session.can('req.submit'))
-              ShortcutTile(
-                icon: Icons.assignment_outlined,
-                title: 'Job cards',
-                subtitle: 'New system · trial',
-                colors: const [Color(0xFF7B1E3A), Color(0xFFD8A7B1)],
-                onTap: () => context.go('/v2'),
-              ),
             if (can('jobs.view')) ...[
               ShortcutTile(
                 icon: Icons.fact_check_outlined,
@@ -550,13 +396,13 @@ class _Shortcuts extends ConsumerWidget {
                 colors: const [Color(0xFF5B4B8A), BrandColors.info],
                 onTap: () => context.go('/chat'),
               ),
-            if (can('req.create') && !can('jobs.view'))
+            if (can('req.submit'))
               ShortcutTile(
-                icon: Icons.move_to_inbox_outlined,
+                icon: Icons.outbox_outlined,
                 title: 'My requests',
-                subtitle: 'Track your requests',
+                subtitle: 'Work you asked for',
                 colors: const [BrandColors.info, Color(0xFF6A8FE8)],
-                onTap: () => context.push('/requests'),
+                onTap: () => context.push('/my-requests'),
               ),
           ],
         ),

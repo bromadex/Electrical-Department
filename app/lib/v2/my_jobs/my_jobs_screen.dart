@@ -133,8 +133,7 @@ class MyJobsScreen extends ConsumerWidget {
                           padding: const EdgeInsets.only(bottom: Space.xs),
                           child: JobCardTile(
                             job: j,
-                            onTap: () =>
-                                context.go('/v2/job-cards/${j.number}'),
+                            onTap: () => context.push('/jobs/${j.number}'),
                             trailing: _QuickActions(job: j),
                           ),
                         ),

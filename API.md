@@ -306,10 +306,15 @@ Adopted in a light form from Tafara's PR #19, on top of the jobs board.
 
 ## 17. Job Cards Version 2 (migrations 0012–0014)
 
-The job card & maintenance management system from Tafara's PR #19 and its phase 2,
-added beside the jobs board so both can run and be compared. Nothing of Version 1
-changes. App: the **Job cards** tile (Menu, Home) or the first desktop side-menu link
-opens `/v2`, which has its own menu and a "Back to main app" link to Home. (Section 16 is left for chat, migration 0011.)
+The job card & maintenance management system from Tafara's PR #19 and its phase 2.
+**Job cards are the app's job system.** The Jobs tab is the job cards list (`/jobs`); a
+job card opens at `/jobs/<number or id>`, My jobs at `/jobs/mine`, a new job card at
+`/jobs/new`; requests at `/requests` (incoming) and `/my-requests` (mine, new at
+`/my-requests/new`); statistics at `/job-stats`; settings at `/admin/job-settings`; the
+activity log at `/admin/audit`. Old `/v2/...` addresses redirect. Home's "Needs you" and
+the four numbers come from `fn_dashboard`; the ➕ New sheet raises a job card (or a
+request for people without `jc.register`). The retired jobs board's pages stay at
+`/old-jobs/<id>` for old links. (Section 16 is left for chat, migration 0011.)
 
 **Shared with Version 1.** Profiles, sites, areas and roles (no renames); notifications
 and push (`notifications_push` sends v2 notifications too); the `activity` log (every v2

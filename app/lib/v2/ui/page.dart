@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
-import '../navigation.dart';
 import '../theme/tokens.dart';
 
-/// Page subtitle and actions above the page content. Menu screens leave
-/// their name to the shell header, so it is shown once; detail pages (a job
-/// card's number, "New request") keep their own title.
+/// Subtitle and actions above the page content. The title is shown once, by
+/// the tab's top bar or the page's title bar ([title] is kept for callers).
 class AppPage extends StatelessWidget {
   const AppPage({
     super.key,
@@ -29,59 +26,39 @@ class AppPage extends StatelessWidget {
   final bool scroll;
   final double maxWidth;
 
-  /// True when the shell header already shows [title] (a menu screen).
-  bool _titleInShell(BuildContext context) {
-    try {
-      final location = GoRouterState.of(context).uri.path;
-      return navItems.any((i) => i.path == location && i.label == title);
-    } catch (_) {
-      return false; // Outside the router, e.g. in widget tests.
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final phone = MediaQuery.sizeOf(context).width < Breakpoints.phone;
     final pad = phone ? Space.sm : Space.lg;
-    final showTitle = !_titleInShell(context);
-    final hasHeader =
-        showTitle || subtitle != null || leading != null || actions.isNotEmpty;
 
+    final inset = MediaQuery.paddingOf(context);
+    final hasHeader = subtitle != null || actions.isNotEmpty || leading != null;
     final header = Wrap(
       spacing: Space.sm,
       runSpacing: Space.xs,
       crossAxisAlignment: WrapCrossAlignment.center,
       alignment: WrapAlignment.spaceBetween,
       children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (leading != null) ...[leading!, const SizedBox(width: Space.xs)],
-            Flexible(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (showTitle)
-                    Text(
-                      title,
-                      style: phone
-                          ? theme.textTheme.titleLarge
-                          : theme.textTheme.headlineSmall,
+        if (leading != null || subtitle != null)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (leading != null) ...[
+                leading!,
+                const SizedBox(width: Space.xs),
+              ],
+              if (subtitle != null)
+                Flexible(
+                  child: Text(
+                    subtitle!,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
-                  if (subtitle != null)
-                    Text(
-                      subtitle!,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ),
+                  ),
+                ),
+            ],
+          ),
         if (actions.isNotEmpty)
           Wrap(spacing: Space.xs, runSpacing: Space.xs, children: actions),
       ],
@@ -89,7 +66,7 @@ class AppPage extends StatelessWidget {
 
     if (!scroll) {
       return Padding(
-        padding: EdgeInsets.fromLTRB(pad, pad, pad, 0),
+        padding: EdgeInsets.fromLTRB(pad, inset.top + pad, pad, 0),
         child: Align(
           alignment: Alignment.topCenter,
           child: ConstrainedBox(
@@ -99,6 +76,7 @@ class AppPage extends StatelessWidget {
               children: [
                 if (hasHeader) ...[header, const SizedBox(height: Space.md)],
                 Expanded(child: child),
+                SizedBox(height: inset.bottom),
               ],
             ),
           ),
@@ -107,7 +85,12 @@ class AppPage extends StatelessWidget {
     }
 
     return SingleChildScrollView(
-      padding: EdgeInsets.all(pad),
+      padding: EdgeInsets.fromLTRB(
+        pad,
+        inset.top + pad,
+        pad,
+        inset.bottom + pad,
+      ),
       child: Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(

@@ -16,15 +16,14 @@ import 'documents/documents_screen.dart';
 import 'jobs/job_detail_screen.dart';
 import 'jobs/recurring_screen.dart';
 import 'screens/home_screen.dart';
-import 'screens/jobs_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/more_screen.dart';
 import 'screens/notifications_screen.dart';
 import 'reports/daily_report_screen.dart';
-import 'requests/requests_screen.dart';
 import 'services/core_providers.dart';
 import 'tools/tool_detail_screen.dart';
 import 'tools/tools_screen.dart';
+import 'v2/jobs_tab.dart';
 import 'v2/routes.dart';
 import 'widgets/app_shell.dart';
 
@@ -61,7 +60,6 @@ GoRouter buildRouter(WidgetRef ref) {
 
   final screens = <String, Widget>{
     '/home': const HomeScreen(),
-    '/jobs': const JobsScreen(),
     '/chat': const ChatListScreen(),
     '/menu': const MoreScreen(),
   };
@@ -87,8 +85,11 @@ GoRouter buildRouter(WidgetRef ref) {
         path: '/jobs/recurring',
         builder: (_, _) => const RecurringScreen(),
       ),
+      ...jobCardRoutes,
+      jobCardDetailRoute,
+      // The retired jobs board's job pages, for old links and history.
       GoRoute(
-        path: '/jobs/:id',
+        path: '/old-jobs/:id',
         builder: (_, s) => JobDetailScreen(id: s.pathParameters['id']!),
       ),
       GoRoute(
@@ -97,7 +98,6 @@ GoRouter buildRouter(WidgetRef ref) {
       ),
       GoRoute(path: '/admin/users', builder: (_, _) => const UsersScreen()),
       GoRoute(path: '/admin/targets', builder: (_, _) => const TargetsScreen()),
-      GoRoute(path: '/requests', builder: (_, _) => const RequestsScreen()),
       GoRoute(path: '/reports', builder: (_, _) => const DailyReportScreen()),
       GoRoute(
         path: '/admin/activity',
@@ -128,7 +128,6 @@ GoRouter buildRouter(WidgetRef ref) {
         path: '/notifications',
         builder: (_, _) => const NotificationsScreen(),
       ),
-      v2Routes,
       StatefulShellRoute(
         builder: (context, state, shell) => shell,
         navigatorContainerBuilder: (context, shell, children) =>
@@ -137,7 +136,13 @@ GoRouter buildRouter(WidgetRef ref) {
           for (final tab in shellTabs)
             StatefulShellBranch(
               routes: [
-                GoRoute(path: tab.path, builder: (_, _) => screens[tab.path]!),
+                GoRoute(
+                  path: tab.path,
+                  // The Jobs tab keeps its filters in the address.
+                  builder: (_, s) => tab.path == '/jobs'
+                      ? JobsTab(query: s.uri.queryParameters)
+                      : screens[tab.path]!,
+                ),
               ],
             ),
         ],
