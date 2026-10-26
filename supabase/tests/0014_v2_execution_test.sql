@@ -1,4 +1,4 @@
--- Behaviour checks for 0012_v2_execution: work sessions and waits, the
+-- Behaviour checks for 0014_v2_execution: work sessions and waits, the
 -- safety checklist, the work log, submissions and reviews, closure metrics,
 -- time corrections, escalation rules and the audit log.
 -- Runs in a transaction and rolls back; now() is fixed for the whole run,

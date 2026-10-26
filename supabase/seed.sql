@@ -143,7 +143,7 @@ update public.tools set holder_id = '10000000-0000-0000-0000-000000000003',
 where name = 'Fluke 117 multimeter';
 
 -- ===========================================================================
--- Job Cards Version 2 (migrations 0010-0012). The people above keep their
+-- Job Cards Version 2 (migrations 0012-0014). The people above keep their
 -- roles; v2 adds a second technician, a department manager and a requester.
 --   tech2@bravura.test      Technician, Kamativi
 --   manager@bravura.test    Department Manager, all sites (P1 escalation contact)

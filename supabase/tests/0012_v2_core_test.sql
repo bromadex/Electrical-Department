@@ -1,4 +1,4 @@
--- Behaviour checks for Job Cards Version 2 (0010_v2_core, 0011_v2_workflow):
+-- Behaviour checks for Job Cards Version 2 (0012_v2_core, 0013_v2_workflow):
 -- requests, the job card lifecycle, permissions, notifications, dashboard and
 -- search, and that Version 1 is left as it was.
 -- Runs in a transaction and rolls back.
@@ -192,7 +192,7 @@ select pg_temp.check((select received_at from public.job_cards where id = (selec
   'time received is when the request was submitted');
 reset role;
 select pg_temp.check(exists (select 1 from public.notifications
-  where user_id = (select req from t) and link = 'request:' || (select req1 from t)),
+  where user_id = (select req from t) and link = 'servicerequest:' || (select req1 from t)),
   'requester is told the request was registered');
 
 -- ---------------------------------------------------------------------------
@@ -433,7 +433,7 @@ reset role;
 select pg_temp.check(exists (select 1 from public.notifications where user_id = (select eng from t) and type = 'mentioned'),
   'mentioned people are notified');
 
-select pg_temp.check((select count(*) from public.schema_migrations where filename in ('0010_v2_core.sql',
-  '0011_v2_workflow.sql')) = 2, 'migrations are logged');
+select pg_temp.check((select count(*) from public.schema_migrations where filename in ('0012_v2_core.sql',
+  '0013_v2_workflow.sql')) = 2, 'migrations are logged');
 
 rollback;

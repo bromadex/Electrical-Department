@@ -1,0 +1,375 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:uuid/uuid.dart';
+
+import '../../data/app_error.dart';
+import '../reference/reference_data.dart';
+import '../../services/core_providers.dart';
+import '../../services/session_controller.dart';
+
+/// A person, for picking escalation contacts. Version 1's fn_admin_users
+/// lists them; v2 only needs who they are and whether they are active.
+class AdminUser {
+  AdminUser(Map<String, dynamic> r)
+    : id = r['id'] as String,
+      email = r['email'] as String? ?? '',
+      fullName = r['full_name'] as String? ?? '',
+      active = r['active'] as bool? ?? false;
+
+  final String id;
+  final String email;
+  final String fullName;
+  final bool active;
+}
+
+class RoleInfo {
+  const RoleInfo(this.id, this.name);
+
+  final String id;
+  final String name;
+}
+
+/// Bumped after any administrative change, to reload the admin lists.
+final adminRevisionProvider = NotifierProvider<AdminRevision, int>(
+  AdminRevision.new,
+);
+
+class AdminRevision extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  void bump() => state++;
+}
+
+final adminUsersProvider = FutureProvider.autoDispose<List<AdminUser>>((
+  ref,
+) async {
+  ref.watch(adminRevisionProvider);
+  final rows = await ref.watch(supabaseProvider).rpc('fn_admin_users');
+  return [
+    for (final r in rows as List) AdminUser(Map<String, dynamic>.from(r)),
+  ];
+});
+
+final rolesProvider = FutureProvider.autoDispose<List<RoleInfo>>((ref) async {
+  final rows = await ref
+      .watch(supabaseProvider)
+      .from('roles')
+      .select('id, name')
+      .eq('is_archived', false)
+      .order('name', ascending: true);
+  return [
+    for (final r in rows) RoleInfo(r['id'] as String, r['name'] as String),
+  ];
+});
+
+final escalationContactsProvider =
+    FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
+      ref.watch(adminRevisionProvider);
+      final rows = await ref
+          .watch(supabaseProvider)
+          .from('escalation_contacts')
+          .select('*, person:profiles(full_name), site:sites(code, name)')
+          .eq('is_archived', false)
+          .order('priority_code', ascending: true);
+      return [for (final r in rows) Map<String, dynamic>.from(r)];
+    });
+
+/// What an escalation rule watches for (API.md section 9).
+const escalationKinds = [
+  ('not_acknowledged', 'Not acknowledged in time'),
+  ('approaching_deadline', 'Deadline approaching'),
+  ('overdue', 'Overdue'),
+  ('on_hold_too_long', 'On hold too long'),
+  ('review_waiting', 'Waiting for engineering review'),
+];
+
+class EscalationRule {
+  EscalationRule(Map<String, dynamic> r)
+    : id = r['id'] as String,
+      name = r['name'] as String,
+      kind = r['kind'] as String,
+      priorityCode = r['priority_code'] as String?,
+      afterMinutes = (r['after_minutes'] as num?)?.toInt(),
+      notifyResponsible = r['notify_responsible'] as bool? ?? false,
+      notifyAssigner = r['notify_assigner'] as bool? ?? false,
+      notifyEngineers = r['notify_engineers'] as bool? ?? false,
+      notifyContacts = r['notify_contacts'] as bool? ?? false,
+      notifyManagers = r['notify_managers'] as bool? ?? false,
+      isActive = r['is_active'] as bool? ?? true,
+      sortOrder = (r['sort_order'] as num?)?.toInt() ?? 100;
+
+  final String id;
+  final String name;
+  final String kind;
+  final String? priorityCode;
+  final int? afterMinutes;
+  final bool notifyResponsible;
+  final bool notifyAssigner;
+  final bool notifyEngineers;
+  final bool notifyContacts;
+  final bool notifyManagers;
+  final bool isActive;
+  final int sortOrder;
+
+  String get recipients => [
+    if (notifyResponsible) 'responsible person',
+    if (notifyAssigner) 'assigner',
+    if (notifyEngineers) 'engineers',
+    if (notifyContacts) 'escalation contacts',
+    if (notifyManagers) 'managers',
+  ].join(', ');
+}
+
+class SafetyChecklistItem {
+  SafetyChecklistItem(Map<String, dynamic> r)
+    : id = r['id'] as String,
+      categoryId = r['category_id'] as String?,
+      phase = r['phase'] as String,
+      label = r['label'] as String,
+      appliesWhen = r['applies_when'] as String? ?? 'always',
+      needsReference = r['needs_reference'] as bool? ?? false,
+      sortOrder = (r['sort_order'] as num?)?.toInt() ?? 100,
+      isArchived = r['is_archived'] as bool? ?? false;
+
+  final String id;
+  final String? categoryId;
+  final String phase;
+  final String label;
+  final String appliesWhen;
+  final bool needsReference;
+  final int sortOrder;
+  final bool isArchived;
+}
+
+final escalationRulesProvider =
+    FutureProvider.autoDispose<List<EscalationRule>>((ref) async {
+      ref.watch(adminRevisionProvider);
+      final rows = await ref
+          .watch(supabaseProvider)
+          .from('escalation_rules')
+          .select()
+          .eq('is_archived', false)
+          .order('sort_order', ascending: true);
+      return [for (final r in rows) EscalationRule(r)];
+    });
+
+final safetyItemsProvider =
+    FutureProvider.autoDispose<List<SafetyChecklistItem>>((ref) async {
+      ref.watch(adminRevisionProvider);
+      final rows = await ref
+          .watch(supabaseProvider)
+          .from('safety_checklist_items')
+          .select()
+          .order('phase', ascending: false)
+          .order('sort_order', ascending: true);
+      return [for (final r in rows) SafetyChecklistItem(r)];
+    });
+
+final adminActionsProvider = Provider<AdminActions>(AdminActions.new);
+
+class AdminActions {
+  AdminActions(this._ref);
+
+  final Ref _ref;
+  static const _uuid = Uuid();
+
+  SupabaseClient get _client => _ref.read(supabaseProvider);
+  static String? _t(String? s) =>
+      (s == null || s.trim().isEmpty) ? null : s.trim();
+
+  Future<dynamic> _rpc(
+    String fn,
+    Map<String, dynamic> params, {
+    bool reference = false,
+  }) async {
+    try {
+      final res = await _client.rpc(fn, params: params);
+      _ref.read(adminRevisionProvider.notifier).bump();
+      if (reference) _ref.invalidate(referenceDataProvider);
+      return res;
+    } catch (e) {
+      throw AppError.from(e);
+    }
+  }
+
+  Future<void> saveSettings({
+    required String timezone,
+    required String jobcardPrefix,
+    required String requestPrefix,
+    required int numberDigits,
+    required bool numberResetYearly,
+    required String responseEndsAt,
+    required int atRiskPercent,
+    required int holdAlertHours,
+    required bool handoverNoteRequired,
+    required String companyName,
+    required String departmentName,
+    String? logoPath,
+  }) => _rpc('fn_save_settings', {
+    'p_timezone': timezone.trim(),
+    'p_jobcard_prefix': jobcardPrefix.trim().toUpperCase(),
+    'p_request_prefix': requestPrefix.trim().toUpperCase(),
+    'p_number_digits': numberDigits,
+    'p_number_reset_yearly': numberResetYearly,
+    'p_response_ends_at': responseEndsAt,
+    'p_at_risk_percent': atRiskPercent,
+    'p_hold_alert_hours': holdAlertHours,
+    'p_handover_note_required': handoverNoteRequired,
+    'p_company_name': companyName.trim(),
+    'p_department_name': departmentName.trim(),
+    'p_logo_path': _t(logoPath),
+  }, reference: true);
+
+  Future<void> savePriority(
+    String code, {
+    required String name,
+    String? description,
+    required int responseMinutes,
+    required int completionMinutes,
+  }) => _rpc('fn_save_priority', {
+    'p_code': code,
+    'p_name': name.trim(),
+    'p_description': _t(description),
+    'p_response_minutes': responseMinutes,
+    'p_completion_minutes': completionMinutes,
+  }, reference: true);
+
+  Future<void> saveDepartment({
+    String? id,
+    required String code,
+    required String name,
+    required bool isElectrical,
+    bool archived = false,
+  }) => _rpc('fn_save_department', {
+    'p_id': id ?? _uuid.v4(),
+    'p_code': code.trim().toUpperCase(),
+    'p_name': name.trim(),
+    'p_is_electrical': isElectrical,
+    'p_archived': archived,
+  }, reference: true);
+
+  Future<void> saveJobCategory({
+    String? id,
+    required String name,
+    String? description,
+    int sortOrder = 100,
+    bool archived = false,
+  }) => _rpc('fn_save_job_category', {
+    'p_id': id ?? _uuid.v4(),
+    'p_name': name.trim(),
+    'p_description': _t(description),
+    'p_sort_order': sortOrder,
+    'p_archived': archived,
+  }, reference: true);
+
+  Future<void> saveAssetCategory({
+    String? id,
+    required String name,
+    int sortOrder = 100,
+    bool archived = false,
+  }) => _rpc('fn_save_asset_category', {
+    'p_id': id ?? _uuid.v4(),
+    'p_name': name.trim(),
+    'p_sort_order': sortOrder,
+    'p_archived': archived,
+  }, reference: true);
+
+  Future<void> saveEscalationContact({
+    String? id,
+    String? siteId,
+    required String priority,
+    required String userId,
+    bool archived = false,
+  }) => _rpc('fn_save_escalation_contact', {
+    'p_id': id ?? _uuid.v4(),
+    'p_site': siteId,
+    'p_priority': priority,
+    'p_user': userId,
+    'p_archived': archived,
+  });
+
+  Future<void> saveEscalationRule({
+    String? id,
+    required String name,
+    required String kind,
+    String? priority,
+    int? afterMinutes,
+    required bool notifyResponsible,
+    required bool notifyAssigner,
+    required bool notifyEngineers,
+    required bool notifyContacts,
+    required bool notifyManagers,
+    bool active = true,
+    int sortOrder = 100,
+    bool archived = false,
+  }) => _rpc('fn_save_escalation_rule', {
+    'p_id': id ?? _uuid.v4(),
+    'p_name': name.trim(),
+    'p_kind': kind,
+    'p_priority': priority,
+    'p_after_minutes': afterMinutes,
+    'p_notify_responsible': notifyResponsible,
+    'p_notify_assigner': notifyAssigner,
+    'p_notify_engineers': notifyEngineers,
+    'p_notify_contacts': notifyContacts,
+    'p_notify_managers': notifyManagers,
+    'p_active': active,
+    'p_sort_order': sortOrder,
+    'p_archived': archived,
+  });
+
+  Future<void> saveSafetyItem({
+    String? id,
+    String? categoryId,
+    required String phase,
+    required String label,
+    required String appliesWhen,
+    required bool needsReference,
+    int sortOrder = 100,
+    bool archived = false,
+  }) => _rpc('fn_save_safety_item', {
+    'p_id': id ?? _uuid.v4(),
+    'p_category': categoryId,
+    'p_phase': phase,
+    'p_label': label.trim(),
+    'p_applies_when': appliesWhen,
+    'p_needs_reference': needsReference,
+    'p_sort_order': sortOrder,
+    'p_archived': archived,
+  });
+
+  Future<void> saveSafetyPolicy(String policy) =>
+      _rpc('fn_save_safety_policy', {'p_policy': policy}, reference: true);
+
+  /// Work areas are simple rows written directly under row level security.
+  Future<void> saveArea({
+    String? id,
+    required String siteId,
+    required String name,
+    bool archived = false,
+  }) async {
+    try {
+      if (id == null) {
+        await _client.from('areas').insert({
+          'site_id': siteId,
+          'name': name.trim(),
+        });
+      } else {
+        await _client
+            .from('areas')
+            .update({'name': name.trim(), 'is_archived': archived})
+            .eq('id', id);
+      }
+      await _ref.read(sessionProvider.notifier).refresh();
+    } catch (e) {
+      final err = AppError.from(e);
+      throw err.message.contains('duplicate')
+          ? const AppError(
+              'INVALID',
+              'That work area already exists at this site',
+            )
+          : err;
+    }
+  }
+}

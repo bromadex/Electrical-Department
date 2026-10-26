@@ -1,4 +1,4 @@
--- 0012_v2_execution (Job Cards Version 2): phase 2 of the job card system (API.md section 15).
+-- 0014_v2_execution (Job Cards Version 2): phase 2 of the job card system (API.md section 15).
 -- Work execution and time tracking, the safety checklist, closure
 -- submissions and engineering reviews, closure metrics, configurable
 -- escalation rules and the audit log.
@@ -22,7 +22,7 @@ alter table public.system_settings
 
 alter table public.notifications drop constraint notifications_type_check;
 alter table public.notifications add constraint notifications_type_check check (type in (
-  'assigned', 'mentioned', 'overdue', 'reminder', 'approval', 'low_stock', 'meeting', 'general',
+  'assigned', 'mentioned', 'overdue', 'reminder', 'approval', 'low_stock', 'meeting', 'general', 'chat',
   'registered', 'critical', 'reassigned', 'on_hold', 'review', 'returned', 'closed', 'request',
   'escalation'
 ));
@@ -2061,5 +2061,5 @@ grant execute on function
   public.fn_audit_log(timestamptz, timestamptz, text, uuid, text, integer, integer)
 to authenticated;
 
-insert into public.schema_migrations (filename) values ('0012_v2_execution.sql')
+insert into public.schema_migrations (filename) values ('0014_v2_execution.sql')
 on conflict do nothing;

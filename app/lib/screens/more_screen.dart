@@ -94,6 +94,14 @@ class MoreScreen extends ConsumerWidget {
         const SectionHeader('Workspace'),
         _TileGrid(
           tiles: [
+            if (session.perms.can('jc.view') || session.perms.can('req.submit'))
+              _Tile(
+                icon: Icons.assignment_outlined,
+                title: 'Job Cards V2',
+                subtitle: 'Try the new system',
+                colors: const [Color(0xFF7B1E3A), Color(0xFFD8A7B1)],
+                onTap: () => context.go('/v2'),
+              ),
             _Tile(
               icon: Icons.summarize_outlined,
               title: 'Daily report',

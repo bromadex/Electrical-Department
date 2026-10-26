@@ -1,6 +1,6 @@
--- 0011_v2_workflow (Job Cards Version 2): the job card and request workflow, dashboard, search and
+-- 0013_v2_workflow (Job Cards Version 2): the job card and request workflow, dashboard, search and
 -- administration functions (API.md section 15). Every write to the tables in
--- 0010 goes through a function here; each one checks permissions by code,
+-- 0012 goes through a function here; each one checks permissions by code,
 -- validates its input and raises 'CODE: message' errors the app can show.
 
 -- ---------------------------------------------------------------------------
@@ -235,7 +235,7 @@ begin
   if v_user is null or v_user is not distinct from auth.uid() then
     return;
   end if;
-  perform public.fn_notify(v_user, p_job.site_id, 'request', p_title, p_body, 'request:' || p_job.request_id);
+  perform public.fn_notify(v_user, p_job.site_id, 'request', p_title, p_body, 'servicerequest:' || p_job.request_id);
 end;
 $$;
 
@@ -307,7 +307,7 @@ begin
     v.site_id, 'req.triage', 'request',
     case when v.operational_impact in ('production_stopped', 'safety_hazard')
       then 'Urgent request ' else 'New request ' end || v.request_no,
-    v.title, 'request:' || v.id
+    v.title, 'servicerequest:' || v.id
   );
   return v;
 end;
@@ -350,7 +350,7 @@ begin
     perform public.fn_notify(
       v.requested_by, v.site_id, 'request',
       v.request_no || case p_action when 'return' then ' needs more information' else ' was not accepted' end,
-      v_reason, 'request:' || v.id
+      v_reason, 'servicerequest:' || v.id
     );
   end if;
   return v;
@@ -406,7 +406,7 @@ begin
 
   perform public._notify_holders(
     v.site_id, 'req.triage', 'request', v.request_no || ' was updated by the requester',
-    trim(p_note), 'request:' || v.id
+    trim(p_note), 'servicerequest:' || v.id
   );
   return v;
 end;
@@ -2296,5 +2296,5 @@ grant execute on function
   public.fn_save_escalation_contact(uuid, uuid, text, uuid, boolean)
 to authenticated;
 
-insert into public.schema_migrations (filename) values ('0011_v2_workflow.sql')
+insert into public.schema_migrations (filename) values ('0013_v2_workflow.sql')
 on conflict do nothing;

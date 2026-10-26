@@ -1,8 +1,8 @@
--- 0010_v2_core: Job Cards Version 2 (API.md section 15). The job card &
+-- 0012_v2_core: Job Cards Version 2 (API.md section 15). The job card &
 -- maintenance management system, added beside the jobs board (Version 1) so
 -- both can run and be compared. Nothing of Version 1 changes: v2 shares
 -- people, sites, areas, assets, notifications, push and the activity log.
--- Tables are read-only for the app; every write goes through 0011's fn_*.
+-- Tables are read-only for the app; every write goes through 0013's fn_*.
 
 create extension if not exists pg_trgm with schema extensions;
 
@@ -577,7 +577,7 @@ cross join unnest(array['in_progress', 'assigned', 'cancelled']) t;
 -- ---------------------------------------------------------------------------
 alter table public.notifications drop constraint notifications_type_check;
 alter table public.notifications add constraint notifications_type_check check (type in (
-  'assigned', 'mentioned', 'overdue', 'reminder', 'approval', 'low_stock', 'meeting', 'general',
+  'assigned', 'mentioned', 'overdue', 'reminder', 'approval', 'low_stock', 'meeting', 'general', 'chat',
   'registered', 'critical', 'reassigned', 'on_hold', 'review', 'returned', 'closed', 'request'
 ));
 
@@ -751,7 +751,7 @@ cross join (select at_risk_percent from public.system_settings limit 1) st
 where not j.is_archived;
 
 -- ---------------------------------------------------------------------------
--- Row level security: read only; writes go through the functions in 0011
+-- Row level security: read only; writes go through the functions in 0013
 -- ---------------------------------------------------------------------------
 alter table public.departments enable row level security;
 alter table public.system_settings enable row level security;
@@ -816,7 +816,7 @@ create policy request_attachments_select on public.request_attachments for selec
   ));
 
 -- Job cards and their records: jc.view at the site. Requesters follow their
--- request through fn_request_tracking (0011), never these tables.
+-- request through fn_request_tracking (0013), never these tables.
 create policy job_cards_select on public.job_cards for select to authenticated
   using (public._can('jc.view', site_id));
 create policy job_assignments_select on public.job_assignments for select to authenticated
@@ -953,5 +953,5 @@ begin
 end;
 $$;
 
-insert into public.schema_migrations (filename) values ('0010_v2_core.sql')
+insert into public.schema_migrations (filename) values ('0012_v2_core.sql')
 on conflict do nothing;
