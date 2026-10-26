@@ -137,12 +137,12 @@ final documentAcksProvider = FutureProvider.autoDispose
 
 /// Documents linked to a job.
 final jobDocumentsProvider = FutureProvider.autoDispose
-    .family<List<String>, String>((ref, jobId) async {
+    .family<List<String>, String>((ref, jobCardId) async {
       final rows = await ref
           .watch(supabaseProvider)
-          .from('job_documents')
+          .from('job_card_documents')
           .select('document_id')
-          .eq('job_id', jobId);
+          .eq('job_card_id', jobCardId);
       return [for (final r in rows) r['document_id'] as String];
     });
 
@@ -226,18 +226,19 @@ class DocumentActions {
     await _flushAndReload();
   }
 
+  /// Attaches (or detaches) a document on a job card; queued offline.
   Future<void> link(
-    String jobId,
+    String jobCardId,
     String documentId, {
     bool linked = true,
   }) async {
-    await _ref.read(outboxProvider).enqueue('fn_link_document', {
-      'p_job': jobId,
+    await _ref.read(outboxProvider).enqueue('fn_link_job_card_document', {
+      'p_job_card': jobCardId,
       'p_document': documentId,
       'p_linked': linked,
     }, flushNow: false);
     await _ref.read(outboxProvider).flush();
-    _ref.invalidate(jobDocumentsProvider(jobId));
+    _ref.invalidate(jobDocumentsProvider(jobCardId));
   }
 
   Future<void> _flushAndReload() async {

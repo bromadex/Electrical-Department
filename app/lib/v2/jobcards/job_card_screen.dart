@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../documents/job_documents_panel.dart';
+
 import '../../services/core_providers.dart';
 import '../../services/session_controller.dart';
 import '../theme/tokens.dart';
@@ -468,10 +470,21 @@ class _JobCardViewState extends ConsumerState<_JobCardView>
       'overview' => _Overview(job: job),
       'assessment' => _Assessment(job: job),
       'assignment' => _AssignmentTab(job: job, extras: x),
-      'files' => AttachmentsPanel(
-        job: job,
-        files: x.attachments,
-        canAdd: canAddFiles,
+      'files' => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          JobDocumentsPanel(
+            jobCardId: job.id,
+            closed: !job.status.isOpen,
+            canAttach:
+                onTeam ||
+                job.registeredBy == me ||
+                session.can('jc.assign', siteId: job.siteId) ||
+                session.can('jc.assess', siteId: job.siteId),
+          ),
+          const SizedBox(height: Space.md),
+          AttachmentsPanel(job: job, files: x.attachments, canAdd: canAddFiles),
+        ],
       ),
       'comments' => CommentsPanel(
         job: job,

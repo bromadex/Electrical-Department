@@ -322,6 +322,11 @@ job cards, registered as the person who set the plan up (if they no longer can, 
 `jc.register` holders are told); the daily report counts job cards; chat `#` tags find job
 cards (`jobcard:<id>`). The jobs board's tables keep their data; nothing new is written there.
 
+**0016 (documents on job cards).** `job_card_documents` links SOPs and drawings to job
+cards; `fn_link_job_card_document(p_job_card, p_document, p_linked)` (registrar, the team,
+or `jc.assign`/`jc.assess` holders; not on closed or cancelled job cards; same site). The
+job card's Files tab lists them with Attach and Detach (queued offline).
+
 **Shared with Version 1.** Profiles, sites, areas and roles (no renames); notifications
 and push (`notifications_push` sends v2 notifications too); the `activity` log (every v2
 table is audited); the asset register: `assets` gains optional columns (category,

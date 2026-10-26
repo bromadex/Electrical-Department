@@ -2,32 +2,33 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../data/local_db.dart';
 import '../theme/tokens.dart';
 import '../ui/surfaces.dart';
 import 'documents_repository.dart';
 import 'documents_screen.dart';
 
-/// SOPs and drawings attached to a job. Hidden when the site has none.
+/// SOPs and drawings attached to a job card. Hidden when the site has none.
 class JobDocumentsPanel extends ConsumerWidget {
   const JobDocumentsPanel({
     super.key,
-    required this.job,
+    required this.jobCardId,
+    required this.closed,
     required this.canAttach,
   });
 
-  final LocalJob job;
+  final String jobCardId;
+  final bool closed;
   final bool canAttach;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final all = ref.watch(documentsProvider).value ?? const [];
-    final linkedIds = ref.watch(jobDocumentsProvider(job.id)).value ?? const [];
+    final linkedIds =
+        ref.watch(jobDocumentsProvider(jobCardId)).value ?? const [];
     final linked = [
       for (final d in all)
         if (linkedIds.contains(d.id)) d,
     ];
-    final closed = job.status == 'done' || job.status == 'cancelled';
     if (all.isEmpty && linked.isEmpty) return const SizedBox.shrink();
     final theme = Theme.of(context);
 
@@ -62,7 +63,7 @@ class JobDocumentsPanel extends ConsumerWidget {
                               icon: const Icon(CupertinoIcons.minus_circle),
                               onPressed: () => ref
                                   .read(documentActionsProvider)
-                                  .link(job.id, d.id, linked: false),
+                                  .link(jobCardId, d.id, linked: false),
                             )
                           : null,
                     ),
@@ -101,7 +102,7 @@ class JobDocumentsPanel extends ConsumerWidget {
                   doc: d,
                   trailing: const Icon(CupertinoIcons.add_circled),
                   onTap: () {
-                    ref.read(documentActionsProvider).link(job.id, d.id);
+                    ref.read(documentActionsProvider).link(jobCardId, d.id);
                     Navigator.pop(context);
                   },
                 ),

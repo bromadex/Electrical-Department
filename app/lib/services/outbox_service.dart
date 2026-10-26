@@ -48,7 +48,7 @@ class OutboxService {
     'fn_save_document': false,
     'fn_add_document_version': false,
     'fn_acknowledge_document': false,
-    'fn_link_document': false,
+    'fn_link_job_card_document': false,
     'fn_save_checklist_template': false,
     'fn_submit_checklist': false,
     'fn_add_report_update': false,
