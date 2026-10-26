@@ -204,13 +204,13 @@ class _GeneralStats extends ConsumerWidget {
         label: 'Open jobs',
         value: active.length,
         chip: urgent > 0 ? TrendChip('$urgent urgent', up: false) : null,
-        onTap: () => context.go('/board'),
+        onTap: () => context.go('/jobs'),
       ),
       _StatTile(
         label: 'My jobs',
         value: mine.length,
         chip: overdue > 0 ? TrendChip('$overdue overdue', up: false) : null,
-        onTap: () => context.go('/board'),
+        onTap: () => context.go('/jobs'),
       ),
     ];
 

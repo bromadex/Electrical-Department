@@ -9,7 +9,6 @@ import '../services/core_providers.dart';
 import '../services/notifications_controller.dart';
 import '../services/push_service.dart';
 import '../services/session_controller.dart';
-import '../theme/theme_mode.dart';
 import '../theme/tokens.dart';
 import '../ui/bits.dart';
 import '../ui/motion.dart';
@@ -25,7 +24,6 @@ class MoreScreen extends ConsumerWidget {
     final scheme = theme.colorScheme;
     final session = ref.watch(sessionProvider);
     final unread = ref.watch(notificationsProvider.select((s) => s.unread));
-    final mode = ref.watch(themeModeProvider);
     final push = ref.watch(pushProvider);
     final toSign = ref.watch(toSignCountProvider);
     final newRequests = ref.watch(newRequestCountProvider);
@@ -91,7 +89,7 @@ class MoreScreen extends ConsumerWidget {
           ),
         ).entrance(context),
 
-        const SectionHeader('Workspace'),
+        const SectionHeader('Everything'),
         _TileGrid(
           tiles: [
             _Tile(
@@ -103,7 +101,7 @@ class MoreScreen extends ConsumerWidget {
             ),
             _Tile(
               icon: Icons.move_to_inbox_outlined,
-              title: 'Requests',
+              title: 'Work requests',
               subtitle: newRequests > 0
                   ? '$newRequests waiting'
                   : 'Other departments',
@@ -128,7 +126,7 @@ class MoreScreen extends ConsumerWidget {
             ),
             _Tile(
               icon: Icons.precision_manufacturing_outlined,
-              title: 'Assets',
+              title: 'Equipment',
               subtitle: 'Plant register',
               colors: const [BrandColors.maroonDeep, BrandColors.maroon],
               onTap: () => context.push('/assets'),
@@ -148,6 +146,14 @@ class MoreScreen extends ConsumerWidget {
               colors: const [Color(0xFF5B4B8A), BrandColors.info],
               onTap: () => context.push('/notifications'),
             ),
+            if (session.can('jobs.assign'))
+              _Tile(
+                icon: Icons.event_repeat_rounded,
+                title: 'Planned maintenance',
+                subtitle: 'Jobs that repeat',
+                colors: const [BrandColors.success, BrandColors.info],
+                onTap: () => context.push('/jobs/recurring'),
+              ),
             if (session.perms.canEverywhere('admin.users')) ...[
               _Tile(
                 icon: Icons.group_outlined,
@@ -158,54 +164,20 @@ class MoreScreen extends ConsumerWidget {
               ),
               _Tile(
                 icon: Icons.timer_outlined,
-                title: 'Targets',
-                subtitle: 'Response and finish',
+                title: 'Response times',
+                subtitle: 'Per priority',
                 colors: const [Color(0xFF3B3F4A), Color(0xFF6B7080)],
                 onTap: () => context.push('/admin/targets'),
               ),
               _Tile(
                 icon: Icons.history_rounded,
-                title: 'Audit log',
+                title: 'Activity log',
                 subtitle: 'Every change',
                 colors: const [Color(0xFF3B3F4A), Color(0xFF6B7080)],
                 onTap: () => context.push('/admin/activity'),
               ),
             ],
           ],
-        ).entrance(context, index: 1),
-
-        const SectionHeader('Appearance'),
-        SurfaceCard(
-          child: Row(
-            children: [
-              Icon(Icons.palette_outlined, color: scheme.primary),
-              const SizedBox(width: Space.sm),
-              const Expanded(child: Text('Theme')),
-              SegmentedButton<ThemeMode>(
-                showSelectedIcon: false,
-                segments: const [
-                  ButtonSegment(
-                    value: ThemeMode.system,
-                    icon: Icon(Icons.brightness_auto_outlined, size: 18),
-                    tooltip: 'System',
-                  ),
-                  ButtonSegment(
-                    value: ThemeMode.light,
-                    icon: Icon(Icons.light_mode_outlined, size: 18),
-                    tooltip: 'Light',
-                  ),
-                  ButtonSegment(
-                    value: ThemeMode.dark,
-                    icon: Icon(Icons.dark_mode_outlined, size: 18),
-                    tooltip: 'Dark',
-                  ),
-                ],
-                selected: {mode},
-                onSelectionChanged: (s) =>
-                    ref.read(themeModeProvider.notifier).set(s.first),
-              ),
-            ],
-          ),
         ).entrance(context, index: 1),
 
         const SectionHeader('Account'),

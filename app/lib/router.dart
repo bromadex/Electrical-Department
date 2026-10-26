@@ -19,7 +19,6 @@ import 'screens/board_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/more_screen.dart';
 import 'screens/notifications_screen.dart';
-import 'screens/store_screen.dart';
 import 'screens/today_screen.dart';
 import 'reports/daily_report_screen.dart';
 import 'requests/requests_screen.dart';
@@ -30,12 +29,8 @@ import 'widgets/app_shell.dart';
 
 /// The bottom-bar / side-menu tabs, in order.
 const shellTabs = [
-  ShellTab(
-    '/board',
-    'Board',
-    CupertinoIcons.square_grid_2x2,
-    CupertinoIcons.square_grid_2x2_fill,
-  ),
+  ShellTab('/home', 'Home', CupertinoIcons.house, CupertinoIcons.house_fill),
+  ShellTab('/jobs', 'Jobs', CupertinoIcons.hammer, CupertinoIcons.hammer_fill),
   ShellTab(
     '/chat',
     'Chat',
@@ -43,22 +38,10 @@ const shellTabs = [
     CupertinoIcons.chat_bubble_2_fill,
   ),
   ShellTab(
-    '/today',
-    'Today',
-    CupertinoIcons.sun_max,
-    CupertinoIcons.sun_max_fill,
-  ),
-  ShellTab(
-    '/store',
-    'Store',
-    CupertinoIcons.cube_box,
-    CupertinoIcons.cube_box_fill,
-  ),
-  ShellTab(
-    '/more',
-    'More',
-    CupertinoIcons.person_crop_circle,
-    CupertinoIcons.person_crop_circle_fill,
+    '/menu',
+    'Menu',
+    CupertinoIcons.square_grid_2x2,
+    CupertinoIcons.square_grid_2x2_fill,
   ),
 ];
 
@@ -76,24 +59,28 @@ GoRouter buildRouter(WidgetRef ref) {
   ref.listenManual(authUserIdProvider, (_, id) => signedIn.value = id != null);
 
   final screens = <String, Widget>{
-    '/board': const BoardScreen(),
+    '/home': const TodayScreen(),
+    '/jobs': const BoardScreen(),
     '/chat': const ChatListScreen(),
-    '/today': const TodayScreen(),
-    '/store': const StoreScreen(),
-    '/more': const MoreScreen(),
+    '/menu': const MoreScreen(),
   };
 
   return GoRouter(
-    initialLocation: '/today',
+    initialLocation: '/home',
     refreshListenable: signedIn,
     redirect: (context, state) {
       final atLogin = state.matchedLocation == '/login';
       if (!signedIn.value) return atLogin ? null : '/login';
-      if (atLogin || state.matchedLocation == '/') return '/today';
+      if (atLogin || state.matchedLocation == '/') return '/home';
       return null;
     },
     routes: [
-      GoRoute(path: '/', redirect: (_, _) => '/today'),
+      GoRoute(path: '/', redirect: (_, _) => '/home'),
+      // Old tab addresses, kept for bookmarks.
+      GoRoute(path: '/today', redirect: (_, _) => '/home'),
+      GoRoute(path: '/board', redirect: (_, _) => '/jobs'),
+      GoRoute(path: '/store', redirect: (_, _) => '/tools'),
+      GoRoute(path: '/more', redirect: (_, _) => '/menu'),
       GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
       GoRoute(
         path: '/jobs/recurring',

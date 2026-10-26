@@ -63,14 +63,14 @@ class NeedsAttention extends ConsumerWidget {
               ? '1 urgent job unassigned'
               : '$urgentFree urgent jobs unassigned',
           Colors.red,
-          '/board',
+          '/jobs',
         ),
       if (overdue > 0)
         (
           CupertinoIcons.alarm_fill,
           overdue == 1 ? '1 job overdue' : '$overdue jobs overdue',
           Colors.red,
-          '/board',
+          '/jobs',
         ),
       if (roundsDue > 0)
         (
@@ -172,42 +172,42 @@ class TodayKpis extends ConsumerWidget {
         'Open jobs',
         '${open.length}',
         BrandColors.maroon,
-        '/board',
+        '/jobs',
       ),
       (
         CupertinoIcons.exclamationmark_circle,
         'Urgent',
         '${open.where((j) => j.priority == 'urgent').length}',
         Colors.red,
-        '/board',
+        '/jobs',
       ),
       (
         CupertinoIcons.alarm,
         'Overdue',
         '${open.where(isOverdue).length}',
         Colors.red,
-        '/board',
+        '/jobs',
       ),
       (
         CupertinoIcons.person_crop_circle_badge_xmark,
         'Unassigned',
         '${open.where((j) => j.assigneeId == null).length}',
         Colors.orange,
-        '/board',
+        '/jobs',
       ),
       (
         CupertinoIcons.person_crop_circle_badge_checkmark,
         'My jobs',
         '${open.where((j) => j.assigneeId == me).length}',
         BrandColors.info,
-        '/board',
+        '/jobs',
       ),
       (
         CupertinoIcons.checkmark_seal,
         'Done today',
         '${jobs.where((j) => j.status == 'done' && j.closedAt != null && _sameDay(j.closedAt!, now)).length}',
         BrandColors.success,
-        '/board',
+        '/jobs',
       ),
       (
         CupertinoIcons.checkmark_rectangle,

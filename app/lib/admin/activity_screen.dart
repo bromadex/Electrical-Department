@@ -68,7 +68,7 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen> {
       backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('Audit log'),
+        title: const Text('Activity log'),
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
       ),
       body: MeshBackground(

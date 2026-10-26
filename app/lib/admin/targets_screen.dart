@@ -36,7 +36,7 @@ class TargetsScreen extends ConsumerWidget {
       backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('Priority targets'),
+        title: const Text('Response times'),
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
       ),
       body: MeshBackground(

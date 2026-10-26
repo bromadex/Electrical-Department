@@ -42,13 +42,13 @@ class RecurringScreen extends ConsumerWidget {
       backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text('Recurring jobs · ${site?.code ?? ''}'),
+        title: Text('Planned maintenance · ${site?.code ?? ''}'),
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _edit(context, ref, null),
         icon: const Icon(CupertinoIcons.add),
-        label: const Text('New recurring job'),
+        label: const Text('New planned job'),
       ),
       body: MeshBackground(
         child: RefreshIndicator(
@@ -63,7 +63,8 @@ class RecurringScreen extends ConsumerWidget {
                   child: EmptyState(
                     icon: CupertinoIcons.wifi_slash,
                     title: 'Offline',
-                    message: 'Recurring jobs load when you are connected.',
+                    message:
+                        'Planned maintenance loads when you are connected.',
                   ),
                 ),
               ],
@@ -82,7 +83,7 @@ class RecurringScreen extends ConsumerWidget {
                     child: Center(
                       child: EmptyState(
                         icon: CupertinoIcons.repeat,
-                        title: 'No recurring jobs',
+                        title: 'No planned maintenance yet',
                         message:
                             'Set up rounds that repeat, like a weekly lighting '
                             'check. Each one is posted automatically at 06:00.',
@@ -263,9 +264,7 @@ class _RecurrenceFormState extends ConsumerState<_RecurrenceForm> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            widget.existing == null
-                ? 'New recurring job'
-                : 'Edit recurring job',
+            widget.existing == null ? 'New planned job' : 'Edit planned job',
             style: theme.textTheme.headlineSmall,
           ),
           label('What needs doing?'),

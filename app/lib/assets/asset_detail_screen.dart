@@ -43,7 +43,7 @@ class AssetDetailScreen extends ConsumerWidget {
       backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text(asset?.tag ?? 'Asset'),
+        title: Text(asset?.tag ?? 'Equipment'),
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
         actions: [
           if (canEdit)

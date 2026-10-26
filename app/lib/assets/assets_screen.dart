@@ -77,14 +77,14 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen> {
       backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text('Assets · ${site?.code ?? ''}'),
+        title: Text('Equipment · ${site?.code ?? ''}'),
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
       ),
       floatingActionButton: canEdit
           ? FloatingActionButton.extended(
               onPressed: () => showFormSheet(context, const AssetForm()),
               icon: const Icon(CupertinoIcons.add),
-              label: const Text('Add asset'),
+              label: const Text('Add equipment'),
             )
           : null,
       body: MeshBackground(
@@ -118,10 +118,10 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen> {
                   child: Center(
                     child: EmptyState(
                       icon: CupertinoIcons.gear_alt,
-                      title: 'No assets yet',
+                      title: 'No equipment yet',
                       message: canEdit
                           ? 'Add the motors, panels and transformers you look '
-                                'after. Jobs on them build each asset\'s history.'
+                                'after. Jobs on them build its history.'
                           : 'A supervisor adds the plant you look after here.',
                     ),
                   ),
@@ -229,18 +229,18 @@ class _AssetFormState extends ConsumerState<AssetForm> {
     if (site == null) return;
     final tag = _tag.text.trim().toUpperCase();
     if (tag.isEmpty) {
-      setState(() => _error = 'Give the asset a tag, e.g. MCC-03');
+      setState(() => _error = 'Give it a tag, e.g. MCC-03');
       return;
     }
     if (_name.text.trim().length < 2) {
-      setState(() => _error = 'Name the asset');
+      setState(() => _error = 'Name the equipment');
       return;
     }
     final clash = (ref.read(siteAssetsProvider).value ?? const []).any(
       (a) => a.tag == tag && a.id != widget.asset?.id,
     );
     if (clash && !archive) {
-      setState(() => _error = 'Another asset already has the tag $tag');
+      setState(() => _error = 'Something else already has the tag $tag');
       return;
     }
     HapticFeedback.mediumImpact();
@@ -285,7 +285,9 @@ class _AssetFormState extends ConsumerState<AssetForm> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            widget.asset == null ? 'Add asset' : 'Edit ${widget.asset!.tag}',
+            widget.asset == null
+                ? 'Add equipment'
+                : 'Edit ${widget.asset!.tag}',
             style: theme.textTheme.headlineSmall,
           ),
           label('Tag and name'),

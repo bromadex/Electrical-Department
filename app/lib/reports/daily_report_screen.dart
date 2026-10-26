@@ -69,7 +69,7 @@ class _DailyReportScreenState extends ConsumerState<DailyReportScreen> {
           ? FloatingActionButton.extended(
               onPressed: () => showFormSheet(
                 context,
-                _UpdateForm(siteId: site!.id, date: date),
+                ReportUpdateForm(siteId: site!.id, date: date),
               ),
               icon: const Icon(CupertinoIcons.square_pencil),
               label: const Text("Add my update"),
@@ -521,17 +521,17 @@ class _ApproveCardState extends ConsumerState<_ApproveCard> {
   }
 }
 
-class _UpdateForm extends ConsumerStatefulWidget {
-  const _UpdateForm({required this.siteId, required this.date});
+class ReportUpdateForm extends ConsumerStatefulWidget {
+  const ReportUpdateForm({super.key, required this.siteId, required this.date});
 
   final String siteId;
   final String date;
 
   @override
-  ConsumerState<_UpdateForm> createState() => _UpdateFormState();
+  ConsumerState<ReportUpdateForm> createState() => _ReportUpdateFormState();
 }
 
-class _UpdateFormState extends ConsumerState<_UpdateForm> {
+class _ReportUpdateFormState extends ConsumerState<ReportUpdateForm> {
   final _body = TextEditingController();
   List<Uint8List> _photos = [];
   bool _busy = false;
