@@ -18,14 +18,22 @@ import '../ui/bits.dart';
 import '../ui/surfaces.dart';
 import 'chat_list_screen.dart';
 import 'chat_repository.dart';
+import 'presence.dart';
 import '../widgets/app_back_button.dart';
 
 const _quickReactions = ['👍', '✅', '❤️', '😂', '🙏', '⚠️'];
 
 class ConversationScreen extends ConsumerStatefulWidget {
-  const ConversationScreen({super.key, required this.id});
+  const ConversationScreen({
+    super.key,
+    required this.id,
+    this.embedded = false,
+  });
 
   final String id;
+
+  /// Shown beside the chat list on a wide screen: no back button.
+  final bool embedded;
 
   @override
   ConsumerState<ConversationScreen> createState() => _ConversationScreenState();
@@ -37,10 +45,24 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
   ChatMessage? _replyTo;
   Timer? _readTimer;
 
+  /// Where you had read up to when the chat opened; the "New messages" line
+  /// goes above the first message after it.
+  DateTime? _readUpTo;
+
   @override
   void initState() {
     super.initState();
+    final chats = ref.read(conversationsProvider).value ?? const [];
+    final chat = chats.where((c) => c.id == widget.id).firstOrNull;
+    if (chat != null && chat.unread > 0) _readUpTo = chat.lastReadAt;
+    _text.addListener(_typing);
     _markRead();
+  }
+
+  void _typing() {
+    if (_text.text.trim().isNotEmpty) {
+      ref.read(chatPresenceProvider.notifier).typing(widget.id);
+    }
   }
 
   @override
@@ -195,7 +217,20 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     final chat = chats.where((c) => c.id == widget.id).firstOrNull;
     final people = ref.watch(peopleProvider).value ?? const {};
     final me = ref.watch(authUserIdProvider);
+    final presence = ref.watch(chatPresenceProvider);
     final top = MediaQuery.paddingOf(context).top + kToolbarHeight;
+    final group = !(chat?.isDirect ?? false);
+    final typing = presence.typingIn(widget.id, except: me);
+    final online = chat != null && presence.isOnline(chat.otherUserId);
+    final status = typing.isNotEmpty
+        ? (group
+              ? '${typing.map((u) => (people[u] ?? 'Someone').split(' ').first).join(', ')} typing…'
+              : 'typing…')
+        : chat == null
+        ? null
+        : chat.isDirect
+        ? (online ? 'Online' : 'Direct chat')
+        : '${chat.memberCount} members';
 
     ref.listen(chatThreadProvider(widget.id), (prev, next) {
       if ((prev?.messages.length ?? 0) < next.messages.length) _markRead();
@@ -206,18 +241,37 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
         if (!m.archived) m,
     ];
     final byId = {for (final m in shown) m.id: m};
+    final readUpTo = _readUpTo;
+    final firstNew = readUpTo == null
+        ? null
+        : shown
+              .where(
+                (m) =>
+                    m.authorId != me &&
+                    !m.pending &&
+                    m.createdAt.isAfter(readUpTo),
+              )
+              .firstOrNull
+              ?.id;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        titleSpacing: 0,
-        leading: const AppBackButton(fallback: '/chat'),
+        titleSpacing: widget.embedded ? Space.md : 0,
+        automaticallyImplyLeading: false,
+        leading: widget.embedded
+            ? null
+            : const AppBackButton(fallback: '/chat'),
         title: Row(
           children: [
             chat == null || chat.isDirect
-                ? AppAvatar(name: chat?.title ?? 'Chat', size: 34)
-                : ChatGroupAvatar(chat: chat, size: 34),
+                ? OnlineAvatar(
+                    name: chat?.title ?? 'Chat',
+                    online: online,
+                    size: 36,
+                  )
+                : ChatGroupAvatar(chat: chat, size: 36),
             const SizedBox(width: Space.sm),
             Expanded(
               child: Column(
@@ -229,12 +283,25 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.titleMedium,
                   ),
-                  if (chat != null)
-                    Text(
-                      chat.isDirect
-                          ? 'Direct chat'
-                          : '${chat.memberCount} members',
-                      style: theme.textTheme.labelSmall,
+                  if (status != null)
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      child: Text(
+                        status,
+                        key: ValueKey(status),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: typing.isNotEmpty
+                              ? BrandColors.coral
+                              : online
+                              ? BrandColors.success
+                              : null,
+                          fontWeight: typing.isNotEmpty || online
+                              ? FontWeight.w600
+                              : null,
+                        ),
+                      ),
                     ),
                 ],
               ),
@@ -253,6 +320,32 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
             onPressed: () =>
                 context.push('/chat/${widget.id}/call?join=1&video=1'),
           ),
+          if (chat != null)
+            PopupMenuButton<String>(
+              tooltip: 'More',
+              icon: const Icon(CupertinoIcons.ellipsis_vertical),
+              onSelected: (v) {
+                if (v == 'pin') {
+                  unawaited(
+                    ref.read(chatActionsProvider).pin(chat.id, !chat.pinned),
+                  );
+                }
+              },
+              itemBuilder: (_) => [
+                PopupMenuItem(
+                  value: 'pin',
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(
+                      chat.pinned
+                          ? CupertinoIcons.pin_slash
+                          : CupertinoIcons.pin,
+                    ),
+                    title: Text(chat.pinned ? 'Unpin chat' : 'Pin to the top'),
+                  ),
+                ),
+              ],
+            ),
           const SizedBox(width: Space.xs),
         ],
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
@@ -284,54 +377,89 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                             'Say hello, share a photo, or tag a job with #.',
                       ),
                     )
-                  : ListView.builder(
-                      reverse: true,
-                      padding: EdgeInsets.fromLTRB(
-                        Space.sm + _side(context),
-                        Space.sm,
-                        Space.sm + _side(context),
-                        top + Space.sm,
+                  : LayoutBuilder(
+                      builder: (context, box) => ListView.builder(
+                        reverse: true,
+                        padding: EdgeInsets.fromLTRB(
+                          Space.sm + _side(box.maxWidth),
+                          Space.sm,
+                          Space.sm + _side(box.maxWidth),
+                          top + Space.sm,
+                        ),
+                        itemCount: shown.length,
+                        itemBuilder: (context, i) {
+                          final m = shown[shown.length - 1 - i];
+                          final prev = i == shown.length - 1
+                              ? null
+                              : shown[shown.length - 2 - i];
+                          final next = i == 0 ? null : shown[shown.length - i];
+                          final mine = m.authorId == me;
+                          final author = people[m.authorId];
+                          final newDay =
+                              prev == null ||
+                              !DateUtils.isSameDay(prev.createdAt, m.createdAt);
+                          final sameAuthor =
+                              !newDay &&
+                              prev.authorId == m.authorId &&
+                              m.createdAt.difference(prev.createdAt).inMinutes <
+                                  5;
+                          // Groups: the avatar sits beside the last message
+                          // of each run from one person.
+                          final lastOfRun =
+                              next == null ||
+                              next.authorId != m.authorId ||
+                              !DateUtils.isSameDay(
+                                next.createdAt,
+                                m.createdAt,
+                              ) ||
+                              next.createdAt
+                                      .difference(m.createdAt)
+                                      .inMinutes >=
+                                  5;
+                          final bubble = _Bubble(
+                            message: m,
+                            mine: mine,
+                            author: (chat?.isDirect ?? false) || sameAuthor
+                                ? null
+                                : author ?? 'Someone',
+                            reply: m.replyTo == null ? null : byId[m.replyTo],
+                            replyAuthor: m.replyTo == null
+                                ? null
+                                : people[byId[m.replyTo]?.authorId],
+                            photoUrl: thread.photoUrls[m.attachmentPath],
+                            reactions: thread.reactions[m.id] ?? const {},
+                            me: me,
+                            tight: sameAuthor,
+                            onLongPress: () => _actions(m, mine, author),
+                            onReact: (e) =>
+                                ref.read(chatActionsProvider).react(m.id, e),
+                          );
+                          return Column(
+                            children: [
+                              if (newDay) _DaySeparator(m.createdAt),
+                              if (m.id == firstNew) const _NewMessagesLine(),
+                              if (group && !mine)
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    SizedBox(
+                                      width: 34,
+                                      child: lastOfRun
+                                          ? AppAvatar(
+                                              name: author ?? '?',
+                                              size: 28,
+                                            )
+                                          : null,
+                                    ),
+                                    Expanded(child: bubble),
+                                  ],
+                                )
+                              else
+                                bubble,
+                            ],
+                          );
+                        },
                       ),
-                      itemCount: shown.length,
-                      itemBuilder: (context, i) {
-                        final m = shown[shown.length - 1 - i];
-                        final prev = i == shown.length - 1
-                            ? null
-                            : shown[shown.length - 2 - i];
-                        final mine = m.authorId == me;
-                        final author = people[m.authorId];
-                        final newDay =
-                            prev == null ||
-                            !DateUtils.isSameDay(prev.createdAt, m.createdAt);
-                        final sameAuthor =
-                            !newDay &&
-                            prev.authorId == m.authorId &&
-                            m.createdAt.difference(prev.createdAt).inMinutes <
-                                5;
-                        return Column(
-                          children: [
-                            if (newDay) _DaySeparator(m.createdAt),
-                            _Bubble(
-                              message: m,
-                              mine: mine,
-                              author: (chat?.isDirect ?? false) || sameAuthor
-                                  ? null
-                                  : author ?? 'Someone',
-                              reply: m.replyTo == null ? null : byId[m.replyTo],
-                              replyAuthor: m.replyTo == null
-                                  ? null
-                                  : people[byId[m.replyTo]?.authorId],
-                              photoUrl: thread.photoUrls[m.attachmentPath],
-                              reactions: thread.reactions[m.id] ?? const {},
-                              me: me,
-                              tight: sameAuthor,
-                              onLongPress: () => _actions(m, mine, author),
-                              onReact: (e) =>
-                                  ref.read(chatActionsProvider).react(m.id, e),
-                            ),
-                          ],
-                        );
-                      },
                     ),
             ),
             _Composer(
@@ -356,9 +484,33 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
 }
 
 /// Side padding that keeps the thread to a readable width on desktop.
-double _side(BuildContext context) {
-  final w = MediaQuery.sizeOf(context).width;
-  return w > 900 ? (w - 900) / 2 : 0;
+double _side(double w) => w > 900 ? (w - 900) / 2 : 0;
+
+/// Where the unread messages start.
+class _NewMessagesLine extends StatelessWidget {
+  const _NewMessagesLine();
+
+  @override
+  Widget build(BuildContext context) {
+    const color = BrandColors.coral;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: Space.sm),
+      child: Row(
+        children: [
+          Expanded(child: Divider(color: color.withValues(alpha: 0.6))),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: Space.sm),
+            child: Text(
+              'New messages',
+              style: Theme.of(context).textTheme.labelSmall
+                  ?.copyWith(color: color, fontWeight: FontWeight.w700),
+            ),
+          ),
+          Expanded(child: Divider(color: color.withValues(alpha: 0.6))),
+        ],
+      ),
+    );
+  }
 }
 
 class _DaySeparator extends StatelessWidget {

@@ -21,7 +21,11 @@ class Conversation {
       preview = j['last_message_preview'] as String?,
       unread = (j['unread'] as num?)?.toInt() ?? 0,
       memberCount = (j['member_count'] as num?)?.toInt() ?? 0,
-      otherUserId = j['other_user_id'] as String?;
+      otherUserId = j['other_user_id'] as String?,
+      pinned = j['pinned'] as bool? ?? false,
+      lastReadAt = j['last_read_at'] == null
+          ? null
+          : DateTime.parse(j['last_read_at'] as String).toLocal();
 
   final String id;
   final String kind;
@@ -33,6 +37,10 @@ class Conversation {
   final int unread;
   final int memberCount;
   final String? otherUserId;
+  final bool pinned;
+
+  /// Where the caller stopped reading; messages after it are new.
+  final DateTime? lastReadAt;
 
   bool get isDirect => kind == 'direct';
 }
@@ -174,7 +182,23 @@ class ConversationsNotifier extends AsyncNotifier<List<Conversation>> {
     'unread': c.unread,
     'member_count': c.memberCount,
     'other_user_id': c.otherUserId,
+    'pinned': c.pinned,
+    'last_read_at': c.lastReadAt?.toUtc().toIso8601String(),
   };
+
+  /// Pins or unpins a chat on screen straight away, pinned chats first.
+  void setPinned(String id, bool pinned) {
+    final list = state.value;
+    if (list == null) return;
+    final next = [
+      for (final c in list)
+        c.id == id ? Conversation.fromJson({..._json(c), 'pinned': pinned}) : c,
+    ];
+    state = AsyncData([
+      ...next.where((c) => c.pinned),
+      ...next.where((c) => !c.pinned),
+    ]);
+  }
 }
 
 /// Unread messages across all chats, for the tab badge.
@@ -492,6 +516,23 @@ class ChatActions {
     await _ref.read(outboxProvider).enqueue('fn_mark_conversation_read', {
       'p_conversation': conversationId,
     });
+  }
+
+  /// Pins a chat to the top of your list (online only; the list is put
+  /// back if it fails).
+  Future<void> pin(String conversationId, bool pinned) async {
+    final chats = _ref.read(conversationsProvider.notifier);
+    chats.setPinned(conversationId, pinned);
+    try {
+      await _ref
+          .read(supabaseProvider)
+          .rpc(
+            'fn_pin_conversation',
+            params: {'p_conversation': conversationId, 'p_pinned': pinned},
+          );
+    } finally {
+      unawaited(chats.refresh());
+    }
   }
 
   /// Opens (or starts) a direct chat; online only, it returns the chat id.

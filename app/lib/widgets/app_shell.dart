@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../chat/chat_repository.dart';
+import '../chat/presence.dart';
 import '../config/env.dart';
 import '../data/site_data.dart';
 import '../router.dart';
@@ -47,6 +48,8 @@ class AppShell extends ConsumerWidget {
     ref.watch(referenceDataProvider);
     // People's names and the site's equipment, kept on the device.
     ref.watch(siteDataProvider);
+    // Who is online and typing, for the chat list and headers.
+    ref.watch(chatPresenceProvider);
     final phone = MediaQuery.sizeOf(context).width < phoneMaxWidth;
     final title = shellTabs[shell.currentIndex].label;
 
