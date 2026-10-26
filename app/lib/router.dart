@@ -91,6 +91,7 @@ GoRouter buildRouter(WidgetRef ref) {
         builder: (_, s) => CallScreen(
           conversationId: s.pathParameters['id']!,
           join: s.uri.queryParameters['join'] == '1',
+          video: s.uri.queryParameters['video'] == '1',
         ),
       ),
       GoRoute(

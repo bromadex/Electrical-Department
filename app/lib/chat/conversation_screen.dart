@@ -243,9 +243,15 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
         ),
         actions: [
           IconButton(
-            tooltip: 'Call',
+            tooltip: 'Voice call',
             icon: const Icon(CupertinoIcons.phone_fill),
             onPressed: () => context.push('/chat/${widget.id}/call?join=1'),
+          ),
+          IconButton(
+            tooltip: 'Video call',
+            icon: const Icon(CupertinoIcons.video_camera_solid),
+            onPressed: () =>
+                context.push('/chat/${widget.id}/call?join=1&video=1'),
           ),
           const SizedBox(width: Space.xs),
         ],
