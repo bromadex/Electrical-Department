@@ -438,12 +438,6 @@ class _NavCapsule extends ConsumerWidget {
     final session = ref.watch(sessionProvider);
     final site = ref.watch(currentSiteProvider);
     final links = [
-      if (session.can('jc.execute', siteId: site?.id))
-        (
-          '/jobs/mine',
-          'My jobs',
-          CupertinoIcons.person_crop_circle_badge_checkmark,
-        ),
       if (session.can('req.triage', siteId: site?.id))
         ('/requests', 'Requests', CupertinoIcons.tray_arrow_down),
       if (session.can('req.submit', siteId: site?.id) &&

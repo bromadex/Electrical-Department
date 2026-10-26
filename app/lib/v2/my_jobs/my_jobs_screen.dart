@@ -43,7 +43,10 @@ final myJobsProvider = FutureProvider.autoDispose<List<JobCard>>((ref) async {
 });
 
 class MyJobsScreen extends ConsumerWidget {
-  const MyJobsScreen({super.key});
+  const MyJobsScreen({super.key, this.leading});
+
+  /// Shown at the top left (the Jobs tab's My jobs / All switch).
+  final Widget? leading;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -60,8 +63,11 @@ class MyJobsScreen extends ConsumerWidget {
     }
 
     return AppPage(
-      title: 'My Assigned Jobs',
-      subtitle: 'Work assigned to you, most urgent first',
+      title: 'My jobs',
+      leading: leading,
+      subtitle: leading == null
+          ? 'Work assigned to you, most urgent first'
+          : null,
       actions: [
         IconButton(
           tooltip: 'Refresh',

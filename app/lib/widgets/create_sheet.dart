@@ -71,7 +71,7 @@ class _CreateSheet extends ConsumerWidget {
           title: 'My jobs',
           hint: 'Start, pause, submit',
           colors: const [Color(0xFF8E2D45), BrandColors.info],
-          run: (c) => then(c, (h) => h.push('/jobs/mine')),
+          run: (c) => then(c, (h) => h.go('/jobs?mine=1')),
         ),
       if (can('jc.view'))
         (

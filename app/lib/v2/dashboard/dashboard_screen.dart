@@ -211,8 +211,8 @@ class NeedsYouCard extends ConsumerWidget {
           icon: Icons.engineering_outlined,
           color: AppColors.burgundy,
           title: '${mine.length} job cards assigned to you',
-          detail: 'Most urgent first in My jobs',
-          onTap: () => context.push('/jobs/mine'),
+          detail: 'Most urgent first in Jobs › My jobs',
+          onTap: () => context.go('/jobs?mine=1'),
         ),
       ...extra,
     ];

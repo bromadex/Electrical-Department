@@ -56,9 +56,20 @@ final jobCardCountsProvider = FutureProvider.autoDispose
     });
 
 class JobCardsScreen extends ConsumerWidget {
-  const JobCardsScreen({super.key, required this.query});
+  const JobCardsScreen({
+    super.key,
+    required this.query,
+    this.leading,
+    this.keepQuery = const {},
+  });
 
   final Map<String, String> query;
+
+  /// Shown at the top left (the Jobs tab's My jobs / All switch).
+  final Widget? leading;
+
+  /// Address parameters kept when the filters change (e.g. `mine=0`).
+  final Map<String, String> keepQuery;
 
   /// Below this window width the list shows cards instead of a table.
   static const tableFrom = 1100.0;
@@ -72,7 +83,7 @@ class JobCardsScreen extends ConsumerWidget {
     final width = MediaQuery.sizeOf(context).width;
 
     void update(JobCardFilter f) {
-      final q = f.toQuery();
+      final q = {...keepQuery, ...f.toQuery()};
       context.go(
         Uri(path: '/jobs', queryParameters: q.isEmpty ? null : q).toString(),
       );
@@ -80,6 +91,7 @@ class JobCardsScreen extends ConsumerWidget {
 
     return AppPage(
       title: 'Job Cards',
+      leading: leading,
       actions: [
         // Phones start a job card from the + in the bottom bar.
         if (perms.can('jc.register') && width >= Breakpoints.phone)

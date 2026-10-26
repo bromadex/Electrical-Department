@@ -6,7 +6,6 @@ import 'dashboard/dashboard_screen.dart';
 import 'job_page.dart';
 import 'jobcards/job_card_screen.dart';
 import 'jobcards/register_screen.dart';
-import 'my_jobs/my_jobs_screen.dart';
 import 'requests/incoming_requests_screen.dart';
 import 'requests/my_requests_screen.dart';
 import 'requests/request_screen.dart';
@@ -16,10 +15,8 @@ import 'requests/submit_request_screen.dart';
 /// the Jobs tab (see router.dart). Listed before `/jobs/:ref` so the fixed
 /// paths win.
 final jobCardRoutes = <RouteBase>[
-  GoRoute(
-    path: '/jobs/mine',
-    builder: (_, _) => const JobPage(title: 'My jobs', child: MyJobsScreen()),
-  ),
+  // My jobs is a side of the Jobs tab now.
+  GoRoute(path: '/jobs/mine', redirect: (_, _) => '/jobs?mine=1'),
   GoRoute(
     path: '/jobs/new',
     builder: (_, s) => JobPage(
@@ -88,7 +85,7 @@ final jobCardRoutes = <RouteBase>[
   // Old Job Cards Version 2 addresses, kept for links in notifications.
   GoRoute(path: '/v2', redirect: (_, _) => '/jobs'),
   GoRoute(path: '/v2/dashboard', redirect: (_, _) => '/job-stats'),
-  GoRoute(path: '/v2/my-jobs', redirect: (_, _) => '/jobs/mine'),
+  GoRoute(path: '/v2/my-jobs', redirect: (_, _) => '/jobs?mine=1'),
   GoRoute(path: '/v2/audit', redirect: (_, _) => '/admin/audit'),
   GoRoute(path: '/v2/settings', redirect: (_, _) => '/admin/job-settings'),
   GoRoute(path: '/v2/my-requests', redirect: (_, _) => '/my-requests'),
