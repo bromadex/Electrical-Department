@@ -21,6 +21,9 @@ import 'chat_repository.dart';
 import 'presence.dart';
 import '../widgets/app_back_button.dart';
 
+/// Missed calls.
+const _missedRed = Color(0xFFD64545);
+
 const _quickReactions = ['👍', '✅', '❤️', '😂', '🙏', '⚠️'];
 
 class ConversationScreen extends ConsumerStatefulWidget {
@@ -218,7 +221,17 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     final people = ref.watch(peopleProvider).value ?? const {};
     final me = ref.watch(authUserIdProvider);
     final presence = ref.watch(chatPresenceProvider);
-    final top = MediaQuery.paddingOf(context).top + kToolbarHeight;
+    final calls = ref.watch(chatCallsProvider(widget.id)).value ?? const [];
+    final callsByMessage = {
+      for (final k in calls)
+        if (k.messageId != null) k.messageId!: k,
+    };
+    final live = calls.where((k) => k.live).firstOrNull;
+    const bannerHeight = 48.0;
+    final top =
+        MediaQuery.paddingOf(context).top +
+        kToolbarHeight +
+        (live != null ? bannerHeight : 0);
     final group = !(chat?.isDirect ?? false);
     final typing = presence.typingIn(widget.id, except: me);
     final online = chat != null && presence.isOnline(chat.otherUserId);
@@ -349,6 +362,15 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
           const SizedBox(width: Space.xs),
         ],
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
+        bottom: live == null
+            ? null
+            : PreferredSize(
+                preferredSize: const Size.fromHeight(bannerHeight),
+                child: _LiveCallBanner(
+                  call: live,
+                  onJoin: () => context.push('/chat/${widget.id}/call?join=1'),
+                ),
+              ),
       ),
       body: MeshBackground(
         child: Column(
@@ -408,7 +430,11 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                               children: [
                                 if (newDay) _DaySeparator(m.createdAt),
                                 if (m.id == firstNew) const _NewMessagesLine(),
-                                _SystemRow(message: m),
+                                _SystemRow(
+                                  message: m,
+                                  call: callsByMessage[m.id],
+                                  me: me,
+                                ),
                               ],
                             );
                           }
@@ -495,21 +521,110 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
 /// Side padding that keeps the thread to a readable width on desktop.
 double _side(double w) => w > 900 ? (w - 900) / 2 : 0;
 
-/// A line from the app itself, e.g. "Clement started a call" with Join.
+/// "Call in progress · 2 in the call · Join" under the chat's header.
+class _LiveCallBanner extends StatelessWidget {
+  const _LiveCallBanner({required this.call, required this.onJoin});
+
+  final CallInfo call;
+  final VoidCallback onJoin;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: BrandColors.success,
+      child: InkWell(
+        onTap: onJoin,
+        child: SizedBox(
+          height: 48,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: Space.md),
+            child: Row(
+              children: [
+                Icon(
+                  call.video
+                      ? CupertinoIcons.video_camera_solid
+                      : CupertinoIcons.phone_fill,
+                  color: Colors.white,
+                  size: 18,
+                ),
+                const SizedBox(width: Space.sm),
+                Expanded(
+                  child: Text(
+                    'Call in progress · ${call.inCall} in the call',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: BrandColors.success,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  onPressed: onJoin,
+                  child: const Text('Join'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A line from the app itself. Calls show what happened: Join while it is
+/// going, a missed call, or how long it lasted, with Call back.
 class _SystemRow extends StatelessWidget {
-  const _SystemRow({required this.message});
+  const _SystemRow({required this.message, this.call, this.me});
 
   final ChatMessage message;
+  final CallInfo? call;
+  final String? me;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final m = message;
-    final call = m.recordLink?.startsWith('call:') ?? false;
-    final time =
-        '${m.createdAt.hour.toString().padLeft(2, '0')}:${m.createdAt.minute.toString().padLeft(2, '0')}';
-    // Joining makes sense while the call can still be going.
-    final recent = DateTime.now().difference(m.createdAt).inHours < 2;
+    final k = call;
+    final isCall = m.recordLink?.startsWith('call:') ?? false;
+    final chatId = isCall ? m.recordLink!.substring(5) : null;
+    String hm(DateTime t) =>
+        '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+    final time = hm(m.createdAt);
+
+    final String text;
+    final Color color;
+    IconData icon = k?.video ?? false
+        ? CupertinoIcons.video_camera_solid
+        : CupertinoIcons.phone_fill;
+    String? action;
+    if (k == null) {
+      text = '${m.body ?? ''} · $time';
+      color = BrandColors.success;
+    } else if (k.live) {
+      text = '${m.body ?? 'Call'} · $time';
+      color = BrandColors.success;
+      action = 'Join';
+    } else if (k.missed) {
+      final mine = k.startedBy == me;
+      text = mine
+          ? 'No answer · $time'
+          : '${m.body?.replaceFirst('started', 'Missed') ?? 'Missed call'} · $time';
+      color = _missedRed;
+      icon = mine ? CupertinoIcons.phone_fill : CupertinoIcons.phone_down_fill;
+      action = 'Call back';
+    } else {
+      final len = k.length;
+      text =
+          '${k.video ? 'Video call' : 'Call'}'
+          '${len == null ? '' : ' · ${_callLength(len)}'} · $time';
+      color = BrandColors.info;
+      action = 'Call back';
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: Space.sm),
       child: Center(
@@ -519,40 +634,50 @@ class _SystemRow extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (call)
+              if (isCall)
                 Container(
                   width: 30,
                   height: 30,
-                  decoration: const BoxDecoration(
-                    color: BrandColors.success,
+                  decoration: BoxDecoration(
+                    color: color,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
-                    CupertinoIcons.phone_fill,
-                    size: 15,
-                    color: Colors.white,
-                  ),
+                  child: Icon(icon, size: 15, color: Colors.white),
                 ),
               const SizedBox(width: Space.xs),
               Flexible(
                 child: Text(
-                  '${m.body ?? ''} · $time',
-                  style: theme.textTheme.labelMedium,
+                  text,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: k?.missed ?? false ? _missedRed : null,
+                    fontWeight: k?.missed ?? false ? FontWeight.w600 : null,
+                  ),
                 ),
               ),
-              if (call && recent) ...[
+              if (chatId != null && action != null) ...[
                 const SizedBox(width: Space.sm),
-                FilledButton(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: BrandColors.success,
-                    visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                  ),
-                  onPressed: () => context.push(
-                    '/chat/${m.recordLink!.substring(5)}/call?join=1',
-                  ),
-                  child: const Text('Join'),
-                ),
+                action == 'Join'
+                    ? FilledButton(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: BrandColors.success,
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                        ),
+                        onPressed: () =>
+                            context.push('/chat/$chatId/call?join=1'),
+                        child: const Text('Join'),
+                      )
+                    : TextButton.icon(
+                        style: TextButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        onPressed: () => context.push(
+                          '/chat/$chatId/call?join=1'
+                          '${k?.video ?? false ? '&video=1' : ''}',
+                        ),
+                        icon: const Icon(CupertinoIcons.phone, size: 16),
+                        label: Text(action),
+                      ),
               ],
             ],
           ),
@@ -560,6 +685,12 @@ class _SystemRow extends StatelessWidget {
       ),
     );
   }
+}
+
+String _callLength(Duration d) {
+  if (d.inMinutes < 1) return '${d.inSeconds} sec';
+  if (d.inHours < 1) return '${d.inMinutes} min';
+  return '${d.inHours} h ${d.inMinutes % 60} min';
 }
 
 /// Where the unread messages start.

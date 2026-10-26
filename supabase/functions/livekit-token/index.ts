@@ -2,7 +2,8 @@
 // with the user's sign-in; the database (fn_start_call) checks they are in
 // that chat, names the room and tells the others a call started. This
 // function then signs a LiveKit access token with the project's API secret,
-// which never leaves the server, and returns { url, token, room, title }.
+// which never leaves the server, and returns { url, token, room, title,
+// call_id }. The app then sends fn_call_heartbeat / fn_leave_call.
 //
 // Secrets (Supabase → Edge Functions → Secrets): LIVEKIT_URL,
 // LIVEKIT_API_KEY, LIVEKIT_API_SECRET. Errors are { "error": "CODE: message" }.
@@ -121,13 +122,16 @@ Deno.serve(async (req) => {
     projectKey("SUPABASE_ANON_KEY", "SUPABASE_PUBLISHABLE_KEYS"),
     { global: { headers: { Authorization: authorization } }, auth: { persistSession: false } },
   );
-  const { data, error } = await caller.rpc("fn_start_call", { p_conversation: conversationId });
+  const { data, error } = await caller.rpc("fn_start_call", {
+    p_conversation: conversationId,
+    p_video: body.video === true,
+  });
   if (error) {
     const message = error.message || "NOT_FOUND: Chat not found";
     const status = message.startsWith("NOT_ALLOWED") ? 403 : message.startsWith("NOT_FOUND") ? 404 : 400;
     return reply(status, { error: message });
   }
-  const call = data as { room: string; identity: string; name: string; title: string };
+  const call = data as { room: string; identity: string; name: string; title: string; call_id: string };
 
   const now = Math.floor(Date.now() / 1000);
   const token = await sign({
@@ -145,5 +149,5 @@ Deno.serve(async (req) => {
     },
   }, apiSecret);
 
-  return reply(200, { url: livekitUrl, token, room: call.room, title: call.title });
+  return reply(200, { url: livekitUrl, token, room: call.room, title: call.title, call_id: call.call_id });
 });

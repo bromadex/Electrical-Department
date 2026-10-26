@@ -58,15 +58,30 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   bool _front = true;
   bool _chatOpen = true;
 
+  /// This call's record on our server, kept alive by [_beat].
+  String? _callId;
+  Timer? _beat;
+
+  /// You started the call and nobody else has come yet.
+  bool _waiting = false;
+
+  /// How long a direct call rings before it gives up.
+  static const _ringFor = Duration(seconds: 45);
+
+  /// Kept from the start: leaving runs in dispose, when ref is gone.
+  late final SupabaseClient _db;
+
   @override
   void initState() {
     super.initState();
+    _db = ref.read(supabaseProvider);
     if (widget.join) _join(video: widget.video);
   }
 
   @override
   void dispose() {
     _clock?.cancel();
+    _endCall();
     final room = _room;
     if (room != null) {
       room.removeListener(_changed);
@@ -77,6 +92,42 @@ class _CallScreenState extends ConsumerState<CallScreen> {
 
   void _changed() {
     if (mounted) setState(() {});
+  }
+
+  /// Tells our server you left; the last one out ends the call.
+  void _endCall() {
+    _beat?.cancel();
+    final id = _callId;
+    _callId = null;
+    if (id == null) return;
+    unawaited(
+      _db
+          .rpc('fn_leave_call', params: {'p_call': id})
+          .then((_) {}, onError: (_) {}),
+    );
+  }
+
+  void _tick() {
+    final room = _room;
+    if (room == null) return;
+    if (room.remoteParticipants.isNotEmpty) _waiting = false;
+    final since = _since;
+    if (_waiting &&
+        since != null &&
+        DateTime.now().difference(since) > _ringFor) {
+      final chats = ref.read(conversationsProvider).value ?? const [];
+      final direct = chats
+          .where((c) => c.id == widget.conversationId)
+          .firstOrNull
+          ?.isDirect;
+      if (direct ?? false) {
+        _waiting = false;
+        _snack('No answer. They will see a missed call.');
+        unawaited(_leave());
+        return;
+      }
+    }
+    _changed();
   }
 
   Future<void> _join({bool video = false}) async {
@@ -93,7 +144,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
           .functions
           .invoke(
             'livekit-token',
-            body: {'conversation_id': widget.conversationId},
+            body: {'conversation_id': widget.conversationId, 'video': video},
           );
       data = Map<String, dynamic>.from(res.data as Map);
     } on FunctionException catch (e) {
@@ -114,10 +165,12 @@ class _CallScreenState extends ConsumerState<CallScreen> {
     final room = Room(
       roomOptions: const RoomOptions(adaptiveStream: true, dynacast: true),
     );
+    _callId = data['call_id'] as String?;
     try {
       await room.connect(data['url'] as String, data['token'] as String);
     } catch (e) {
       await room.dispose();
+      _endCall();
       return _fail('Could not connect to the call server. ($e)');
     }
     if (!mounted) {
@@ -125,7 +178,17 @@ class _CallScreenState extends ConsumerState<CallScreen> {
       return;
     }
     room.addListener(_changed);
-    _clock = Timer.periodic(const Duration(seconds: 1), (_) => _changed());
+    _waiting = data['new_call'] == true;
+    _clock = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
+    _beat = Timer.periodic(const Duration(seconds: 30), (_) {
+      final id = _callId;
+      if (id == null) return;
+      unawaited(
+        _db
+            .rpc('fn_call_heartbeat', params: {'p_call': id})
+            .then((_) {}, onError: (_) {}),
+      );
+    });
     HapticFeedback.mediumImpact();
     setState(() {
       _room = room;
@@ -170,6 +233,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   Future<void> _leave() async {
     HapticFeedback.heavyImpact();
     _clock?.cancel();
+    _endCall();
     await _room?.disconnect();
     if (mounted) _close();
   }
@@ -288,7 +352,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                   _TopBar(
                     title: title,
                     subtitle: everyone.length == 1
-                        ? 'Waiting for others to join'
+                        ? (_waiting ? 'Ringing…' : 'Waiting for others to join')
                         : '${everyone.length} in the call',
                     time: _elapsed(),
                     onBack: _leave,

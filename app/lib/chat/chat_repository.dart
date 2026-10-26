@@ -23,6 +23,7 @@ class Conversation {
       memberCount = (j['member_count'] as num?)?.toInt() ?? 0,
       otherUserId = j['other_user_id'] as String?,
       pinned = j['pinned'] as bool? ?? false,
+      callLive = j['call_live'] as bool? ?? false,
       lastReadAt = j['last_read_at'] == null
           ? null
           : DateTime.parse(j['last_read_at'] as String).toLocal();
@@ -38,6 +39,9 @@ class Conversation {
   final int memberCount;
   final String? otherUserId;
   final bool pinned;
+
+  /// Someone is in this chat's call right now.
+  final bool callLive;
 
   /// Where the caller stopped reading; messages after it are new.
   final DateTime? lastReadAt;
@@ -119,6 +123,12 @@ class ConversationsNotifier extends AsyncNotifier<List<Conversation>> {
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',
+          table: 'calls',
+          callback: (_) => _soon(),
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
           table: 'conversation_members',
           filter: PostgresChangeFilter(
             type: PostgresChangeFilterType.eq,
@@ -183,6 +193,7 @@ class ConversationsNotifier extends AsyncNotifier<List<Conversation>> {
     'member_count': c.memberCount,
     'other_user_id': c.otherUserId,
     'pinned': c.pinned,
+    'call_live': c.callLive,
     'last_read_at': c.lastReadAt?.toUtc().toIso8601String(),
   };
 
@@ -387,6 +398,113 @@ class ChatThreadNotifier extends Notifier<ChatThread> {
           if (m.id != messageId) m,
       ],
     );
+  }
+}
+
+/// One call in a chat (API.md 16b): live while someone is in it; missed
+/// when nobody else answered.
+class CallInfo {
+  CallInfo.fromJson(Map<String, dynamic> j)
+    : id = j['id'] as String,
+      messageId = j['message_id'] as String?,
+      startedBy = j['started_by'] as String?,
+      video = j['video'] as bool? ?? false,
+      startedAt = DateTime.parse(j['started_at'] as String).toLocal(),
+      answeredAt = j['answered_at'] == null
+          ? null
+          : DateTime.parse(j['answered_at'] as String).toLocal(),
+      endedAt = j['ended_at'] == null
+          ? null
+          : DateTime.parse(j['ended_at'] as String).toLocal(),
+      status = j['status'] as String,
+      inCall = (j['in_call'] as num?)?.toInt() ?? 0;
+
+  final String id;
+  final String? messageId;
+  final String? startedBy;
+  final bool video;
+  final DateTime startedAt;
+  final DateTime? answeredAt;
+  final DateTime? endedAt;
+
+  /// live | missed | ended
+  final String status;
+  final int inCall;
+
+  bool get live => status == 'live';
+  bool get missed => status == 'missed';
+
+  /// From the first answer to the end.
+  Duration? get length => endedAt == null || answeredAt == null
+      ? null
+      : endedAt!.difference(answeredAt!);
+}
+
+/// A chat's calls, newest first, kept live over realtime.
+final chatCallsProvider = AsyncNotifierProvider.autoDispose
+    .family<ChatCallsNotifier, List<CallInfo>, String>(ChatCallsNotifier.new);
+
+class ChatCallsNotifier extends AsyncNotifier<List<CallInfo>> {
+  ChatCallsNotifier(this.id);
+
+  final String id;
+  Timer? _debounce;
+  Timer? _tick;
+
+  @override
+  Future<List<CallInfo>> build() async {
+    final client = ref.read(supabaseProvider);
+    final filter = PostgresChangeFilter(
+      type: PostgresChangeFilterType.eq,
+      column: 'conversation_id',
+      value: id,
+    );
+    final channel = client
+        .channel('calls:$id')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'calls',
+          filter: filter,
+          callback: (_) => _soon(),
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'call_participants',
+          filter: filter,
+          callback: (_) => _soon(),
+        )
+        .subscribe();
+    // A call everyone dropped out of goes quiet without an event.
+    _tick = Timer.periodic(const Duration(seconds: 60), (_) => _soon());
+    ref.onDispose(() {
+      _debounce?.cancel();
+      _tick?.cancel();
+      unawaited(client.removeChannel(channel));
+    });
+    return _load();
+  }
+
+  Future<List<CallInfo>> _load() async {
+    final rows =
+        await ref
+                .read(supabaseProvider)
+                .rpc('fn_conversation_calls', params: {'p_conversation': id})
+            as List;
+    return [
+      for (final r in rows) CallInfo.fromJson(Map<String, dynamic>.from(r)),
+    ];
+  }
+
+  void _soon() {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 500), () async {
+      try {
+        final list = await _load();
+        if (ref.mounted) state = AsyncData(list);
+      } catch (_) {}
+    });
   }
 }
 

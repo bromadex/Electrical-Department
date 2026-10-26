@@ -316,6 +316,22 @@ room, title }`, or 503 `UNAVAILABLE` until `LIVEKIT_URL`, `LIVEKIT_API_KEY` and
 `LIVEKIT_API_SECRET` are set as Supabase secrets. Calls start with sound only; cameras are
 optional.
 
+**Pins and call history (migrations 0018–0020).** `fn_pin_conversation(p_conversation,
+p_pinned)` pins a chat for the caller; `fn_my_conversations` also returns `pinned`,
+`last_read_at` (for the "New messages" line) and `call_live`, pinned chats first. Each call
+is a row in `calls` (`video`, `message_id`, `started_at`, `answered_at`, `ended_at`) with
+`call_participants` (`joined_at`, `last_seen_at`, `left_at`); members can read both.
+`fn_start_call(p_conversation, p_video default false)` joins the chat's live call or starts
+one: a system message ("<name> started a call", `record_link call:<chat>`), the chat
+preview, and a `meeting` notification; it returns `call_id` too, which `livekit-token`
+passes on (the app sends `{ conversation_id, video }`). While in a call the app sends
+`fn_call_heartbeat(p_call)` every 30 seconds and `fn_leave_call(p_call)` when it leaves. A
+call is live while someone in it was seen in the last 90 seconds; the last one out ends it.
+A call nobody else answered is missed and the others get "Missed call from <name>" (link
+`chat:<id>`). `fn_conversation_calls(p_conversation)` lists a chat's calls with `status`
+(live | missed | ended) and `in_call`. A direct call that rings 45 seconds with no answer
+hangs up in the app. `conversation_calls` (0017) is no longer written.
+
 ## 17. Job Cards Version 2 (migrations 0012–0014)
 
 The job card & maintenance management system from Tafara's PR #19 and its phase 2.

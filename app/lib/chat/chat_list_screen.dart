@@ -516,6 +516,15 @@ class _ChatTile extends ConsumerWidget {
                           ),
                         ),
                       ),
+                      if (c.callLive)
+                        const Padding(
+                          padding: EdgeInsets.only(right: 4),
+                          child: Icon(
+                            CupertinoIcons.phone_fill,
+                            size: 14,
+                            color: BrandColors.success,
+                          ),
+                        ),
                       if (c.pinned)
                         Padding(
                           padding: const EdgeInsets.only(right: 4),
@@ -541,6 +550,9 @@ class _ChatTile extends ConsumerWidget {
                       Expanded(
                         child: Text(
                           typingText ??
+                              (c.callLive
+                                  ? 'Call in progress · tap to join'
+                                  : null) ??
                               c.preview ??
                               (c.isDirect
                                   ? 'Say hello'
