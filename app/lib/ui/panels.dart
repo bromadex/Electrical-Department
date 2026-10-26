@@ -144,9 +144,7 @@ class KpiCard extends StatelessWidget {
                     if (caption != null)
                       Text(
                         caption!,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: color,
-                        ),
+                        style: theme.textTheme.labelSmall?.copyWith(color: c),
                       ),
                   ],
                 ),
