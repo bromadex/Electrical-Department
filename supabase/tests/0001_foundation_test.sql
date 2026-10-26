@@ -138,7 +138,9 @@ reset role;
 -- Storage paths
 select pg_temp.check(public._path_site('11111111-2222-3333-4444-555555555555/job/x/a.jpg') = '11111111-2222-3333-4444-555555555555', 'path site parsed');
 select pg_temp.check(public._path_site('nope/job/x/a.jpg') is null, 'bad path gives null');
-select pg_temp.check((select count(*) from storage.buckets where not public) = 4, 'four private buckets');
+select pg_temp.check((select count(*) from storage.buckets where public) = 0
+  and (select count(*) from storage.buckets where id in ('job-photos', 'chat-files', 'documents', 'meeting-audio')) = 4,
+  'the four foundation buckets exist and no bucket is public');
 select pg_temp.check(exists (select 1 from public.schema_migrations where filename = '0001_foundation.sql'), 'migration logged');
 
 rollback;

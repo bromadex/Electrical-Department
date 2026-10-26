@@ -106,6 +106,28 @@ class LocalAssets extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// The tools register at the current site (API.md section 11).
+class LocalTools extends Table {
+  TextColumn get id => text()();
+  TextColumn get siteId => text()();
+  TextColumn get code => text().nullable()();
+  TextColumn get name => text()();
+  TextColumn get kind => text().nullable()();
+  TextColumn get serialNo => text().nullable()();
+  TextColumn get condition => text()();
+  DateTimeColumn get calibrationDue => dateTime().nullable()();
+  TextColumn get notes => text().nullable()();
+  TextColumn get photoPath => text().nullable()();
+  TextColumn get holderId => text().nullable()();
+  DateTimeColumn get issuedAt => dateTime().nullable()();
+  DateTimeColumn get dueBack => dateTime().nullable()();
+  DateTimeColumn get lastCountedAt => dateTime().nullable()();
+  BoolColumn get pending => boolean().withDefault(const Constant(false))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 /// Names of people, for showing who posted or holds a job.
 class LocalPeople extends Table {
   TextColumn get id => text()();
@@ -142,6 +164,7 @@ class PendingUploads extends Table {
     LocalPeople,
     PendingUploads,
     LocalAssets,
+    LocalTools,
   ],
 )
 class LocalDb extends _$LocalDb {
@@ -158,7 +181,7 @@ class LocalDb extends _$LocalDb {
       );
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -173,6 +196,7 @@ class LocalDb extends _$LocalDb {
         await m.addColumn(localJobs, localJobs.isolationRequired);
       }
       if (from < 3) await m.createTable(localAssets);
+      if (from < 4) await m.createTable(localTools);
     },
   );
 

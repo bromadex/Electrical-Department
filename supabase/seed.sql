@@ -121,3 +121,23 @@ where x.tag = 'CR-M01' and j.title = 'Crusher motor overheating';
 update public.jobs j set asset_id = x.id, isolation_required = true
 from public.assets x
 where x.tag = 'MCC-03' and j.title = 'Replace isolator on MCC panel 3';
+
+-- Tools at Kamativi: two in store, one out with the technician.
+insert into public.tools (site_id, code, name, kind, serial_no, calibration_due)
+select s.id, public.next_code(s.id, 'T'), x.name, x.kind, x.serial, x.cal
+from public.sites s
+join (values
+  ('Megger MIT420 insulation tester', 'Tester', 'MIT420-1187', current_date + 5),
+  ('Fluke 117 multimeter', 'Tester', 'FL117-2231', current_date + 200),
+  ('Makita cordless drill', 'Power tool', null, null::date)
+) as x (name, kind, serial, cal) on true
+where s.code = 'KAM';
+
+with t as (select id from public.tools where name = 'Fluke 117 multimeter')
+insert into public.tool_issues (tool_id, issued_to, issued_by, issued_at, due_back)
+select t.id, '10000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-000000000004',
+  now() - interval '2 days', current_date + 3
+from t;
+update public.tools set holder_id = '10000000-0000-0000-0000-000000000003',
+  issued_at = now() - interval '2 days', due_back = current_date + 3
+where name = 'Fluke 117 multimeter';

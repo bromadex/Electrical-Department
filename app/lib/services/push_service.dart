@@ -27,7 +27,8 @@ enum PushState {
 /// Starts Firebase once, before the app runs. Never throws: without Firebase
 /// the app works as before, only without pushes.
 /// Where a notification link opens in the app: `job:<id>` → `/jobs/<id>`,
-/// `chat:<id>` → `/chat/<id>`. Unknown links open nothing.
+/// `chat:<id>` → `/chat/<id>`, `tool:<id>` → `/tools/<id>`. Unknown links
+/// open nothing.
 String? notificationPath(String? link) {
   if (link == null) return null;
   final i = link.indexOf(':');
@@ -36,6 +37,7 @@ String? notificationPath(String? link) {
   return switch (link.substring(0, i)) {
     'job' => '/jobs/$id',
     'chat' => '/chat/$id',
+    'tool' => '/tools/$id',
     _ => null,
   };
 }

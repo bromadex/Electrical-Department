@@ -15,6 +15,8 @@ import 'screens/notifications_screen.dart';
 import 'screens/store_screen.dart';
 import 'screens/today_screen.dart';
 import 'services/core_providers.dart';
+import 'tools/tool_detail_screen.dart';
+import 'tools/tools_screen.dart';
 import 'widgets/app_shell.dart';
 
 /// The bottom-bar / side-menu tabs, in order.
@@ -94,6 +96,12 @@ GoRouter buildRouter(WidgetRef ref) {
       ),
       GoRoute(path: '/admin/users', builder: (_, _) => const UsersScreen()),
       GoRoute(path: '/assets', builder: (_, _) => const AssetsScreen()),
+      GoRoute(path: '/tools', builder: (_, _) => const ToolsScreen()),
+      GoRoute(path: '/tools/count', builder: (_, _) => const ToolCountScreen()),
+      GoRoute(
+        path: '/tools/:id',
+        builder: (_, s) => ToolDetailScreen(id: s.pathParameters['id']!),
+      ),
       GoRoute(
         path: '/assets/:id',
         builder: (_, s) => AssetDetailScreen(id: s.pathParameters['id']!),

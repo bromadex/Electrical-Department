@@ -40,6 +40,11 @@ class OutboxService {
     'fn_add_job_photo': false,
     'fn_comment_job': false,
     'fn_save_recurrence': false,
+    'fn_save_asset': false,
+    'fn_save_tool': false,
+    'fn_issue_tool': false,
+    'fn_return_tool': false,
+    'fn_count_tools': false,
   };
 
   /// Entries that failed this many times stop retrying and keep their error.

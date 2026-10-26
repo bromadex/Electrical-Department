@@ -4212,6 +4212,867 @@ class LocalAssetsCompanion extends UpdateCompanion<LocalAsset> {
   }
 }
 
+class $LocalToolsTable extends LocalTools
+    with TableInfo<$LocalToolsTable, LocalTool> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LocalToolsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _siteIdMeta = const VerificationMeta('siteId');
+  @override
+  late final GeneratedColumn<String> siteId = GeneratedColumn<String>(
+    'site_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _codeMeta = const VerificationMeta('code');
+  @override
+  late final GeneratedColumn<String> code = GeneratedColumn<String>(
+    'code',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _kindMeta = const VerificationMeta('kind');
+  @override
+  late final GeneratedColumn<String> kind = GeneratedColumn<String>(
+    'kind',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _serialNoMeta = const VerificationMeta(
+    'serialNo',
+  );
+  @override
+  late final GeneratedColumn<String> serialNo = GeneratedColumn<String>(
+    'serial_no',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _conditionMeta = const VerificationMeta(
+    'condition',
+  );
+  @override
+  late final GeneratedColumn<String> condition = GeneratedColumn<String>(
+    'condition',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _calibrationDueMeta = const VerificationMeta(
+    'calibrationDue',
+  );
+  @override
+  late final GeneratedColumn<DateTime> calibrationDue =
+      GeneratedColumn<DateTime>(
+        'calibration_due',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+    'notes',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _photoPathMeta = const VerificationMeta(
+    'photoPath',
+  );
+  @override
+  late final GeneratedColumn<String> photoPath = GeneratedColumn<String>(
+    'photo_path',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _holderIdMeta = const VerificationMeta(
+    'holderId',
+  );
+  @override
+  late final GeneratedColumn<String> holderId = GeneratedColumn<String>(
+    'holder_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _issuedAtMeta = const VerificationMeta(
+    'issuedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> issuedAt = GeneratedColumn<DateTime>(
+    'issued_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _dueBackMeta = const VerificationMeta(
+    'dueBack',
+  );
+  @override
+  late final GeneratedColumn<DateTime> dueBack = GeneratedColumn<DateTime>(
+    'due_back',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _lastCountedAtMeta = const VerificationMeta(
+    'lastCountedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastCountedAt =
+      GeneratedColumn<DateTime>(
+        'last_counted_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _pendingMeta = const VerificationMeta(
+    'pending',
+  );
+  @override
+  late final GeneratedColumn<bool> pending = GeneratedColumn<bool>(
+    'pending',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("pending" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    siteId,
+    code,
+    name,
+    kind,
+    serialNo,
+    condition,
+    calibrationDue,
+    notes,
+    photoPath,
+    holderId,
+    issuedAt,
+    dueBack,
+    lastCountedAt,
+    pending,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'local_tools';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<LocalTool> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('site_id')) {
+      context.handle(
+        _siteIdMeta,
+        siteId.isAcceptableOrUnknown(data['site_id']!, _siteIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_siteIdMeta);
+    }
+    if (data.containsKey('code')) {
+      context.handle(
+        _codeMeta,
+        code.isAcceptableOrUnknown(data['code']!, _codeMeta),
+      );
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('kind')) {
+      context.handle(
+        _kindMeta,
+        kind.isAcceptableOrUnknown(data['kind']!, _kindMeta),
+      );
+    }
+    if (data.containsKey('serial_no')) {
+      context.handle(
+        _serialNoMeta,
+        serialNo.isAcceptableOrUnknown(data['serial_no']!, _serialNoMeta),
+      );
+    }
+    if (data.containsKey('condition')) {
+      context.handle(
+        _conditionMeta,
+        condition.isAcceptableOrUnknown(data['condition']!, _conditionMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_conditionMeta);
+    }
+    if (data.containsKey('calibration_due')) {
+      context.handle(
+        _calibrationDueMeta,
+        calibrationDue.isAcceptableOrUnknown(
+          data['calibration_due']!,
+          _calibrationDueMeta,
+        ),
+      );
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+        _notesMeta,
+        notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
+      );
+    }
+    if (data.containsKey('photo_path')) {
+      context.handle(
+        _photoPathMeta,
+        photoPath.isAcceptableOrUnknown(data['photo_path']!, _photoPathMeta),
+      );
+    }
+    if (data.containsKey('holder_id')) {
+      context.handle(
+        _holderIdMeta,
+        holderId.isAcceptableOrUnknown(data['holder_id']!, _holderIdMeta),
+      );
+    }
+    if (data.containsKey('issued_at')) {
+      context.handle(
+        _issuedAtMeta,
+        issuedAt.isAcceptableOrUnknown(data['issued_at']!, _issuedAtMeta),
+      );
+    }
+    if (data.containsKey('due_back')) {
+      context.handle(
+        _dueBackMeta,
+        dueBack.isAcceptableOrUnknown(data['due_back']!, _dueBackMeta),
+      );
+    }
+    if (data.containsKey('last_counted_at')) {
+      context.handle(
+        _lastCountedAtMeta,
+        lastCountedAt.isAcceptableOrUnknown(
+          data['last_counted_at']!,
+          _lastCountedAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('pending')) {
+      context.handle(
+        _pendingMeta,
+        pending.isAcceptableOrUnknown(data['pending']!, _pendingMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  LocalTool map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return LocalTool(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      siteId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}site_id'],
+      )!,
+      code: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}code'],
+      ),
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      kind: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}kind'],
+      ),
+      serialNo: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}serial_no'],
+      ),
+      condition: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}condition'],
+      )!,
+      calibrationDue: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}calibration_due'],
+      ),
+      notes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}notes'],
+      ),
+      photoPath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}photo_path'],
+      ),
+      holderId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}holder_id'],
+      ),
+      issuedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}issued_at'],
+      ),
+      dueBack: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}due_back'],
+      ),
+      lastCountedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_counted_at'],
+      ),
+      pending: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}pending'],
+      )!,
+    );
+  }
+
+  @override
+  $LocalToolsTable createAlias(String alias) {
+    return $LocalToolsTable(attachedDatabase, alias);
+  }
+}
+
+class LocalTool extends DataClass implements Insertable<LocalTool> {
+  final String id;
+  final String siteId;
+  final String? code;
+  final String name;
+  final String? kind;
+  final String? serialNo;
+  final String condition;
+  final DateTime? calibrationDue;
+  final String? notes;
+  final String? photoPath;
+  final String? holderId;
+  final DateTime? issuedAt;
+  final DateTime? dueBack;
+  final DateTime? lastCountedAt;
+  final bool pending;
+  const LocalTool({
+    required this.id,
+    required this.siteId,
+    this.code,
+    required this.name,
+    this.kind,
+    this.serialNo,
+    required this.condition,
+    this.calibrationDue,
+    this.notes,
+    this.photoPath,
+    this.holderId,
+    this.issuedAt,
+    this.dueBack,
+    this.lastCountedAt,
+    required this.pending,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['site_id'] = Variable<String>(siteId);
+    if (!nullToAbsent || code != null) {
+      map['code'] = Variable<String>(code);
+    }
+    map['name'] = Variable<String>(name);
+    if (!nullToAbsent || kind != null) {
+      map['kind'] = Variable<String>(kind);
+    }
+    if (!nullToAbsent || serialNo != null) {
+      map['serial_no'] = Variable<String>(serialNo);
+    }
+    map['condition'] = Variable<String>(condition);
+    if (!nullToAbsent || calibrationDue != null) {
+      map['calibration_due'] = Variable<DateTime>(calibrationDue);
+    }
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
+    }
+    if (!nullToAbsent || photoPath != null) {
+      map['photo_path'] = Variable<String>(photoPath);
+    }
+    if (!nullToAbsent || holderId != null) {
+      map['holder_id'] = Variable<String>(holderId);
+    }
+    if (!nullToAbsent || issuedAt != null) {
+      map['issued_at'] = Variable<DateTime>(issuedAt);
+    }
+    if (!nullToAbsent || dueBack != null) {
+      map['due_back'] = Variable<DateTime>(dueBack);
+    }
+    if (!nullToAbsent || lastCountedAt != null) {
+      map['last_counted_at'] = Variable<DateTime>(lastCountedAt);
+    }
+    map['pending'] = Variable<bool>(pending);
+    return map;
+  }
+
+  LocalToolsCompanion toCompanion(bool nullToAbsent) {
+    return LocalToolsCompanion(
+      id: Value(id),
+      siteId: Value(siteId),
+      code: code == null && nullToAbsent ? const Value.absent() : Value(code),
+      name: Value(name),
+      kind: kind == null && nullToAbsent ? const Value.absent() : Value(kind),
+      serialNo: serialNo == null && nullToAbsent
+          ? const Value.absent()
+          : Value(serialNo),
+      condition: Value(condition),
+      calibrationDue: calibrationDue == null && nullToAbsent
+          ? const Value.absent()
+          : Value(calibrationDue),
+      notes: notes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(notes),
+      photoPath: photoPath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(photoPath),
+      holderId: holderId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(holderId),
+      issuedAt: issuedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(issuedAt),
+      dueBack: dueBack == null && nullToAbsent
+          ? const Value.absent()
+          : Value(dueBack),
+      lastCountedAt: lastCountedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastCountedAt),
+      pending: Value(pending),
+    );
+  }
+
+  factory LocalTool.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return LocalTool(
+      id: serializer.fromJson<String>(json['id']),
+      siteId: serializer.fromJson<String>(json['siteId']),
+      code: serializer.fromJson<String?>(json['code']),
+      name: serializer.fromJson<String>(json['name']),
+      kind: serializer.fromJson<String?>(json['kind']),
+      serialNo: serializer.fromJson<String?>(json['serialNo']),
+      condition: serializer.fromJson<String>(json['condition']),
+      calibrationDue: serializer.fromJson<DateTime?>(json['calibrationDue']),
+      notes: serializer.fromJson<String?>(json['notes']),
+      photoPath: serializer.fromJson<String?>(json['photoPath']),
+      holderId: serializer.fromJson<String?>(json['holderId']),
+      issuedAt: serializer.fromJson<DateTime?>(json['issuedAt']),
+      dueBack: serializer.fromJson<DateTime?>(json['dueBack']),
+      lastCountedAt: serializer.fromJson<DateTime?>(json['lastCountedAt']),
+      pending: serializer.fromJson<bool>(json['pending']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'siteId': serializer.toJson<String>(siteId),
+      'code': serializer.toJson<String?>(code),
+      'name': serializer.toJson<String>(name),
+      'kind': serializer.toJson<String?>(kind),
+      'serialNo': serializer.toJson<String?>(serialNo),
+      'condition': serializer.toJson<String>(condition),
+      'calibrationDue': serializer.toJson<DateTime?>(calibrationDue),
+      'notes': serializer.toJson<String?>(notes),
+      'photoPath': serializer.toJson<String?>(photoPath),
+      'holderId': serializer.toJson<String?>(holderId),
+      'issuedAt': serializer.toJson<DateTime?>(issuedAt),
+      'dueBack': serializer.toJson<DateTime?>(dueBack),
+      'lastCountedAt': serializer.toJson<DateTime?>(lastCountedAt),
+      'pending': serializer.toJson<bool>(pending),
+    };
+  }
+
+  LocalTool copyWith({
+    String? id,
+    String? siteId,
+    Value<String?> code = const Value.absent(),
+    String? name,
+    Value<String?> kind = const Value.absent(),
+    Value<String?> serialNo = const Value.absent(),
+    String? condition,
+    Value<DateTime?> calibrationDue = const Value.absent(),
+    Value<String?> notes = const Value.absent(),
+    Value<String?> photoPath = const Value.absent(),
+    Value<String?> holderId = const Value.absent(),
+    Value<DateTime?> issuedAt = const Value.absent(),
+    Value<DateTime?> dueBack = const Value.absent(),
+    Value<DateTime?> lastCountedAt = const Value.absent(),
+    bool? pending,
+  }) => LocalTool(
+    id: id ?? this.id,
+    siteId: siteId ?? this.siteId,
+    code: code.present ? code.value : this.code,
+    name: name ?? this.name,
+    kind: kind.present ? kind.value : this.kind,
+    serialNo: serialNo.present ? serialNo.value : this.serialNo,
+    condition: condition ?? this.condition,
+    calibrationDue: calibrationDue.present
+        ? calibrationDue.value
+        : this.calibrationDue,
+    notes: notes.present ? notes.value : this.notes,
+    photoPath: photoPath.present ? photoPath.value : this.photoPath,
+    holderId: holderId.present ? holderId.value : this.holderId,
+    issuedAt: issuedAt.present ? issuedAt.value : this.issuedAt,
+    dueBack: dueBack.present ? dueBack.value : this.dueBack,
+    lastCountedAt: lastCountedAt.present
+        ? lastCountedAt.value
+        : this.lastCountedAt,
+    pending: pending ?? this.pending,
+  );
+  LocalTool copyWithCompanion(LocalToolsCompanion data) {
+    return LocalTool(
+      id: data.id.present ? data.id.value : this.id,
+      siteId: data.siteId.present ? data.siteId.value : this.siteId,
+      code: data.code.present ? data.code.value : this.code,
+      name: data.name.present ? data.name.value : this.name,
+      kind: data.kind.present ? data.kind.value : this.kind,
+      serialNo: data.serialNo.present ? data.serialNo.value : this.serialNo,
+      condition: data.condition.present ? data.condition.value : this.condition,
+      calibrationDue: data.calibrationDue.present
+          ? data.calibrationDue.value
+          : this.calibrationDue,
+      notes: data.notes.present ? data.notes.value : this.notes,
+      photoPath: data.photoPath.present ? data.photoPath.value : this.photoPath,
+      holderId: data.holderId.present ? data.holderId.value : this.holderId,
+      issuedAt: data.issuedAt.present ? data.issuedAt.value : this.issuedAt,
+      dueBack: data.dueBack.present ? data.dueBack.value : this.dueBack,
+      lastCountedAt: data.lastCountedAt.present
+          ? data.lastCountedAt.value
+          : this.lastCountedAt,
+      pending: data.pending.present ? data.pending.value : this.pending,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalTool(')
+          ..write('id: $id, ')
+          ..write('siteId: $siteId, ')
+          ..write('code: $code, ')
+          ..write('name: $name, ')
+          ..write('kind: $kind, ')
+          ..write('serialNo: $serialNo, ')
+          ..write('condition: $condition, ')
+          ..write('calibrationDue: $calibrationDue, ')
+          ..write('notes: $notes, ')
+          ..write('photoPath: $photoPath, ')
+          ..write('holderId: $holderId, ')
+          ..write('issuedAt: $issuedAt, ')
+          ..write('dueBack: $dueBack, ')
+          ..write('lastCountedAt: $lastCountedAt, ')
+          ..write('pending: $pending')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    siteId,
+    code,
+    name,
+    kind,
+    serialNo,
+    condition,
+    calibrationDue,
+    notes,
+    photoPath,
+    holderId,
+    issuedAt,
+    dueBack,
+    lastCountedAt,
+    pending,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is LocalTool &&
+          other.id == this.id &&
+          other.siteId == this.siteId &&
+          other.code == this.code &&
+          other.name == this.name &&
+          other.kind == this.kind &&
+          other.serialNo == this.serialNo &&
+          other.condition == this.condition &&
+          other.calibrationDue == this.calibrationDue &&
+          other.notes == this.notes &&
+          other.photoPath == this.photoPath &&
+          other.holderId == this.holderId &&
+          other.issuedAt == this.issuedAt &&
+          other.dueBack == this.dueBack &&
+          other.lastCountedAt == this.lastCountedAt &&
+          other.pending == this.pending);
+}
+
+class LocalToolsCompanion extends UpdateCompanion<LocalTool> {
+  final Value<String> id;
+  final Value<String> siteId;
+  final Value<String?> code;
+  final Value<String> name;
+  final Value<String?> kind;
+  final Value<String?> serialNo;
+  final Value<String> condition;
+  final Value<DateTime?> calibrationDue;
+  final Value<String?> notes;
+  final Value<String?> photoPath;
+  final Value<String?> holderId;
+  final Value<DateTime?> issuedAt;
+  final Value<DateTime?> dueBack;
+  final Value<DateTime?> lastCountedAt;
+  final Value<bool> pending;
+  final Value<int> rowid;
+  const LocalToolsCompanion({
+    this.id = const Value.absent(),
+    this.siteId = const Value.absent(),
+    this.code = const Value.absent(),
+    this.name = const Value.absent(),
+    this.kind = const Value.absent(),
+    this.serialNo = const Value.absent(),
+    this.condition = const Value.absent(),
+    this.calibrationDue = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.photoPath = const Value.absent(),
+    this.holderId = const Value.absent(),
+    this.issuedAt = const Value.absent(),
+    this.dueBack = const Value.absent(),
+    this.lastCountedAt = const Value.absent(),
+    this.pending = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  LocalToolsCompanion.insert({
+    required String id,
+    required String siteId,
+    this.code = const Value.absent(),
+    required String name,
+    this.kind = const Value.absent(),
+    this.serialNo = const Value.absent(),
+    required String condition,
+    this.calibrationDue = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.photoPath = const Value.absent(),
+    this.holderId = const Value.absent(),
+    this.issuedAt = const Value.absent(),
+    this.dueBack = const Value.absent(),
+    this.lastCountedAt = const Value.absent(),
+    this.pending = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       siteId = Value(siteId),
+       name = Value(name),
+       condition = Value(condition);
+  static Insertable<LocalTool> custom({
+    Expression<String>? id,
+    Expression<String>? siteId,
+    Expression<String>? code,
+    Expression<String>? name,
+    Expression<String>? kind,
+    Expression<String>? serialNo,
+    Expression<String>? condition,
+    Expression<DateTime>? calibrationDue,
+    Expression<String>? notes,
+    Expression<String>? photoPath,
+    Expression<String>? holderId,
+    Expression<DateTime>? issuedAt,
+    Expression<DateTime>? dueBack,
+    Expression<DateTime>? lastCountedAt,
+    Expression<bool>? pending,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (siteId != null) 'site_id': siteId,
+      if (code != null) 'code': code,
+      if (name != null) 'name': name,
+      if (kind != null) 'kind': kind,
+      if (serialNo != null) 'serial_no': serialNo,
+      if (condition != null) 'condition': condition,
+      if (calibrationDue != null) 'calibration_due': calibrationDue,
+      if (notes != null) 'notes': notes,
+      if (photoPath != null) 'photo_path': photoPath,
+      if (holderId != null) 'holder_id': holderId,
+      if (issuedAt != null) 'issued_at': issuedAt,
+      if (dueBack != null) 'due_back': dueBack,
+      if (lastCountedAt != null) 'last_counted_at': lastCountedAt,
+      if (pending != null) 'pending': pending,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  LocalToolsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? siteId,
+    Value<String?>? code,
+    Value<String>? name,
+    Value<String?>? kind,
+    Value<String?>? serialNo,
+    Value<String>? condition,
+    Value<DateTime?>? calibrationDue,
+    Value<String?>? notes,
+    Value<String?>? photoPath,
+    Value<String?>? holderId,
+    Value<DateTime?>? issuedAt,
+    Value<DateTime?>? dueBack,
+    Value<DateTime?>? lastCountedAt,
+    Value<bool>? pending,
+    Value<int>? rowid,
+  }) {
+    return LocalToolsCompanion(
+      id: id ?? this.id,
+      siteId: siteId ?? this.siteId,
+      code: code ?? this.code,
+      name: name ?? this.name,
+      kind: kind ?? this.kind,
+      serialNo: serialNo ?? this.serialNo,
+      condition: condition ?? this.condition,
+      calibrationDue: calibrationDue ?? this.calibrationDue,
+      notes: notes ?? this.notes,
+      photoPath: photoPath ?? this.photoPath,
+      holderId: holderId ?? this.holderId,
+      issuedAt: issuedAt ?? this.issuedAt,
+      dueBack: dueBack ?? this.dueBack,
+      lastCountedAt: lastCountedAt ?? this.lastCountedAt,
+      pending: pending ?? this.pending,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (siteId.present) {
+      map['site_id'] = Variable<String>(siteId.value);
+    }
+    if (code.present) {
+      map['code'] = Variable<String>(code.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (kind.present) {
+      map['kind'] = Variable<String>(kind.value);
+    }
+    if (serialNo.present) {
+      map['serial_no'] = Variable<String>(serialNo.value);
+    }
+    if (condition.present) {
+      map['condition'] = Variable<String>(condition.value);
+    }
+    if (calibrationDue.present) {
+      map['calibration_due'] = Variable<DateTime>(calibrationDue.value);
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
+    if (photoPath.present) {
+      map['photo_path'] = Variable<String>(photoPath.value);
+    }
+    if (holderId.present) {
+      map['holder_id'] = Variable<String>(holderId.value);
+    }
+    if (issuedAt.present) {
+      map['issued_at'] = Variable<DateTime>(issuedAt.value);
+    }
+    if (dueBack.present) {
+      map['due_back'] = Variable<DateTime>(dueBack.value);
+    }
+    if (lastCountedAt.present) {
+      map['last_counted_at'] = Variable<DateTime>(lastCountedAt.value);
+    }
+    if (pending.present) {
+      map['pending'] = Variable<bool>(pending.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalToolsCompanion(')
+          ..write('id: $id, ')
+          ..write('siteId: $siteId, ')
+          ..write('code: $code, ')
+          ..write('name: $name, ')
+          ..write('kind: $kind, ')
+          ..write('serialNo: $serialNo, ')
+          ..write('condition: $condition, ')
+          ..write('calibrationDue: $calibrationDue, ')
+          ..write('notes: $notes, ')
+          ..write('photoPath: $photoPath, ')
+          ..write('holderId: $holderId, ')
+          ..write('issuedAt: $issuedAt, ')
+          ..write('dueBack: $dueBack, ')
+          ..write('lastCountedAt: $lastCountedAt, ')
+          ..write('pending: $pending, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$LocalDb extends GeneratedDatabase {
   _$LocalDb(QueryExecutor e) : super(e);
   $LocalDbManager get managers => $LocalDbManager(this);
@@ -4226,6 +5087,7 @@ abstract class _$LocalDb extends GeneratedDatabase {
   late final $LocalPeopleTable localPeople = $LocalPeopleTable(this);
   late final $PendingUploadsTable pendingUploads = $PendingUploadsTable(this);
   late final $LocalAssetsTable localAssets = $LocalAssetsTable(this);
+  late final $LocalToolsTable localTools = $LocalToolsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -4240,6 +5102,7 @@ abstract class _$LocalDb extends GeneratedDatabase {
     localPeople,
     pendingUploads,
     localAssets,
+    localTools,
   ];
 }
 
@@ -6473,6 +7336,401 @@ typedef $$LocalAssetsTableProcessedTableManager =
       LocalAsset,
       PrefetchHooks Function()
     >;
+typedef $$LocalToolsTableCreateCompanionBuilder = LocalToolsCompanion Function({
+  required String id,
+  required String siteId,
+  Value<String?> code,
+  required String name,
+  Value<String?> kind,
+  Value<String?> serialNo,
+  required String condition,
+  Value<DateTime?> calibrationDue,
+  Value<String?> notes,
+  Value<String?> photoPath,
+  Value<String?> holderId,
+  Value<DateTime?> issuedAt,
+  Value<DateTime?> dueBack,
+  Value<DateTime?> lastCountedAt,
+  Value<bool> pending,
+  Value<int> rowid,
+});
+typedef $$LocalToolsTableUpdateCompanionBuilder = LocalToolsCompanion Function({
+  Value<String> id,
+  Value<String> siteId,
+  Value<String?> code,
+  Value<String> name,
+  Value<String?> kind,
+  Value<String?> serialNo,
+  Value<String> condition,
+  Value<DateTime?> calibrationDue,
+  Value<String?> notes,
+  Value<String?> photoPath,
+  Value<String?> holderId,
+  Value<DateTime?> issuedAt,
+  Value<DateTime?> dueBack,
+  Value<DateTime?> lastCountedAt,
+  Value<bool> pending,
+  Value<int> rowid,
+});
+
+class $$LocalToolsTableFilterComposer
+    extends Composer<_$LocalDb, $LocalToolsTable> {
+  $$LocalToolsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get siteId => $composableBuilder(
+    column: $table.siteId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get code => $composableBuilder(
+    column: $table.code,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get serialNo => $composableBuilder(
+    column: $table.serialNo,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get condition => $composableBuilder(
+    column: $table.condition,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get calibrationDue => $composableBuilder(
+    column: $table.calibrationDue,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get photoPath => $composableBuilder(
+    column: $table.photoPath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get holderId => $composableBuilder(
+    column: $table.holderId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get issuedAt => $composableBuilder(
+    column: $table.issuedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get dueBack => $composableBuilder(
+    column: $table.dueBack,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastCountedAt => $composableBuilder(
+    column: $table.lastCountedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get pending => $composableBuilder(
+    column: $table.pending,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$LocalToolsTableOrderingComposer
+    extends Composer<_$LocalDb, $LocalToolsTable> {
+  $$LocalToolsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get siteId => $composableBuilder(
+    column: $table.siteId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get code => $composableBuilder(
+    column: $table.code,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get serialNo => $composableBuilder(
+    column: $table.serialNo,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get condition => $composableBuilder(
+    column: $table.condition,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get calibrationDue => $composableBuilder(
+    column: $table.calibrationDue,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get photoPath => $composableBuilder(
+    column: $table.photoPath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get holderId => $composableBuilder(
+    column: $table.holderId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get issuedAt => $composableBuilder(
+    column: $table.issuedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get dueBack => $composableBuilder(
+    column: $table.dueBack,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastCountedAt => $composableBuilder(
+    column: $table.lastCountedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get pending => $composableBuilder(
+    column: $table.pending,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$LocalToolsTableAnnotationComposer
+    extends Composer<_$LocalDb, $LocalToolsTable> {
+  $$LocalToolsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get siteId =>
+      $composableBuilder(column: $table.siteId, builder: (column) => column);
+
+  GeneratedColumn<String> get code =>
+      $composableBuilder(column: $table.code, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get kind =>
+      $composableBuilder(column: $table.kind, builder: (column) => column);
+
+  GeneratedColumn<String> get serialNo =>
+      $composableBuilder(column: $table.serialNo, builder: (column) => column);
+
+  GeneratedColumn<String> get condition =>
+      $composableBuilder(column: $table.condition, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get calibrationDue => $composableBuilder(
+    column: $table.calibrationDue,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<String> get photoPath =>
+      $composableBuilder(column: $table.photoPath, builder: (column) => column);
+
+  GeneratedColumn<String> get holderId =>
+      $composableBuilder(column: $table.holderId, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get issuedAt =>
+      $composableBuilder(column: $table.issuedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get dueBack =>
+      $composableBuilder(column: $table.dueBack, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get lastCountedAt => $composableBuilder(
+    column: $table.lastCountedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get pending =>
+      $composableBuilder(column: $table.pending, builder: (column) => column);
+}
+
+class $$LocalToolsTableTableManager
+    extends
+        RootTableManager<
+          _$LocalDb,
+          $LocalToolsTable,
+          LocalTool,
+          $$LocalToolsTableFilterComposer,
+          $$LocalToolsTableOrderingComposer,
+          $$LocalToolsTableAnnotationComposer,
+          $$LocalToolsTableCreateCompanionBuilder,
+          $$LocalToolsTableUpdateCompanionBuilder,
+          (LocalTool, BaseReferences<_$LocalDb, $LocalToolsTable, LocalTool>),
+          LocalTool,
+          PrefetchHooks Function()
+        > {
+  $$LocalToolsTableTableManager(_$LocalDb db, $LocalToolsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LocalToolsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$LocalToolsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$LocalToolsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> siteId = const Value.absent(),
+                Value<String?> code = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String?> kind = const Value.absent(),
+                Value<String?> serialNo = const Value.absent(),
+                Value<String> condition = const Value.absent(),
+                Value<DateTime?> calibrationDue = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                Value<String?> photoPath = const Value.absent(),
+                Value<String?> holderId = const Value.absent(),
+                Value<DateTime?> issuedAt = const Value.absent(),
+                Value<DateTime?> dueBack = const Value.absent(),
+                Value<DateTime?> lastCountedAt = const Value.absent(),
+                Value<bool> pending = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocalToolsCompanion(
+                id: id,
+                siteId: siteId,
+                code: code,
+                name: name,
+                kind: kind,
+                serialNo: serialNo,
+                condition: condition,
+                calibrationDue: calibrationDue,
+                notes: notes,
+                photoPath: photoPath,
+                holderId: holderId,
+                issuedAt: issuedAt,
+                dueBack: dueBack,
+                lastCountedAt: lastCountedAt,
+                pending: pending,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String siteId,
+                Value<String?> code = const Value.absent(),
+                required String name,
+                Value<String?> kind = const Value.absent(),
+                Value<String?> serialNo = const Value.absent(),
+                required String condition,
+                Value<DateTime?> calibrationDue = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                Value<String?> photoPath = const Value.absent(),
+                Value<String?> holderId = const Value.absent(),
+                Value<DateTime?> issuedAt = const Value.absent(),
+                Value<DateTime?> dueBack = const Value.absent(),
+                Value<DateTime?> lastCountedAt = const Value.absent(),
+                Value<bool> pending = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocalToolsCompanion.insert(
+                id: id,
+                siteId: siteId,
+                code: code,
+                name: name,
+                kind: kind,
+                serialNo: serialNo,
+                condition: condition,
+                calibrationDue: calibrationDue,
+                notes: notes,
+                photoPath: photoPath,
+                holderId: holderId,
+                issuedAt: issuedAt,
+                dueBack: dueBack,
+                lastCountedAt: lastCountedAt,
+                pending: pending,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$LocalToolsTable, LocalTool>(table),
+                  BaseReferences<_$LocalDb, $LocalToolsTable, LocalTool>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$LocalToolsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$LocalDb,
+      $LocalToolsTable,
+      LocalTool,
+      $$LocalToolsTableFilterComposer,
+      $$LocalToolsTableOrderingComposer,
+      $$LocalToolsTableAnnotationComposer,
+      $$LocalToolsTableCreateCompanionBuilder,
+      $$LocalToolsTableUpdateCompanionBuilder,
+      (LocalTool, BaseReferences<_$LocalDb, $LocalToolsTable, LocalTool>),
+      LocalTool,
+      PrefetchHooks Function()
+    >;
 
 class $LocalDbManager {
   final _$LocalDb _db;
@@ -6495,4 +7753,6 @@ class $LocalDbManager {
       $$PendingUploadsTableTableManager(_db, _db.pendingUploads);
   $$LocalAssetsTableTableManager get localAssets =>
       $$LocalAssetsTableTableManager(_db, _db.localAssets);
+  $$LocalToolsTableTableManager get localTools =>
+      $$LocalToolsTableTableManager(_db, _db.localTools);
 }

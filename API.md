@@ -242,13 +242,28 @@ A light asset register; jobs can point at an asset, so each asset has a job hist
 - `job_recurrences` gains `asset_id` and `isolation_required`; `fn_save_recurrence(..., p_asset, p_isolation_required)`. Planned maintenance = a recurring job on an asset: `fn_run_recurrences` marks those jobs `preventive`.
 - App: Board → Assets (`/assets`), asset page (`/assets/<id>`) with open/done counts, planned maintenance and job history, "Job on this asset". The job form has Asset, "Isolation (lock-out) required" and "Planned maintenance"; jobs needing isolation show a lock and a LOTO warning. Assets are cached on the device with the jobs (drift schema v3).
 
+## 11. Tools register (migration 0006)
+
+Who holds which tool, when it is due back, and when calibration is due.
+
+- Table `tools`: `site_id, code (T-0001), name, kind, serial_no, condition (good | needs_repair | damaged | lost), calibration_due, notes, photo_path, holder_id, issued_at, due_back, last_counted_at`. Read with `tools.view`.
+- Table `tool_issues`: one row per time a tool goes out: `issued_to, issued_by, issued_at, due_back, signature_path, returned_at, returned_by, return_condition, return_note`.
+- `fn_save_tool(p_client_ref, p_site, p_name, p_kind, p_serial_no, p_calibration_due, p_notes, p_condition, p_archived, p_photo_path)`: `tools.issue`; new tools get the next T- code. A tool that is out cannot be removed.
+- `fn_issue_tool(p_client_ref, p_tool, p_to, p_due_back, p_signature_path)`: `tools.issue`; the person must hold `tools.view` at the site; damaged or lost tools cannot go out. Notifies the person (`tool:<id>`).
+- `fn_return_tool(p_tool, p_condition, p_note)`: `tools.issue`; a note is needed unless the tool is good; supervisors hear about damaged returns.
+- `fn_count_tools(p_site, p_tools uuid[])`: monthly count; sets `last_counted_at` on the tools seen.
+- `fn_site_people(p_site, p_code)` → `id, full_name` of active people holding a permission at a site (pickers).
+- pg_cron `tools-reminders` daily 07:15 Harare: overdue returns (holder and store, once) and calibration due within 7 days (store, once per due date).
+- Storage bucket `tool-files`: `<site_id>/tool/<tool_id>/signature-<id>.png` and photos; read `tools.view`, upload `tools.issue`.
+- App: Store tab (tools summary, my tools) → `/tools` register (search; All, In store, Out, Mine, Attention), `/tools/<id>` (issue with on-screen signature, take back with condition, history with signatures), `/tools/count`. Cached offline (drift schema v4); all writes go through the outbox.
+
 ## 6. Feature sections (filled in as features are built)
 
 - 7. Jobs board — Clement, phase 1 (done, see above)
 - 8. Push notifications — phase 1 (done, see above)
 - 9. Daily checklists + daily report — Clement, phase 2
 - 10. Group chat — Tafara, phase 2
-- 11. Tools — Clement, phase 3
+- 11. Tools — phase 3 (done, see above)
 - 12. SOPs & documents — Tafara, phase 3
 - 13. Electrical store — Clement, phase 4
 - 14. Material requests, purchases, BOQ — Tafara, phase 4
@@ -257,6 +272,7 @@ A light asset register; jobs can point at an asset, so each asset has a job hist
 
 ## Changelog
 
+- v0.6 — tools register (tools, tool_issues, tool-files bucket, reminders).
 - v0.5 — asset register, planned maintenance, isolation flag (assets, jobs.asset_id/maintenance_type/isolation_required).
 - v0.4 — user management (fn_admin_users, fn_set_user_profile, fn_set_user_roles, admin-users function).
 - v0.3 — push notifications (push_config, notifications_push trigger, push-send function).
