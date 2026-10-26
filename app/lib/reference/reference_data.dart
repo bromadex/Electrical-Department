@@ -95,6 +95,7 @@ class SystemSettings {
     this.companyName = 'Bravura',
     this.departmentName = 'Electrical Department',
     this.logoPath,
+    this.safetyBeforeStart = 'off',
   });
 
   factory SystemSettings.fromRow(Map<String, dynamic>? r) => r == null
@@ -112,6 +113,7 @@ class SystemSettings {
           companyName: r['company_name'] as String,
           departmentName: r['department_name'] as String,
           logoPath: r['logo_path'] as String?,
+          safetyBeforeStart: r['safety_before_start'] as String? ?? 'off',
         );
 
   final String timezone;
@@ -126,6 +128,9 @@ class SystemSettings {
   final String companyName;
   final String departmentName;
   final String? logoPath;
+
+  /// Safety checks before work: off, when_required or always.
+  final String safetyBeforeStart;
 }
 
 /// Lists and settings every screen needs, loaded once after sign-in.

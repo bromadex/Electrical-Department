@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'admin/audit_screen.dart';
 import 'admin/settings_screen.dart';
 import 'admin/users_screen.dart';
 import 'assets/asset_form_screen.dart';
@@ -108,6 +109,7 @@ GoRouter buildRouter(WidgetRef ref) {
             builder: (_, _) => const NotificationsScreen(),
           ),
           GoRoute(path: '/admin/users', builder: (_, _) => const UsersScreen()),
+          GoRoute(path: '/admin/audit', builder: (_, _) => const AuditScreen()),
           GoRoute(
             path: '/admin/settings',
             builder: (_, _) => const SettingsScreen(),

@@ -101,6 +101,97 @@ final escalationContactsProvider =
       return [for (final r in rows) Map<String, dynamic>.from(r)];
     });
 
+/// What an escalation rule watches for (API.md section 9).
+const escalationKinds = [
+  ('not_acknowledged', 'Not acknowledged in time'),
+  ('approaching_deadline', 'Deadline approaching'),
+  ('overdue', 'Overdue'),
+  ('on_hold_too_long', 'On hold too long'),
+  ('review_waiting', 'Waiting for engineering review'),
+];
+
+class EscalationRule {
+  EscalationRule(Map<String, dynamic> r)
+    : id = r['id'] as String,
+      name = r['name'] as String,
+      kind = r['kind'] as String,
+      priorityCode = r['priority_code'] as String?,
+      afterMinutes = (r['after_minutes'] as num?)?.toInt(),
+      notifyResponsible = r['notify_responsible'] as bool? ?? false,
+      notifyAssigner = r['notify_assigner'] as bool? ?? false,
+      notifyEngineers = r['notify_engineers'] as bool? ?? false,
+      notifyContacts = r['notify_contacts'] as bool? ?? false,
+      notifyManagers = r['notify_managers'] as bool? ?? false,
+      isActive = r['is_active'] as bool? ?? true,
+      sortOrder = (r['sort_order'] as num?)?.toInt() ?? 100;
+
+  final String id;
+  final String name;
+  final String kind;
+  final String? priorityCode;
+  final int? afterMinutes;
+  final bool notifyResponsible;
+  final bool notifyAssigner;
+  final bool notifyEngineers;
+  final bool notifyContacts;
+  final bool notifyManagers;
+  final bool isActive;
+  final int sortOrder;
+
+  String get recipients => [
+    if (notifyResponsible) 'responsible person',
+    if (notifyAssigner) 'assigner',
+    if (notifyEngineers) 'engineers',
+    if (notifyContacts) 'escalation contacts',
+    if (notifyManagers) 'managers',
+  ].join(', ');
+}
+
+class SafetyChecklistItem {
+  SafetyChecklistItem(Map<String, dynamic> r)
+    : id = r['id'] as String,
+      categoryId = r['category_id'] as String?,
+      phase = r['phase'] as String,
+      label = r['label'] as String,
+      appliesWhen = r['applies_when'] as String? ?? 'always',
+      needsReference = r['needs_reference'] as bool? ?? false,
+      sortOrder = (r['sort_order'] as num?)?.toInt() ?? 100,
+      isArchived = r['is_archived'] as bool? ?? false;
+
+  final String id;
+  final String? categoryId;
+  final String phase;
+  final String label;
+  final String appliesWhen;
+  final bool needsReference;
+  final int sortOrder;
+  final bool isArchived;
+}
+
+final escalationRulesProvider =
+    FutureProvider.autoDispose<List<EscalationRule>>((ref) async {
+      ref.watch(adminRevisionProvider);
+      final rows = await ref
+          .watch(supabaseProvider)
+          .from('escalation_rules')
+          .select()
+          .eq('is_archived', false)
+          .order('sort_order');
+      return [for (final r in rows) EscalationRule(r)];
+    });
+
+final safetyItemsProvider =
+    FutureProvider.autoDispose<List<SafetyChecklistItem>>((ref) async {
+      ref.watch(adminRevisionProvider);
+      final rows = await ref
+          .watch(supabaseProvider)
+          .from('safety_checklist_items')
+          .select()
+          .order('phase', ascending: false)
+          .order('sort_order');
+      return [for (final r in rows) SafetyChecklistItem(r)];
+    });
+
 final adminActionsProvider = Provider<AdminActions>(AdminActions.new);
 
 class AdminActions {
@@ -297,6 +388,59 @@ class AdminActions {
     'p_user': userId,
     'p_archived': archived,
   });
+
+  Future<void> saveEscalationRule({
+    String? id,
+    required String name,
+    required String kind,
+    String? priority,
+    int? afterMinutes,
+    required bool notifyResponsible,
+    required bool notifyAssigner,
+    required bool notifyEngineers,
+    required bool notifyContacts,
+    required bool notifyManagers,
+    bool active = true,
+    int sortOrder = 100,
+    bool archived = false,
+  }) => _rpc('fn_save_escalation_rule', {
+    'p_id': id ?? _uuid.v4(),
+    'p_name': name.trim(),
+    'p_kind': kind,
+    'p_priority': priority,
+    'p_after_minutes': afterMinutes,
+    'p_notify_responsible': notifyResponsible,
+    'p_notify_assigner': notifyAssigner,
+    'p_notify_engineers': notifyEngineers,
+    'p_notify_contacts': notifyContacts,
+    'p_notify_managers': notifyManagers,
+    'p_active': active,
+    'p_sort_order': sortOrder,
+    'p_archived': archived,
+  });
+
+  Future<void> saveSafetyItem({
+    String? id,
+    String? categoryId,
+    required String phase,
+    required String label,
+    required String appliesWhen,
+    required bool needsReference,
+    int sortOrder = 100,
+    bool archived = false,
+  }) => _rpc('fn_save_safety_item', {
+    'p_id': id ?? _uuid.v4(),
+    'p_category': categoryId,
+    'p_phase': phase,
+    'p_label': label.trim(),
+    'p_applies_when': appliesWhen,
+    'p_needs_reference': needsReference,
+    'p_sort_order': sortOrder,
+    'p_archived': archived,
+  });
+
+  Future<void> saveSafetyPolicy(String policy) =>
+      _rpc('fn_save_safety_policy', {'p_policy': policy}, reference: true);
 
   /// Work areas are simple rows written directly under row level security.
   Future<void> saveArea({

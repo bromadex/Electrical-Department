@@ -10,6 +10,7 @@ import '../ui/forms.dart';
 import '../ui/page.dart';
 import '../ui/panels.dart';
 import '../ui/status.dart';
+import 'execution_settings.dart';
 import 'repository.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -38,6 +39,10 @@ class SettingsScreen extends ConsumerWidget {
             _GeneralSettings(settings: data.settings),
             const SizedBox(height: Space.md),
             _Priorities(priorities: data.priorities),
+            const SizedBox(height: Space.md),
+            const EscalationRulesPanel(),
+            const SizedBox(height: Space.md),
+            SafetySettingsPanel(data: data),
             const SizedBox(height: Space.md),
             _ListPanel(
               title: 'Departments',

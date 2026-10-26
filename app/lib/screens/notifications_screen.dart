@@ -127,6 +127,7 @@ class _NotificationTile extends StatelessWidget {
     'assigned': (Icons.assignment_ind_outlined, AppColors.info),
     'reassigned': (Icons.swap_horiz_rounded, AppColors.info),
     'critical': (Icons.report_rounded, AppColors.critical),
+    'escalation': (Icons.campaign_rounded, AppColors.critical),
     'overdue': (Icons.alarm_rounded, AppColors.critical),
     'on_hold': (Icons.pause_circle_outline_rounded, AppColors.warning),
     'review': (Icons.fact_check_outlined, AppColors.review),

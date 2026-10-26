@@ -79,6 +79,13 @@ final navItems = <NavItem>[
     (p) => p.canEverywhere('admin.users'),
   ),
   NavItem(
+    '/admin/audit',
+    'Audit Logs',
+    Icons.history_edu_outlined,
+    Icons.history_edu_rounded,
+    (p) => p.canEverywhere('audit.view'),
+  ),
+  NavItem(
     '/admin/settings',
     'Settings',
     Icons.settings_outlined,

@@ -79,7 +79,7 @@ test('Test 6: returned once, then approved, with the whole history kept', async 
   const engineer = await signIn(browser, people.engineer);
   await open(engineer, `/job-cards/${j.number}`);
   await tap(engineer, 'Verify work', true);
-  await expectShown(engineer, /Engineering verification/);
+  await expect(engineer.getByRole('checkbox', { name: 'Approve closure' })).toBeVisible();
   await tap(engineer, 'Return for more work', true);
   await fill(engineer, /What still needs to be done/, 'Record the insulation test result');
   await shot(engineer, 'p2-review-return');
