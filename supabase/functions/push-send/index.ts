@@ -53,6 +53,7 @@ function appPath(link: string | null): string | null {
   if (kind === "tool") return `/tools/${id}`;
   if (kind === "doc") return `/documents/${id}`;
   if (kind === "checklist") return `/checklists/${id}`;
+  if (kind === "request") return "/requests";
   return null;
 }
 

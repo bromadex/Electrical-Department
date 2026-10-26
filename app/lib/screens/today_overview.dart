@@ -8,6 +8,7 @@ import '../data/local_db.dart';
 import '../documents/documents_repository.dart';
 import '../jobs/job_rules.dart';
 import '../jobs/jobs_repository.dart';
+import '../requests/requests_screen.dart';
 import '../services/core_providers.dart';
 import '../theme/tokens.dart';
 import '../tools/tools_repository.dart';
@@ -31,6 +32,7 @@ class NeedsAttention extends ConsumerWidget {
     final status = ref.watch(checklistStatusProvider).value ?? const {};
     final tools = ref.watch(siteToolsProvider).value ?? const <LocalTool>[];
     final toSign = ref.watch(toSignCountProvider);
+    final requests = ref.watch(newRequestCountProvider);
     final now = DateTime.now();
 
     final open = jobs.where((j) => !_closed(j));
@@ -45,6 +47,15 @@ class NeedsAttention extends ConsumerWidget {
     final calibrate = tools.where(calibrationDue).length;
 
     final items = [
+      if (requests > 0)
+        (
+          CupertinoIcons.tray_arrow_down_fill,
+          requests == 1
+              ? '1 request to decide'
+              : '$requests requests to decide',
+          BrandColors.info,
+          '/requests',
+        ),
       if (urgentFree > 0)
         (
           CupertinoIcons.exclamationmark_octagon_fill,

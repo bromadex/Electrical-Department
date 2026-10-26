@@ -40,6 +40,7 @@ String? notificationPath(String? link) {
     'tool' => '/tools/$id',
     'doc' => '/documents/$id',
     'checklist' => '/checklists/$id',
+    'request' => '/requests',
     _ => null,
   };
 }

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../config/env.dart';
 import '../documents/documents_repository.dart';
+import '../requests/requests_screen.dart';
 import '../services/core_providers.dart';
 import '../services/notifications_controller.dart';
 import '../services/push_service.dart';
@@ -27,6 +28,7 @@ class MoreScreen extends ConsumerWidget {
     final mode = ref.watch(themeModeProvider);
     final push = ref.watch(pushProvider);
     final toSign = ref.watch(toSignCountProvider);
+    final newRequests = ref.watch(newRequestCountProvider);
     final profile = session.profile;
     final email = ref.read(supabaseProvider).auth.currentUser?.email ?? '';
     final name = (profile?.fullName.isNotEmpty ?? false)
@@ -197,6 +199,17 @@ class MoreScreen extends ConsumerWidget {
           child: Column(
             children: [
               _Row(
+                icon: Icons.move_to_inbox_outlined,
+                title: 'Requests',
+                subtitle: newRequests > 0
+                    ? '$newRequests waiting for a decision'
+                    : 'Work asked for by other departments',
+                trailing: newRequests > 0
+                    ? Badge(label: Text('$newRequests'))
+                    : const Icon(Icons.chevron_right_rounded),
+                onTap: () => context.push('/requests'),
+              ),
+              _Row(
                 icon: Icons.fact_check_outlined,
                 title: 'Checklists',
                 subtitle: 'Daily, weekly and monthly rounds',
@@ -237,6 +250,13 @@ class MoreScreen extends ConsumerWidget {
                   subtitle: 'Accounts, roles and sites',
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => context.push('/admin/users'),
+                ),
+                _Row(
+                  icon: Icons.timer_outlined,
+                  title: 'Priority targets',
+                  subtitle: 'Response and finish times',
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => context.push('/admin/targets'),
                 ),
                 _Row(
                   icon: Icons.history_rounded,

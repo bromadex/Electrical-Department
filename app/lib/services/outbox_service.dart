@@ -53,6 +53,7 @@ class OutboxService {
     'fn_submit_checklist': false,
     'fn_add_report_update': false,
     'fn_record_safety_check': false,
+    'fn_create_request': false,
   };
 
   /// Entries that failed this many times stop retrying and keep their error.

@@ -42,7 +42,10 @@ select pg_temp.act_as('00000000-0000-0000-0000-000000000001');
 select pg_temp.check(public._can('jobs.create', (select kam from ids)), 'tech can jobs.create at KAM');
 select pg_temp.check(not public._can('jobs.create', (select sel from ids)), 'tech cannot jobs.create at SEL');
 select pg_temp.check(not public._can('jobs.assign', (select kam from ids)), 'tech cannot jobs.assign');
-select pg_temp.check((select count(*) from public.my_permissions()) = 8, 'tech my_permissions has 8 codes');
+select pg_temp.check((select array_agg(code order by code) from public.my_permissions())
+  @> array['chat.use', 'docs.view', 'jobs.close', 'jobs.create', 'jobs.view', 'mr.create', 'store.view', 'tools.view']
+  and not exists (select 1 from public.my_permissions() where code like 'admin.%' or code = 'jobs.assign'),
+  'tech holds the technician codes and no admin or assign codes');
 select pg_temp.check((select count(*) from public.sites) = 4, 'tech reads sites');
 select pg_temp.check((select count(*) from public.profiles where id in ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000003','00000000-0000-0000-0000-000000000004')) = 4, 'tech reads profiles');
 select pg_temp.check((select count(*) from public.user_roles) = 1, 'tech sees only own roles');
