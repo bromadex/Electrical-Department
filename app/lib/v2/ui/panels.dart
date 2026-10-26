@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../ui/surfaces.dart';
 import '../theme/tokens.dart';
 
-/// White card with a header row, the building block of dashboards and
-/// detail pages.
+/// Glass card (Version 1's SurfaceCard) with a header row, the building
+/// block of dashboards and detail pages.
 class Panel extends StatelessWidget {
   const Panel({
     super.key,
@@ -25,8 +26,9 @@ class Panel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Card(
-      clipBehavior: Clip.antiAlias,
+    return SurfaceCard(
+      padding: EdgeInsets.zero,
+      radius: Radii.lg,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
@@ -95,68 +97,59 @@ class KpiCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final c = AppColors.adapt(color, theme.brightness);
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          decoration: BoxDecoration(
-            border: Border(left: BorderSide(color: c, width: 4)),
-          ),
-          padding: const EdgeInsets.fromLTRB(
-            Space.sm,
-            Space.sm,
-            Space.sm,
-            Space.sm,
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: c.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(Radii.sm),
-                ),
-                child: Icon(icon, color: c, size: 22),
+    return SurfaceCard(
+      padding: EdgeInsets.zero,
+      radius: Radii.lg,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.all(Space.sm),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: c.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(Radii.sm),
               ),
-              const SizedBox(width: Space.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      value,
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                        height: 1.1,
-                      ),
+              child: Icon(icon, color: c, size: 22),
+            ),
+            const SizedBox(width: Space.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    value,
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                      height: 1.1,
                     ),
-                    Text(
-                      label,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
+                  ),
+                  Text(
+                    label,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
-                    if (caption != null)
-                      Text(
-                        caption!,
-                        style: theme.textTheme.labelSmall?.copyWith(color: c),
-                      ),
-                  ],
-                ),
+                  ),
+                  if (caption != null)
+                    Text(
+                      caption!,
+                      style: theme.textTheme.labelSmall?.copyWith(color: c),
+                    ),
+                ],
               ),
-              if (onTap != null)
-                Icon(
-                  Icons.chevron_right_rounded,
-                  size: 18,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-            ],
-          ),
+            ),
+            if (onTap != null)
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 18,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+          ],
         ),
       ),
     );

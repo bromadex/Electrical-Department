@@ -1,22 +1,22 @@
 import 'package:flutter/material.dart';
 
-/// Bravura palette: burgundy, dusty rose, blue, black and white, with one
-/// colour per meaning for statuses. Meaning is never shown by colour alone
+/// Version 1's palette (theme/tokens.dart BrandColors): burgundy, dark rose
+/// and blue on liquid glass, with one colour per meaning for statuses. Meaning is never shown by colour alone
 /// (see ui/status.dart).
 class AppColors {
   /// Primary: buttons, selected items, record numbers (light theme).
-  static const burgundy = Color(0xFF7B1E3A);
-  static const burgundyDeep = Color(0xFF55122A);
+  static const burgundy = Color(0xFF7A1F2B);
+  static const burgundyDeep = Color(0xFF4E1019);
 
   /// Primary on dark surfaces, light enough to read.
-  static const burgundyLight = Color(0xFFE59AB0);
+  static const burgundyLight = Color(0xFFE7A1B3);
 
   /// Accent: highlights, the selected menu marker, soft tints.
-  static const rose = Color(0xFFD8A7B1);
+  static const rose = Color(0xFFB5566E);
   static const roseSoft = Color(0xFFF6E8EB);
 
   /// Secondary: links and information.
-  static const blue = Color(0xFF2563C9);
+  static const blue = Color(0xFF2F6FDB);
   static const blueLight = Color(0xFF8AB4FF);
 
   /// Chrome: the side menu in both themes, tooltips, snack bars.
@@ -32,8 +32,8 @@ class AppColors {
   // Statuses keep their usual meaning colours so a critical red never looks
   // like the burgundy of an ordinary button.
   static const critical = Color(0xFFD92D20);
-  static const warning = Color(0xFFDC6803);
-  static const success = Color(0xFF079455);
+  static const warning = Color(0xFFE59A1A);
+  static const success = Color(0xFF1F9D6B);
   static const info = blue;
   static const review = Color(0xFF6938EF);
   static const neutral = Color(0xFF6B6266);
@@ -61,10 +61,11 @@ class Space {
   static const xxl = 48.0;
 }
 
+/// Version 1's rounder corners.
 class Radii {
-  static const sm = 6.0;
-  static const md = 10.0;
-  static const lg = 14.0;
+  static const sm = 10.0;
+  static const md = 14.0;
+  static const lg = 20.0;
   static const pill = 999.0;
 }
 

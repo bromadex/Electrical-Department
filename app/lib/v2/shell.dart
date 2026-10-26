@@ -1,161 +1,171 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../config/env.dart';
-import '../services/core_providers.dart';
 import '../services/session_controller.dart';
-import '../theme/theme_mode.dart';
+import '../theme/tokens.dart';
+import '../ui/motion.dart';
+import '../ui/surfaces.dart';
 import '../widgets/brand_logo.dart';
 import '../widgets/notifications_button.dart';
+import '../widgets/theme_toggle.dart';
 import 'navigation.dart';
 import 'reference/reference_data.dart';
-import 'theme/tokens.dart';
 import 'ui/bits.dart';
 import 'widgets/global_search.dart';
 import 'widgets/site_picker.dart';
 
-/// The frame around Job Cards Version 2. Desktop: black sidebar + top bar.
-/// Tablet: icon rail + top bar. Phone: app bar, role-based bottom bar and a
-/// menu drawer. The menu always offers the way back to Version 1.
-class V2Shell extends ConsumerStatefulWidget {
+/// The frame around Job Cards Version 2, in Version 1's liquid-glass look:
+/// the mesh wallpaper, a floating glass menu beside a large glass window on
+/// wide screens, and a glass top bar with a floating tab bar on phones. The
+/// menu always offers the way back to Version 1.
+class V2Shell extends ConsumerWidget {
   const V2Shell({super.key, required this.child});
+
+  /// Below this width the phone layout is used (as in Version 1).
+  static const phoneMaxWidth = 720.0;
+  static const phoneBarSpace = 96.0;
+  static const phoneTopBar = 60.0;
 
   final Widget child;
 
   @override
-  ConsumerState<V2Shell> createState() => _V2ShellState();
-}
-
-class _V2ShellState extends ConsumerState<V2Shell> {
-  final _scaffold = GlobalKey<ScaffoldState>();
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(sessionProvider);
     // Lists, settings and the site time zone, loaded once per session.
     ref.watch(referenceDataProvider);
-    final width = MediaQuery.sizeOf(context).width;
     final items = visibleNavItems(session.perms);
     final location = GoRouterState.of(context).uri.path;
     final current = navItemFor(location, items);
-    final body = _AccountGate(session: session, child: widget.child);
+    final title = current?.label ?? 'Job Cards';
+    final content = _AccountGate(session: session, child: child);
 
-    if (width < Breakpoints.phone) {
-      final bottom = phoneNavItems(session.perms);
-      final index = bottom.indexWhere((i) => identical(i, current));
+    if (MediaQuery.sizeOf(context).width < phoneMaxWidth) {
+      final inset = MediaQuery.paddingOf(context);
+      final bar = phoneNavItems(session.perms);
       return Scaffold(
-        key: _scaffold,
-        appBar: AppBar(
-          title: Text(current?.label ?? 'Job Cards V2'),
-          actions: const [
-            GlobalSearchButton(),
-            NotificationsButton(),
-            SizedBox(width: 4),
-          ],
-        ),
-        drawer: Drawer(
-          backgroundColor: AppColors.black,
-          child: _NavMenu(
-            items: items,
-            current: current,
-            expanded: true,
-            onNavigate: () => _scaffold.currentState?.closeDrawer(),
+        backgroundColor: Colors.transparent,
+        body: MeshBackground(
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    top: inset.top + phoneTopBar,
+                    bottom: inset.bottom + phoneBarSpace,
+                  ),
+                  child: MediaQuery.removePadding(
+                    context: context,
+                    removeTop: true,
+                    removeBottom: true,
+                    child: content,
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: _PhoneTopBar(title: title),
+              ),
+              Positioned(
+                left: Space.md,
+                right: Space.md,
+                bottom: inset.bottom + Space.sm,
+                child: _FloatingTabBar(
+                  items: bar,
+                  current: current,
+                  onMenu: () => _showMenu(context, items, current),
+                ),
+              ),
+            ],
           ),
         ),
-        body: body,
-        bottomNavigationBar: bottom.length < 2
-            ? null
-            : NavigationBar(
-                selectedIndex: index < 0 ? bottom.length : index,
-                onDestinationSelected: (i) {
-                  if (i == bottom.length) {
-                    _scaffold.currentState?.openDrawer();
-                  } else {
-                    context.go(bottom[i].path);
-                  }
-                },
-                destinations: [
-                  for (final i in bottom)
-                    NavigationDestination(
-                      icon: Icon(i.icon),
-                      selectedIcon: Icon(i.selectedIcon),
-                      label: _short(i.label),
-                    ),
-                  const NavigationDestination(
-                    icon: Icon(Icons.menu_rounded),
-                    label: 'Menu',
-                  ),
-                ],
-              ),
       );
     }
 
-    final expanded = width >= Breakpoints.desktop;
     return Scaffold(
-      key: _scaffold,
-      body: Row(
-        children: [
-          Container(
-            width: expanded ? 252 : 76,
-            color: AppColors.black,
-            child: _NavMenu(items: items, current: current, expanded: expanded),
-          ),
-          Expanded(
-            child: Column(
+      backgroundColor: Colors.transparent,
+      body: MeshBackground(
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(Space.lg),
+            child: Row(
               children: [
-                const _TopBar(),
-                Expanded(child: body),
+                Center(
+                  child: _NavCapsule(items: items, current: current),
+                ),
+                const SizedBox(width: Space.lg),
+                Expanded(
+                  child: GlassSurface(
+                    radius: 34,
+                    child: Column(
+                      children: [
+                        _WindowHeader(title: title),
+                        Expanded(
+                          child: MediaQuery.removePadding(
+                            context: context,
+                            removeTop: true,
+                            removeBottom: true,
+                            child: content,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
 
-  static String _short(String label) => switch (label) {
-    'My Assigned Jobs' => 'My Jobs',
-    'Incoming Requests' => 'Incoming',
-    _ => label,
-  };
-}
-
-class _TopBar extends StatelessWidget {
-  const _TopBar();
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      height: 60,
-      padding: const EdgeInsets.symmetric(horizontal: Space.md),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerLowest,
-        border: Border(bottom: BorderSide(color: scheme.outlineVariant)),
-      ),
-      child: Row(
-        children: [
-          const SitePicker(),
-          const SizedBox(width: Space.md),
-          Expanded(
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 520),
-                child: const GlobalSearchField(),
-              ),
+  /// Phones: every Version 2 screen, and the way back, in a glass sheet.
+  static void _showMenu(
+    BuildContext context,
+    List<NavItem> items,
+    NavItem? current,
+  ) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (sheet) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(Space.sm),
+          child: GlassSurface(
+            radius: 30,
+            strong: true,
+            padding: const EdgeInsets.symmetric(vertical: Space.xs),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final i in [versionOneItem, ...items])
+                  ListTile(
+                    leading: Icon(
+                      identical(i, current) ? i.selectedIcon : i.icon,
+                    ),
+                    title: Text(i.label),
+                    selected: identical(i, current),
+                    onTap: () {
+                      Navigator.pop(sheet);
+                      context.go(i.path);
+                    },
+                  ),
+              ],
             ),
           ),
-          const SizedBox(width: Space.sm),
-          const NotificationsButton(),
-        ],
+        ),
       ),
     );
   }
 }
 
-final _versionOne = NavItem(
+/// The way back to the jobs board, first in every Version 2 menu.
+final versionOneItem = NavItem(
   '/today',
   'Back to Version 1',
   Icons.arrow_back_rounded,
@@ -163,264 +173,371 @@ final _versionOne = NavItem(
   (_) => true,
 );
 
-class _NavMenu extends ConsumerWidget {
-  const _NavMenu({
-    required this.items,
-    required this.current,
-    required this.expanded,
-    this.onNavigate,
-  });
+class _WindowHeader extends StatelessWidget {
+  const _WindowHeader({required this.title});
 
-  final List<NavItem> items;
-  final NavItem? current;
-  final bool expanded;
-  final VoidCallback? onNavigate;
+  final String title;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final profile = ref.watch(sessionProvider.select((s) => s.profile));
-    void go(String path) {
-      onNavigate?.call();
-      context.go(path);
-    }
-
-    return SafeArea(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        Space.xl,
+        Space.lg,
+        Space.lg,
+        Space.sm,
+      ),
+      child: Row(
         children: [
-          Padding(
-            padding: EdgeInsets.fromLTRB(
-              expanded ? Space.md : Space.sm,
-              Space.md,
-              Space.sm,
-              Space.md,
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(Radii.sm),
-                  ),
-                  child: const BrandLogo(width: 44),
-                ),
-                if (expanded) ...[
-                  const SizedBox(width: Space.sm),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Bravura',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 16,
-                          ),
-                        ),
-                        Text(
-                          'Job Cards · Version 2',
-                          style: TextStyle(color: Colors.white70, fontSize: 12),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          if (!Env.isProd)
-            Padding(
-              padding: const EdgeInsets.only(
-                left: Space.md,
-                right: Space.md,
-                bottom: Space.xs,
-              ),
-              child: Text(
-                expanded ? 'DEV BUILD' : 'DEV',
-                style: const TextStyle(
-                  color: Color(0xFFFDB022),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: Space.xs),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _NavTile(
-                  item: _versionOne,
-                  selected: false,
-                  expanded: expanded,
-                  onTap: () => go(_versionOne.path),
-                ),
-                const Divider(color: Colors.white12, height: Space.md),
-                for (final item in items)
-                  _NavTile(
-                    item: item,
-                    selected: identical(item, current),
-                    expanded: expanded,
-                    onTap: () => go(item.path),
+                Text(
+                  'JOB CARDS · VERSION 2',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: BrandColors.coral,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.2,
                   ),
+                ),
+                Text(
+                  title,
+                  style: theme.textTheme.headlineMedium,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ],
             ),
           ),
-          const Divider(color: Colors.white12, height: 1),
-          _UserCard(name: profile?.fullName ?? '', expanded: expanded),
+          const SitePicker(),
+          const SizedBox(width: Space.sm),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 320),
+            child: const GlobalSearchField(),
+          ),
+          const SizedBox(width: Space.sm),
+          const ThemeToggle(glass: true),
+          const SizedBox(width: Space.sm),
+          const NotificationsButton(glass: true),
         ],
       ),
     );
   }
 }
 
-class _NavTile extends StatelessWidget {
-  const _NavTile({
-    required this.item,
-    required this.selected,
-    required this.expanded,
-    required this.onTap,
-  });
+class _PhoneTopBar extends StatelessWidget {
+  const _PhoneTopBar({required this.title});
 
-  final NavItem item;
-  final bool selected;
-  final bool expanded;
-  final VoidCallback onTap;
+  final String title;
 
   @override
   Widget build(BuildContext context) {
-    final fg = selected ? Colors.white : Colors.white.withValues(alpha: 0.72);
-    final tile = Material(
-      color: selected ? AppColors.burgundy : Colors.transparent,
-      borderRadius: BorderRadius.circular(Radii.sm),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(Radii.sm),
-        hoverColor: Colors.white10,
-        child: Container(
-          height: 46,
-          padding: EdgeInsets.symmetric(horizontal: expanded ? Space.sm : 0),
-          decoration: BoxDecoration(
-            border: Border(
-              left: BorderSide(
-                color: selected ? AppColors.rose : Colors.transparent,
-                width: 3,
-              ),
-            ),
-          ),
+    final theme = Theme.of(context);
+    final top = MediaQuery.paddingOf(context).top;
+    return GlassSurface(
+      radius: 0,
+      blur: 30,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(Space.md + 4, top, Space.xs, 0),
+        child: SizedBox(
+          height: V2Shell.phoneTopBar,
           child: Row(
-            mainAxisAlignment: expanded
-                ? MainAxisAlignment.start
-                : MainAxisAlignment.center,
             children: [
-              Icon(
-                selected ? item.selectedIcon : item.icon,
-                color: fg,
-                size: 22,
-              ),
-              if (expanded) ...[
-                const SizedBox(width: Space.sm),
-                Expanded(
-                  child: Text(
-                    item.label,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: fg,
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                    ),
-                  ),
+              Expanded(
+                child: Text(
+                  title,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.headlineMedium?.copyWith(fontSize: 26),
                 ),
-              ],
+              ),
+              const GlobalSearchButton(),
+              const ThemeToggle(),
+              const NotificationsButton(),
             ],
           ),
         ),
       ),
     );
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 2),
-      child: expanded ? tile : Tooltip(message: item.label, child: tile),
+  }
+}
+
+/// Floating glass capsule (desktop navigation): the way back to Version 1,
+/// then Version 2's screens, with Version 1's gradient selection pill.
+class _NavCapsule extends StatelessWidget {
+  const _NavCapsule({required this.items, required this.current});
+
+  final List<NavItem> items;
+  final NavItem? current;
+
+  static const _item = 52.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final labels = MediaQuery.sizeOf(context).width >= 1100;
+    final width = labels ? 212.0 : _item;
+    final index = items.indexWhere((i) => identical(i, current));
+
+    Widget entry(NavItem item, {required bool selected}) => Tooltip(
+      message: labels ? '' : item.label,
+      preferBelow: false,
+      child: Semantics(
+        button: true,
+        selected: selected,
+        label: item.label,
+        excludeSemantics: true,
+        child: Pressable(
+          onTap: () {
+            HapticFeedback.selectionClick();
+            context.go(item.path);
+          },
+          scale: 0.92,
+          child: SizedBox(
+            width: width,
+            height: _item,
+            child: Row(
+              mainAxisAlignment: labels
+                  ? MainAxisAlignment.start
+                  : MainAxisAlignment.center,
+              children: [
+                if (labels) const SizedBox(width: 16),
+                Icon(
+                  selected ? item.selectedIcon : item.icon,
+                  color: selected ? Colors.white : scheme.onSurfaceVariant,
+                ),
+                if (labels) ...[
+                  const SizedBox(width: Space.sm),
+                  Expanded(
+                    child: Text(
+                      item.label,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: selected
+                            ? Colors.white
+                            : scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const BrandLogo(width: 64),
+        const SizedBox(height: Space.md),
+        GlassSurface(
+          radius: labels ? 26 : 40,
+          strong: true,
+          padding: const EdgeInsets.all(8),
+          child: entry(versionOneItem, selected: false),
+        ),
+        const SizedBox(height: Space.sm),
+        GlassSurface(
+          radius: labels ? 30 : 40,
+          strong: true,
+          padding: const EdgeInsets.all(8),
+          child: SizedBox(
+            width: width,
+            height: _item * items.length,
+            child: Stack(
+              children: [
+                if (index >= 0)
+                  AnimatedPositioned(
+                    duration: Motion.of(context, Motion.slow),
+                    curve: Motion.spring,
+                    top: index * _item,
+                    left: 0,
+                    width: width,
+                    height: _item,
+                    child: Container(
+                      margin: const EdgeInsets.all(3),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(Radii.pill),
+                        gradient: BrandColors.brandGradient,
+                        boxShadow: [
+                          BoxShadow(
+                            color: BrandColors.maroon.withValues(alpha: 0.4),
+                            blurRadius: 16,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      foregroundDecoration: RimDecoration(
+                        radius: Radii.pill,
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Colors.white.withValues(alpha: 0.6),
+                            Colors.white.withValues(alpha: 0.05),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                Column(
+                  children: [
+                    for (final item in items)
+                      entry(item, selected: identical(item, current)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
 
-/// Theme and sign-out; alerts are switched on in Version 1's More screen.
-class _UserCard extends ConsumerWidget {
-  const _UserCard({required this.name, required this.expanded});
+class _FloatingTabBar extends StatelessWidget {
+  const _FloatingTabBar({
+    required this.items,
+    required this.current,
+    required this.onMenu,
+  });
 
-  final String name;
-  final bool expanded;
+  final List<NavItem> items;
+  final NavItem? current;
+  final VoidCallback onMenu;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final mode = ref.watch(themeModeProvider);
-    return PopupMenuButton<String>(
-      tooltip: 'Account',
-      position: PopupMenuPosition.over,
-      onSelected: (v) {
-        switch (v) {
-          case 'light':
-            ref.read(themeModeProvider.notifier).set(ThemeMode.light);
-          case 'dark':
-            ref.read(themeModeProvider.notifier).set(ThemeMode.dark);
-          case 'system':
-            ref.read(themeModeProvider.notifier).set(ThemeMode.system);
-          case 'out':
-            ref.read(authUserIdProvider.notifier).signOut();
-        }
-      },
-      itemBuilder: (context) => [
-        CheckedPopupMenuItem(
-          value: 'light',
-          checked: mode == ThemeMode.light,
-          child: const Text('Light theme'),
-        ),
-        CheckedPopupMenuItem(
-          value: 'dark',
-          checked: mode == ThemeMode.dark,
-          child: const Text('Dark theme (night shift)'),
-        ),
-        CheckedPopupMenuItem(
-          value: 'system',
-          checked: mode == ThemeMode.system,
-          child: const Text('Match device'),
-        ),
-        const PopupMenuDivider(),
-        const PopupMenuItem(
-          value: 'out',
-          child: ListTile(
-            leading: Icon(Icons.logout_rounded),
-            title: Text('Sign out'),
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final count = items.length + 1;
+    final index = items.indexWhere((i) => identical(i, current));
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(34),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.25),
+            blurRadius: 30,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: GlassSurface(
+        radius: 34,
+        blur: 30,
+        strong: true,
+        padding: const EdgeInsets.all(6),
+        child: SizedBox(
+          height: 60,
+          child: LayoutBuilder(
+            builder: (context, c) {
+              final w = c.maxWidth / count;
+              return Stack(
+                children: [
+                  if (index >= 0)
+                    AnimatedPositioned(
+                      duration: Motion.of(context, Motion.slow),
+                      curve: Motion.spring,
+                      left: index * w,
+                      top: 0,
+                      bottom: 0,
+                      width: w,
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 3),
+                        decoration: BoxDecoration(
+                          color: scheme.primary.withValues(alpha: 0.16),
+                          borderRadius: BorderRadius.circular(28),
+                        ),
+                      ),
+                    ),
+                  Row(
+                    children: [
+                      for (final item in items)
+                        Expanded(
+                          child: _TabItem(
+                            icon: identical(item, current)
+                                ? item.selectedIcon
+                                : item.icon,
+                            label: _short(item.label),
+                            selected: identical(item, current),
+                            onTap: () => context.go(item.path),
+                          ),
+                        ),
+                      Expanded(
+                        child: _TabItem(
+                          icon: Icons.menu_rounded,
+                          label: 'Menu',
+                          selected: false,
+                          onTap: onMenu,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            },
           ),
         ),
-      ],
-      child: Padding(
-        padding: const EdgeInsets.all(Space.sm),
-        child: Row(
-          mainAxisAlignment: expanded
-              ? MainAxisAlignment.start
-              : MainAxisAlignment.center,
-          children: [
-            AppAvatar(name: name.isEmpty ? '?' : name, size: 34),
-            if (expanded) ...[
-              const SizedBox(width: Space.sm),
-              Expanded(
-                child: Text(
-                  name.isEmpty ? 'Signed in' : name,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
+      ),
+    );
+  }
+
+  static String _short(String label) => switch (label) {
+    'My Assigned Jobs' => 'My Jobs',
+    'Incoming Requests' => 'Incoming',
+    'My Requests' => 'Requests',
+    _ => label,
+  };
+}
+
+class _TabItem extends StatelessWidget {
+  const _TabItem({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final color = selected ? scheme.primary : scheme.onSurfaceVariant;
+    return Semantics(
+      selected: selected,
+      button: true,
+      label: label,
+      excludeSemantics: true,
+      child: Pressable(
+        onTap: onTap,
+        scale: 0.86,
+        child: Container(
+          color: Colors.transparent,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: color, size: 25),
+              const SizedBox(height: 3),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 10.5,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  color: color,
                 ),
               ),
-              const Icon(
-                Icons.more_vert_rounded,
-                color: Colors.white70,
-                size: 20,
-              ),
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -428,7 +545,7 @@ class _UserCard extends ConsumerWidget {
 }
 
 /// Keeps people without a working account (no profile, deactivated, or no
-/// role yet) out of the screens, with a clear reason and a way back.
+/// part in Version 2) out of the screens, with a clear reason and a way back.
 class _AccountGate extends ConsumerWidget {
   const _AccountGate({required this.session, required this.child});
 
