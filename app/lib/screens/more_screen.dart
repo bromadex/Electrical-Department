@@ -210,6 +210,13 @@ class MoreScreen extends ConsumerWidget {
                 onTap: () => context.push('/requests'),
               ),
               _Row(
+                icon: Icons.summarize_outlined,
+                title: 'Daily report',
+                subtitle: "Today's work, updates and approval",
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => context.push('/reports'),
+              ),
+              _Row(
                 icon: Icons.fact_check_outlined,
                 title: 'Checklists',
                 subtitle: 'Daily, weekly and monthly rounds',

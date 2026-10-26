@@ -20,6 +20,7 @@ import 'screens/more_screen.dart';
 import 'screens/notifications_screen.dart';
 import 'screens/store_screen.dart';
 import 'screens/today_screen.dart';
+import 'reports/daily_report_screen.dart';
 import 'requests/requests_screen.dart';
 import 'services/core_providers.dart';
 import 'tools/tool_detail_screen.dart';
@@ -104,6 +105,7 @@ GoRouter buildRouter(WidgetRef ref) {
       GoRoute(path: '/admin/users', builder: (_, _) => const UsersScreen()),
       GoRoute(path: '/admin/targets', builder: (_, _) => const TargetsScreen()),
       GoRoute(path: '/requests', builder: (_, _) => const RequestsScreen()),
+      GoRoute(path: '/reports', builder: (_, _) => const DailyReportScreen()),
       GoRoute(
         path: '/admin/activity',
         builder: (_, _) => const ActivityScreen(),
