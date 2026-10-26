@@ -16,14 +16,14 @@ import 'ui/bits.dart';
 import 'widgets/global_search.dart';
 import 'widgets/site_picker.dart';
 
-/// The frame around Job Cards Version 2, in Version 1's liquid-glass look:
+/// The frame around the job cards section, in the main app's liquid-glass look:
 /// the mesh wallpaper, a floating glass menu beside a large glass window on
 /// wide screens, and a glass top bar with a floating tab bar on phones. The
-/// menu always offers the way back to Version 1.
+/// menu always offers the way back to the main app.
 class V2Shell extends ConsumerWidget {
   const V2Shell({super.key, required this.child});
 
-  /// Below this width the phone layout is used (as in Version 1).
+  /// Below this width the phone layout is used (as in the main app).
   static const phoneMaxWidth = 720.0;
   static const phoneBarSpace = 96.0;
   static const phoneTopBar = 60.0;
@@ -123,7 +123,7 @@ class V2Shell extends ConsumerWidget {
     );
   }
 
-  /// Phones: every Version 2 screen, and the way back, in a glass sheet.
+  /// Phones: every job cards screen, and the way back, in a glass sheet.
   static void _showMenu(
     BuildContext context,
     List<NavItem> items,
@@ -164,10 +164,10 @@ class V2Shell extends ConsumerWidget {
   }
 }
 
-/// The way back to the jobs board, first in every Version 2 menu.
+/// The way back to the main app (Home), first in every job cards menu.
 final versionOneItem = NavItem(
-  '/today',
-  'Back to Version 1',
+  '/home',
+  'Back to main app',
   Icons.arrow_back_rounded,
   Icons.arrow_back_rounded,
   (_) => true,
@@ -195,7 +195,7 @@ class _WindowHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'JOB CARDS · VERSION 2',
+                  'JOB CARDS · NEW SYSTEM',
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: BrandColors.coral,
                     fontWeight: FontWeight.w800,
@@ -262,8 +262,8 @@ class _PhoneTopBar extends StatelessWidget {
   }
 }
 
-/// Floating glass capsule (desktop navigation): the way back to Version 1,
-/// then Version 2's screens, with Version 1's gradient selection pill.
+/// Floating glass capsule (desktop navigation): the way back to the main
+/// app, then the job cards screens, with the main app's gradient pill.
 class _NavCapsule extends StatelessWidget {
   const _NavCapsule({required this.items, required this.current});
 
@@ -545,7 +545,7 @@ class _TabItem extends StatelessWidget {
 }
 
 /// Keeps people without a working account (no profile, deactivated, or no
-/// part in Version 2) out of the screens, with a clear reason and a way back.
+/// part in job cards) out of the screens, with a clear reason and a way back.
 class _AccountGate extends ConsumerWidget {
   const _AccountGate({required this.session, required this.child});
 
@@ -559,9 +559,9 @@ class _AccountGate extends ConsumerWidget {
       title: title,
       message: message,
       action: FilledButton.icon(
-        onPressed: () => context.go('/today'),
+        onPressed: () => context.go('/home'),
         icon: const Icon(Icons.arrow_back_rounded),
-        label: const Text('Back to Version 1'),
+        label: const Text('Back to main app'),
       ),
     );
 
@@ -584,7 +584,7 @@ class _AccountGate extends ConsumerWidget {
     final p = session.perms;
     if (session.refreshed && !p.can('jc.view') && !p.can('req.submit')) {
       return blocked(
-        'No access to Version 2',
+        'No access to job cards',
         'Your roles do not include job cards or requests yet. Ask a system administrator.',
       );
     }

@@ -81,11 +81,11 @@ void main() {
       '/v2/job-cards',
     );
     expect(navItemFor('/v2/settings', items)?.path, '/v2/settings');
-    expect(navItemFor('/today', items), isNull);
+    expect(navItemFor('/home', items), isNull);
   });
 
   test('version 2 opens on the first screen people can use', () {
     expect(homePath(electrician), '/v2/dashboard');
-    expect(homePath(PermissionSet.empty()), '/today');
+    expect(homePath(PermissionSet.empty()), '/home');
   });
 }

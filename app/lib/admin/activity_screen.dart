@@ -10,6 +10,7 @@ import '../services/core_providers.dart';
 import '../theme/tokens.dart';
 import '../ui/bits.dart';
 import '../ui/surfaces.dart';
+import '../widgets/app_back_button.dart';
 
 /// What each logged table is called, and where its records open.
 const _tables = {
@@ -68,7 +69,8 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen> {
       backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('Audit log'),
+        leading: const AppBackButton(),
+        title: const Text('Activity log'),
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
       ),
       body: MeshBackground(

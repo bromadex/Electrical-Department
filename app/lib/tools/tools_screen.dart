@@ -15,6 +15,7 @@ import '../ui/bits.dart';
 import '../ui/motion.dart';
 import '../ui/surfaces.dart';
 import 'tools_repository.dart';
+import '../widgets/app_back_button.dart';
 
 enum _Filter { all, store, out, mine, due }
 
@@ -110,6 +111,7 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
       backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
+        leading: const AppBackButton(),
         title: Text('Tools · ${site?.code ?? ''}'),
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
         actions: [
@@ -527,6 +529,7 @@ class _ToolCountScreenState extends ConsumerState<ToolCountScreen> {
       backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
+        leading: const AppBackButton(),
         title: const Text('Tool count'),
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
       ),

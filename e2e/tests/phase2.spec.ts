@@ -184,13 +184,13 @@ test('Both themes: light and dark', async ({ browser }) => {
 
 test('Version 1 still works beside Version 2', async ({ browser }) => {
   const tech = await signIn(browser, people.electrician);
-  await open(tech, '/board');
+  await open(tech, '/jobs');
   await expectShown(tech, /Replace isolator on MCC panel 3/);
   await shot(tech, 'v1-board');
-  await open(tech, '/more');
-  await tap(tech, /Job Cards V2/);
-  await expectShown(tech, /Back to Version 1/);
+  await open(tech, '/menu');
+  await tap(tech, /Job cards/);
+  await expectShown(tech, /Back to main app/);
   await shot(tech, 'v1-to-v2');
-  await tap(tech, /Back to Version 1/);
-  await expect.poll(() => new URL(tech.url()).hash).toContain('/today');
+  await tap(tech, /Back to main app/);
+  await expect.poll(() => new URL(tech.url()).hash).toContain('/home');
 });

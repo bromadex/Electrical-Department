@@ -10,6 +10,7 @@ import '../theme/tokens.dart';
 import '../ui/bits.dart';
 import '../ui/surfaces.dart';
 import 'checklists_repository.dart';
+import '../widgets/app_back_button.dart';
 
 /// Doing a round on the phone: one card per item, then submit. Works
 /// offline; failed items raise jobs once it reaches the server.
@@ -122,6 +123,7 @@ class _ChecklistRunScreenState extends ConsumerState<ChecklistRunScreen> {
       backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
+        leading: const AppBackButton(),
         title: Text(t?.name ?? 'Checklist'),
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
       ),

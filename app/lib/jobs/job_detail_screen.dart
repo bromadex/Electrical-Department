@@ -16,6 +16,7 @@ import 'job_editor.dart';
 import 'job_rules.dart';
 import 'jobs_repository.dart';
 import 'media.dart';
+import '../widgets/app_back_button.dart';
 
 class JobDetailScreen extends ConsumerWidget {
   const JobDetailScreen({super.key, required this.id});
@@ -31,6 +32,7 @@ class JobDetailScreen extends ConsumerWidget {
       backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
+        leading: const AppBackButton(fallback: '/jobs'),
         title: Text(job?.code ?? 'Job'),
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
       ),
@@ -671,12 +673,30 @@ class _History extends ConsumerWidget {
 
   final String jobId;
 
-  static String _describe(Map<String, dynamic> h) {
+  /// Plain words for the fields people change on a job.
+  static const _fields = {
+    'title': 'the title',
+    'description': 'the details',
+    'priority': 'the priority',
+    'due_at': 'the due time',
+    'area_id': 'the area',
+    'asset_id': 'the equipment',
+    'isolation_required': 'the lock-out rule',
+    'maintenance_type': 'the job type',
+    'waiting_reason': 'the waiting reason',
+    'close_note': 'the closing note',
+    'lat': 'the location',
+  };
+
+  /// What happened, or null for changes the system makes for itself
+  /// (reminder and escalation stamps), which are left out.
+  static String? _describe(Map<String, dynamic> h) {
     final table = h['table_name'] as String;
     final action = h['action'] as String;
     final d = Map<String, dynamic>.from(h['details'] as Map? ?? {});
     if (table == 'job_photos') return 'added a ${d['kind'] ?? ''} photo';
     if (table == 'job_comments') return 'commented';
+    if (table == 'job_safety_checks') return 'recorded the safety check';
     if (action == 'insert') return 'posted the job';
     if (action == 'archive') return 'archived the job';
     if (d.containsKey('status')) {
@@ -684,7 +704,10 @@ class _History extends ConsumerWidget {
       return 'moved it to $to';
     }
     if (d.containsKey('assignee_id')) return 'changed who has it';
-    return 'edited ${d.keys.where((k) => k != 'overdue_notified_at').join(', ')}';
+    final changed = {for (final k in d.keys) ?_fields[k]};
+    if (changed.isEmpty) return null;
+    final list = changed.toList();
+    return 'changed ${list.length == 1 ? list.first : '${list.take(list.length - 1).join(', ')} and ${list.last}'}';
   }
 
   @override
@@ -702,7 +725,8 @@ class _History extends ConsumerWidget {
         ),
         data: (rows) => Column(
           children: [
-            for (final h in rows.reversed.take(20))
+            for (final h
+                in rows.reversed.where((h) => _describe(h) != null).take(20))
               Padding(
                 padding: const EdgeInsets.only(bottom: Space.xs),
                 child: Row(
@@ -728,7 +752,7 @@ class _History extends ConsumerWidget {
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
-                            TextSpan(text: _describe(h)),
+                            TextSpan(text: _describe(h)!),
                           ],
                         ),
                       ),

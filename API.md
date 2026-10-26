@@ -308,8 +308,8 @@ Adopted in a light form from Tafara's PR #19, on top of the jobs board.
 
 The job card & maintenance management system from Tafara's PR #19 and its phase 2,
 added beside the jobs board so both can run and be compared. Nothing of Version 1
-changes. App: More → **Job Cards V2** opens `/v2`, which has its own menu and a
-"Back to Version 1" link. (Section 16 is left for chat, migration 0011.)
+changes. App: the **Job cards** tile (Menu, Home) or the first desktop side-menu link
+opens `/v2`, which has its own menu and a "Back to main app" link to Home. (Section 16 is left for chat, migration 0011.)
 
 **Shared with Version 1.** Profiles, sites, areas and roles (no renames); notifications
 and push (`notifications_push` sends v2 notifications too); the `activity` log (every v2

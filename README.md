@@ -104,10 +104,12 @@ Accounts are created by an admin, not by sign-up from the app:
 ## Job Cards Version 2
 
 The job card & maintenance management system runs beside the jobs board so the two can
-be compared: More → **Job Cards V2** (`/v2`). It has its own menu (dashboard, job cards,
+be compared: the **Job cards** tile ("New system · trial") in Menu and on Home, or the first
+link in the desktop side menu (`/v2`). It has its own menu (dashboard, job cards,
 incoming requests, my jobs, my requests, audit log, settings) and shares people, sites,
-assets, notifications and the theme with Version 1. Its code is in `app/lib/v2/` and
-migrations 0012–0014; API.md section 17 lists its tables and functions.
+assets, notifications and the theme with the main app; "Back to main app" returns to Home.
+Its code is in `app/lib/v2/` and migrations 0012–0014; API.md section 17 lists its tables
+and functions.
 
 Who can use it comes from the roles: technicians work job cards, supervisors register,
 assess, assign and verify them, and anyone with a role can raise a request. Settings →

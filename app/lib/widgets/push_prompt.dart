@@ -30,9 +30,16 @@ class _PushPromptState extends ConsumerState<PushPrompt> {
       return const SizedBox.shrink();
     }
     final scheme = Theme.of(context).colorScheme;
+    final narrow = MediaQuery.sizeOf(context).width < 560;
+    Future<void> dismiss() async {
+      await prefs.setBool(PushPrompt._dismissedKey, true);
+      setState(() {});
+    }
+
     return Padding(
       padding: const EdgeInsets.only(bottom: Space.md),
       child: SurfaceCard(
+        padding: EdgeInsets.all(narrow ? Space.sm : Space.md),
         child: Row(
           children: [
             Container(
@@ -54,22 +61,22 @@ class _PushPromptState extends ConsumerState<PushPrompt> {
                     style: Theme.of(context).textTheme.titleSmall,
                   ),
                   Text(
-                    'Get urgent jobs and assignments on this device, even '
-                    'when the app is closed.',
+                    narrow
+                        ? 'Urgent jobs, even when closed'
+                        : 'Get urgent jobs and assignments on this device, '
+                              'even when the app is closed.',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.labelSmall,
                   ),
                 ],
               ),
             ),
-            TextButton(
-              onPressed: _busy
-                  ? null
-                  : () async {
-                      await prefs.setBool(PushPrompt._dismissedKey, true);
-                      setState(() {});
-                    },
-              child: const Text('Not now'),
-            ),
+            if (!narrow)
+              TextButton(
+                onPressed: _busy ? null : dismiss,
+                child: const Text('Not now'),
+              ),
             FilledButton(
               onPressed: _busy
                   ? null
@@ -83,6 +90,13 @@ class _PushPromptState extends ConsumerState<PushPrompt> {
                     },
               child: const Text('Turn on'),
             ),
+            if (narrow)
+              IconButton(
+                tooltip: 'Not now',
+                visualDensity: VisualDensity.compact,
+                onPressed: _busy ? null : dismiss,
+                icon: const Icon(CupertinoIcons.xmark, size: 18),
+              ),
           ],
         ),
       ),
