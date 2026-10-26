@@ -186,6 +186,7 @@ declare
   v_started boolean := p_status in ('in_progress', 'on_hold', 'awaiting_materials', 'awaiting_isolation',
     'awaiting_specialist', 'awaiting_production_clearance', 'awaiting_review', 'closed');
   v_submitted boolean := p_status in ('awaiting_review', 'closed');
+  v_submission uuid;
 begin
   select id into v_site from public.sites where code = p_site;
   select id into v_area from public.areas where site_id = v_site and name = p_area;
@@ -248,14 +249,47 @@ begin
     values (v_id, p_responsible, 'responsible', v_engineer, v_received + interval '20 minutes',
             case when v_accepted then v_received + interval '30 minutes' end);
   end if;
+  -- Work time: one session from the start of work, still running for jobs
+  -- in progress; held jobs stopped when they went on hold.
+  if v_started then
+    insert into public.job_work_sessions (job_card_id, user_id, started_at, ended_at, end_reason)
+    values (
+      v_id, p_responsible, v_received + interval '45 minutes',
+      case when p_status = 'in_progress' then null
+        when v_submitted then v_received + p_age * 0.5
+        else v_received + p_age * 0.4 end,
+      case when p_status = 'in_progress' then null when v_submitted then 'submitted' else 'hold' end
+    );
+  end if;
+  if p_status in ('on_hold', 'awaiting_materials', 'awaiting_isolation', 'awaiting_specialist',
+                  'awaiting_production_clearance') then
+    insert into public.job_waits (job_card_id, hold_status, note, started_at, started_by)
+    values (v_id, p_status, p_reason, v_received + p_age * 0.4, p_responsible);
+  end if;
+  if v_submitted then
+    insert into public.job_submissions (
+      job_card_id, submitted_by, submitted_at, completion_summary, findings, corrective_action,
+      equipment_state_after, functional_tests, labour_hours, recorded_labour_minutes,
+      checks_confirmed, safety_confirmed
+    )
+    select id, p_responsible, submitted_at, completion_summary, findings, corrective_action,
+      equipment_state_after, 'Functional test passed',
+      round(extract(epoch from (submitted_at - received_at - interval '45 minutes')) / 3600, 2),
+      round(extract(epoch from (submitted_at - received_at - interval '45 minutes')) / 60),
+      true, true
+    from public.job_cards where id = v_id
+    returning id into v_submission;
+  end if;
   if p_status = 'closed' then
     insert into public.job_closures (
       job_card_id, closed_at, completion_summary, findings, corrective_action,
-      equipment_state_after, performed_by, verified_by
+      equipment_state_after, performed_by, verified_by, submission_id
     )
     select id, closed_at, completion_summary, findings, corrective_action,
-      equipment_state_after, performed_by, verified_by
+      equipment_state_after, performed_by, verified_by, v_submission
     from public.job_cards where id = v_id;
+    insert into public.job_reviews (job_card_id, submission_id, reviewer_id, decision, notes, created_at)
+    values (v_id, v_submission, v_engineer, 'approve', 'Checked on site and approved', v_received + p_age * 0.6);
   end if;
   return v_id;
 end;
