@@ -28,13 +28,17 @@ enum PushState {
 /// the app works as before, only without pushes.
 /// Where a notification link opens in the app: `job:<id>` → `/jobs/<id>`,
 /// `chat:<id>` → `/chat/<id>`, `tool:<id>` → `/tools/<id>`,
-/// `doc:<id>` → `/documents/<id>`. Unknown links open nothing.
+/// `doc:<id>` → `/documents/<id>`; Job Cards Version 2: `jobcard:<id>` →
+/// `/v2/job-cards/<id>`, `servicerequest:<id>` → `/v2/requests/<id>`. Unknown links
+/// open nothing.
 String? notificationPath(String? link) {
   if (link == null) return null;
   final i = link.indexOf(':');
   if (i <= 0 || i == link.length - 1) return null;
   final id = link.substring(i + 1);
   return switch (link.substring(0, i)) {
+    'jobcard' => '/v2/job-cards/$id',
+    'servicerequest' => '/v2/requests/$id',
     'job' => '/jobs/$id',
     'chat' => '/chat/$id',
     'tool' => '/tools/$id',

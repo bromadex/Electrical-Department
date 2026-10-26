@@ -432,6 +432,8 @@ class _NavCapsule extends ConsumerWidget {
     final session = ref.watch(sessionProvider);
     final site = ref.watch(currentSiteProvider);
     final links = [
+      if (session.can('jc.view') || session.can('req.submit'))
+        ('/v2', 'Job cards', CupertinoIcons.doc_checkmark),
       for (final l in _links)
         if (l.$1 != '/tools' || session.can('tools.view', siteId: site?.id))
           if (l.$1 != '/documents' ||
@@ -595,7 +597,9 @@ class _NavCapsule extends ConsumerWidget {
                       message: labels ? '' : label,
                       preferBelow: false,
                       child: Pressable(
-                        onTap: () => context.push(path),
+                        onTap: () => path == '/v2'
+                            ? context.go(path)
+                            : context.push(path),
                         scale: 0.92,
                         child: row(icon, label, scheme.onSurfaceVariant),
                       ),

@@ -93,6 +93,14 @@ class MoreScreen extends ConsumerWidget {
         const SectionHeader('Everything'),
         TileGrid(
           tiles: [
+            if (session.can('jc.view') || session.can('req.submit'))
+              ShortcutTile(
+                icon: Icons.assignment_outlined,
+                title: 'Job cards',
+                subtitle: 'New system · trial',
+                colors: const [Color(0xFF7B1E3A), Color(0xFFD8A7B1)],
+                onTap: () => context.go('/v2'),
+              ),
             ShortcutTile(
               icon: Icons.summarize_outlined,
               title: 'Daily report',

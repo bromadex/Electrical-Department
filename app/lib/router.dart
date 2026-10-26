@@ -25,6 +25,7 @@ import 'requests/requests_screen.dart';
 import 'services/core_providers.dart';
 import 'tools/tool_detail_screen.dart';
 import 'tools/tools_screen.dart';
+import 'v2/routes.dart';
 import 'widgets/app_shell.dart';
 
 /// The bottom-bar / side-menu tabs, in order.
@@ -127,6 +128,7 @@ GoRouter buildRouter(WidgetRef ref) {
         path: '/notifications',
         builder: (_, _) => const NotificationsScreen(),
       ),
+      v2Routes,
       StatefulShellRoute(
         builder: (context, state, shell) => shell,
         navigatorContainerBuilder: (context, shell, children) =>
