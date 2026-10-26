@@ -15,14 +15,14 @@ class Glass {
   final bool dark;
 
   Color get fill => dark
-      ? Colors.white.withValues(alpha: 0.065)
-      : Colors.white.withValues(alpha: 0.58);
+      ? Colors.white.withValues(alpha: 0.075)
+      : Colors.white.withValues(alpha: 0.66);
   Color get fillStrong => dark
-      ? Colors.white.withValues(alpha: 0.10)
-      : Colors.white.withValues(alpha: 0.78);
+      ? Colors.white.withValues(alpha: 0.12)
+      : Colors.white.withValues(alpha: 0.82);
   Color get fillInset => dark
       ? Colors.black.withValues(alpha: 0.22)
-      : BrandColors.maroon.withValues(alpha: 0.05);
+      : const Color(0xFF1B1D2A).withValues(alpha: 0.04);
   Color get border => dark
       ? Colors.white.withValues(alpha: 0.10)
       : Colors.white.withValues(alpha: 0.85);
@@ -35,10 +35,30 @@ class Glass {
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: [
-      Colors.white.withValues(alpha: dark ? 0.07 : 0.35),
+      Colors.white.withValues(alpha: dark ? 0.10 : 0.55),
       Colors.white.withValues(alpha: 0),
+      Colors.white.withValues(alpha: dark ? 0.03 : 0.18),
     ],
-    stops: const [0, 0.6],
+    stops: const [0, 0.55, 1],
+  );
+
+  /// The bright rim of liquid glass: strongest top-left, fading, then a
+  /// softer glint bottom-right.
+  Gradient get rim => LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: dark
+        ? [
+            Colors.white.withValues(alpha: 0.32),
+            Colors.white.withValues(alpha: 0.05),
+            Colors.white.withValues(alpha: 0.16),
+          ]
+        : [
+            Colors.white,
+            Colors.white.withValues(alpha: 0.45),
+            Colors.white.withValues(alpha: 0.9),
+          ],
+    stops: const [0, 0.5, 1],
   );
 
   List<BoxShadow> get shadow => [
@@ -87,11 +107,44 @@ class GlassSurface extends StatelessWidget {
             ),
             gradient: g.sheen,
             borderRadius: BorderRadius.circular(radius),
-            border: Border.all(color: g.border),
           ),
+          foregroundDecoration: RimDecoration(radius: radius, gradient: g.rim),
           child: child,
         ),
       ),
+    );
+  }
+}
+
+/// A 1.2 px gradient outline: the specular edge of liquid glass.
+class RimDecoration extends Decoration {
+  const RimDecoration({required this.radius, required this.gradient});
+
+  final double radius;
+  final Gradient gradient;
+
+  @override
+  BoxPainter createBoxPainter([VoidCallback? onChanged]) =>
+      _RimPainter(radius, gradient);
+}
+
+class _RimPainter extends BoxPainter {
+  _RimPainter(this.radius, this.gradient);
+
+  final double radius;
+  final Gradient gradient;
+
+  @override
+  void paint(Canvas canvas, Offset offset, ImageConfiguration config) {
+    final size = config.size;
+    if (size == null) return;
+    final rect = (offset & size).deflate(0.6);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, Radius.circular(radius)),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2
+        ..shader = gradient.createShader(rect),
     );
   }
 }
@@ -124,21 +177,31 @@ class SurfaceCard extends StatelessWidget {
         color: gradient == null ? color ?? g.fill : null,
         gradient: gradient,
         borderRadius: r,
-        border: Border.all(
-          color: gradient == null
-              ? g.border
-              : Colors.white.withValues(alpha: 0.18),
-        ),
         boxShadow: g.shadow,
       ),
+      position: DecorationPosition.background,
       child: DecoratedBox(
-        decoration: BoxDecoration(gradient: g.sheen, borderRadius: r),
-        child: Material(
-          type: MaterialType.transparency,
-          child: InkWell(
-            borderRadius: r,
-            onTap: onTap,
-            child: Padding(padding: padding, child: child),
+        position: DecorationPosition.foreground,
+        decoration: RimDecoration(
+          radius: radius,
+          gradient: gradient == null
+              ? g.rim
+              : LinearGradient(
+                  colors: [
+                    Colors.white.withValues(alpha: 0.5),
+                    Colors.white.withValues(alpha: 0.1),
+                  ],
+                ),
+        ),
+        child: DecoratedBox(
+          decoration: BoxDecoration(gradient: g.sheen, borderRadius: r),
+          child: Material(
+            type: MaterialType.transparency,
+            child: InkWell(
+              borderRadius: r,
+              onTap: onTap,
+              child: Padding(padding: padding, child: child),
+            ),
           ),
         ),
       ),
@@ -274,23 +337,23 @@ class _MeshBackgroundState extends State<MeshBackground>
         ? const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF2A0B11), Color(0xFF1A070B), Color(0xFF12050A)],
+            colors: [Color(0xFF15131A), Color(0xFF0E0E12), Color(0xFF0B0B0F)],
           )
         : const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFFFDF3F2), Color(0xFFF7E4E6), Color(0xFFF3DDE0)],
+            colors: [Color(0xFFFFFFFF), Color(0xFFF6F6FA), Color(0xFFF0F1F6)],
           );
     final glows = dark
         ? [
-            BrandColors.maroon.withValues(alpha: 0.75),
-            BrandColors.coral.withValues(alpha: 0.28),
-            const Color(0xFF6E141A).withValues(alpha: 0.8),
+            BrandColors.maroon.withValues(alpha: 0.55),
+            BrandColors.info.withValues(alpha: 0.22),
+            BrandColors.coral.withValues(alpha: 0.30),
           ]
         : [
-            BrandColors.blush.withValues(alpha: 0.7),
-            BrandColors.coral.withValues(alpha: 0.25),
-            BrandColors.blush.withValues(alpha: 0.55),
+            BrandColors.blush.withValues(alpha: 0.45),
+            BrandColors.info.withValues(alpha: 0.16),
+            BrandColors.coral.withValues(alpha: 0.18),
           ];
 
     return DecoratedBox(

@@ -38,8 +38,10 @@ String? notificationPath(String? link) {
     'job' => '/jobs/$id',
     'chat' => '/chat/$id',
     'tool' => '/tools/$id',
+    'asset' => '/assets/$id',
     'doc' => '/documents/$id',
     'checklist' => '/checklists/$id',
+    'request' => '/requests',
     _ => null,
   };
 }

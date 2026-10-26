@@ -2,20 +2,20 @@ import 'package:flutter/material.dart';
 
 /// Colours sampled from the Bravura rhino logo.
 class BrandColors {
-  static const maroon = Color(0xFF982329);
-  static const maroonDeep = Color(0xFF6E141A);
-  static const coral = Color(0xFFFF7176);
-  static const blush = Color(0xFFF9ACB9);
+  static const maroon = Color(0xFF7A1F2B);
+  static const maroonDeep = Color(0xFF4E1019);
+  static const coral = Color(0xFFB5566E);
+  static const blush = Color(0xFFE7A1B3);
 
   /// Status colours used by pills and charts.
   static const success = Color(0xFF1F9D6B);
   static const warning = Color(0xFFE59A1A);
-  static const info = Color(0xFF3B7DD8);
+  static const info = Color(0xFF2F6FDB);
 
   static const brandGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [maroonDeep, maroon, coral],
+    colors: [maroonDeep, maroon, Color(0xFF2F6FDB)],
     stops: [0, 0.55, 1],
   );
 }

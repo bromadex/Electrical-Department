@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../config/env.dart';
 import '../documents/documents_repository.dart';
+import '../requests/requests_screen.dart';
 import '../services/core_providers.dart';
 import '../services/notifications_controller.dart';
 import '../services/push_service.dart';
@@ -27,6 +28,7 @@ class MoreScreen extends ConsumerWidget {
     final mode = ref.watch(themeModeProvider);
     final push = ref.watch(pushProvider);
     final toSign = ref.watch(toSignCountProvider);
+    final newRequests = ref.watch(newRequestCountProvider);
     final profile = session.profile;
     final email = ref.read(supabaseProvider).auth.currentUser?.email ?? '';
     final name = (profile?.fullName.isNotEmpty ?? false)
@@ -89,6 +91,89 @@ class MoreScreen extends ConsumerWidget {
           ),
         ).entrance(context),
 
+        const SectionHeader('Workspace'),
+        _TileGrid(
+          tiles: [
+            _Tile(
+              icon: Icons.summarize_outlined,
+              title: 'Daily report',
+              subtitle: 'Updates and approval',
+              colors: const [BrandColors.maroon, BrandColors.coral],
+              onTap: () => context.push('/reports'),
+            ),
+            _Tile(
+              icon: Icons.move_to_inbox_outlined,
+              title: 'Requests',
+              subtitle: newRequests > 0
+                  ? '$newRequests waiting'
+                  : 'Other departments',
+              badge: newRequests,
+              colors: const [BrandColors.info, Color(0xFF6A8FE8)],
+              onTap: () => context.push('/requests'),
+            ),
+            _Tile(
+              icon: Icons.fact_check_outlined,
+              title: 'Checklists',
+              subtitle: 'Daily rounds',
+              colors: const [BrandColors.success, Color(0xFF4CC195)],
+              onTap: () => context.push('/checklists'),
+            ),
+            _Tile(
+              icon: Icons.menu_book_outlined,
+              title: 'Documents',
+              subtitle: toSign > 0 ? '$toSign to sign' : 'SOPs and drawings',
+              badge: toSign,
+              colors: const [BrandColors.coral, BrandColors.blush],
+              onTap: () => context.push('/documents'),
+            ),
+            _Tile(
+              icon: Icons.precision_manufacturing_outlined,
+              title: 'Assets',
+              subtitle: 'Plant register',
+              colors: const [BrandColors.maroonDeep, BrandColors.maroon],
+              onTap: () => context.push('/assets'),
+            ),
+            _Tile(
+              icon: Icons.handyman_outlined,
+              title: 'Tools',
+              subtitle: 'Who has what',
+              colors: const [BrandColors.warning, Color(0xFFF2BE5C)],
+              onTap: () => context.push('/tools'),
+            ),
+            _Tile(
+              icon: Icons.notifications_none_rounded,
+              title: 'Notifications',
+              subtitle: unread > 0 ? '$unread unread' : 'All caught up',
+              badge: unread,
+              colors: const [Color(0xFF5B4B8A), BrandColors.info],
+              onTap: () => context.push('/notifications'),
+            ),
+            if (session.perms.canEverywhere('admin.users')) ...[
+              _Tile(
+                icon: Icons.group_outlined,
+                title: 'People',
+                subtitle: 'Accounts and roles',
+                colors: const [Color(0xFF3B3F4A), Color(0xFF6B7080)],
+                onTap: () => context.push('/admin/users'),
+              ),
+              _Tile(
+                icon: Icons.timer_outlined,
+                title: 'Targets',
+                subtitle: 'Response and finish',
+                colors: const [Color(0xFF3B3F4A), Color(0xFF6B7080)],
+                onTap: () => context.push('/admin/targets'),
+              ),
+              _Tile(
+                icon: Icons.history_rounded,
+                title: 'Audit log',
+                subtitle: 'Every change',
+                colors: const [Color(0xFF3B3F4A), Color(0xFF6B7080)],
+                onTap: () => context.push('/admin/activity'),
+              ),
+            ],
+          ],
+        ).entrance(context, index: 1),
+
         const SectionHeader('Appearance'),
         SurfaceCard(
           child: Row(
@@ -128,14 +213,6 @@ class MoreScreen extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(vertical: Space.xs),
           child: Column(
             children: [
-              _Row(
-                icon: Icons.notifications_none_rounded,
-                title: 'Notifications',
-                trailing: unread > 0
-                    ? Badge(label: Text('$unread'))
-                    : const Icon(Icons.chevron_right_rounded),
-                onTap: () => context.push('/notifications'),
-              ),
               if (push != PushState.unavailable)
                 _Row(
                   icon: Icons.notifications_active_outlined,
@@ -190,65 +267,6 @@ class MoreScreen extends ConsumerWidget {
             ],
           ),
         ).entrance(context, index: 2),
-
-        const SectionHeader('Library'),
-        SurfaceCard(
-          padding: const EdgeInsets.symmetric(vertical: Space.xs),
-          child: Column(
-            children: [
-              _Row(
-                icon: Icons.fact_check_outlined,
-                title: 'Checklists',
-                subtitle: 'Daily, weekly and monthly rounds',
-                trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () => context.push('/checklists'),
-              ),
-              _Row(
-                icon: Icons.menu_book_outlined,
-                title: 'Documents & SOPs',
-                subtitle: toSign > 0
-                    ? '$toSign to read and sign'
-                    : 'SOPs, drawings and manuals',
-                trailing: toSign > 0
-                    ? Badge(label: Text('$toSign'))
-                    : const Icon(Icons.chevron_right_rounded),
-                onTap: () => context.push('/documents'),
-              ),
-              _Row(
-                icon: Icons.precision_manufacturing_outlined,
-                title: 'Assets',
-                subtitle: 'Plant register and job history',
-                trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () => context.push('/assets'),
-              ),
-            ],
-          ),
-        ),
-
-        if (session.perms.canEverywhere('admin.users')) ...[
-          const SectionHeader('Admin'),
-          SurfaceCard(
-            padding: const EdgeInsets.symmetric(vertical: Space.xs),
-            child: Column(
-              children: [
-                _Row(
-                  icon: Icons.group_outlined,
-                  title: 'People',
-                  subtitle: 'Accounts, roles and sites',
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => context.push('/admin/users'),
-                ),
-                _Row(
-                  icon: Icons.history_rounded,
-                  title: 'Audit log',
-                  subtitle: 'Every change, who and when',
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => context.push('/admin/activity'),
-                ),
-              ],
-            ),
-          ).entrance(context, index: 3),
-        ],
 
         const SizedBox(height: Space.lg),
         Pressable(
@@ -328,6 +346,116 @@ class _Row extends StatelessWidget {
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
       subtitle: subtitle == null || subtitle!.isEmpty ? null : Text(subtitle!),
       trailing: trailing ?? const Icon(Icons.chevron_right_rounded),
+    );
+  }
+}
+
+/// Two columns on phones, three or four on wider screens.
+class _TileGrid extends StatelessWidget {
+  const _TileGrid({required this.tiles});
+
+  final List<Widget> tiles;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, c) {
+        final cols = c.maxWidth >= 640
+            ? 4
+            : c.maxWidth >= 440
+            ? 3
+            : 2;
+        const gap = Space.sm;
+        final w = (c.maxWidth - gap * (cols - 1)) / cols;
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: [for (final t in tiles) SizedBox(width: w, child: t)],
+        );
+      },
+    );
+  }
+}
+
+class _Tile extends StatelessWidget {
+  const _Tile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.colors,
+    required this.onTap,
+    this.badge = 0,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final List<Color> colors;
+  final VoidCallback onTap;
+  final int badge;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SurfaceCard(
+      onTap: onTap,
+      radius: Radii.lg,
+      padding: const EdgeInsets.all(Space.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(Radii.md),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: colors,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: colors.first.withValues(alpha: 0.35),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Icon(icon, color: Colors.white, size: 24),
+              ),
+              const Spacer(),
+              if (badge > 0)
+                Badge(
+                  backgroundColor: BrandColors.maroon,
+                  label: Text(badge > 99 ? '99+' : '$badge'),
+                ),
+            ],
+          ),
+          const SizedBox(height: Space.sm),
+          Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          Text(
+            subtitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: badge > 0
+                  ? BrandColors.maroon
+                  : theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

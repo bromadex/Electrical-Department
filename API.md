@@ -293,6 +293,17 @@ Adopted in a light form from Tafara's CMMS phase 2.
 - Profiles without a name are named from their email (`_name_from_email`), on sign-up and once for existing accounts.
 - App: Start on an isolation job opens the safety check sheet; theme toggle in the top bar, light by default.
 
+## 15. Requests and priority targets (migration 0010)
+
+Adopted in a light form from Tafara's PR #19, on top of the jobs board.
+
+- Permission `req.create` (new role **Requester**, and every existing role). Record code `RQ-`.
+- Table `job_requests`: `site_id, area_id, code, title, description, department, priority, status (new | accepted | declined), requested_by, decided_by, decided_at, decline_reason, job_id`. Requesters read their own; `jobs.assign` reads the site's.
+- `fn_create_request(p_client_ref, p_site, p_area, p_title, p_description, p_department, p_priority)`: notifies `jobs.assign` (`request:<id>`).
+- `fn_accept_request(p_request, p_priority, p_assignee)`: posts the request as a job (description names the requester and RQ- code), optionally assigns it, tells the requester. `fn_decline_request(p_request, p_reason)`: reason required, tells the requester. When the job is done the requester is told (trigger `jobs_tell_requester`).
+- Table `priority_targets` (`priority, respond_minutes, close_hours`; defaults urgent 30 min / 24 h, normal 4 h / 72 h, low 24 h / 7 days). A job inserted without `due_at` gets `created_at + close_hours` (trigger `jobs_default_due`). The urgent escalation uses the urgent response time. `fn_set_priority_target(p_priority, p_respond_minutes, p_close_hours)`: `admin.users` at all sites.
+- App: More → Library → Requests (`/requests`: incoming for supervisors, mine for everyone; new request form; accept as a job with priority and assignee, or decline with a reason); More → Admin → Priority targets (`/admin/targets`). "Requests to decide" appears under Needs attention.
+
 ## 6. Feature sections (filled in as features are built)
 
 - 7. Jobs board — Clement, phase 1 (done, see above)
@@ -308,6 +319,7 @@ Adopted in a light form from Tafara's CMMS phase 2.
 
 ## Changelog
 
+- v0.10 — requests from other departments, priority targets.
 - v0.9 — safety check before isolated work, escalation, audit log, names from email.
 - v0.8 — checklists and daily report backend.
 - v0.7 — SOPs and documents (documents, versions, acknowledgements, job links).
