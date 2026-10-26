@@ -20,18 +20,26 @@ class AppTheme {
         ).copyWith(
           primary: dark ? BrandColors.blush : BrandColors.maroon,
           onPrimary: dark ? BrandColors.maroonDeep : Colors.white,
-          secondary: BrandColors.coral,
-          surface: dark ? const Color(0xFF1A070B) : const Color(0xFFFCF3F2),
-          surfaceContainerLowest: dark ? const Color(0xFF14050A) : Colors.white,
+          secondary: BrandColors.info,
+          tertiary: BrandColors.coral,
+          // Secondary text stays readable on glass, outdoors too.
+          onSurfaceVariant: dark
+              ? const Color(0xFFD6D0DA)
+              : const Color(0xFF3E3944),
+          outlineVariant: dark
+              ? const Color(0xFF3A3742)
+              : const Color(0xFFD9D6DF),
+          surface: dark ? const Color(0xFF111116) : const Color(0xFFFAFAFC),
+          surfaceContainerLowest: dark ? const Color(0xFF0C0C10) : Colors.white,
           surfaceContainerLow: dark
-              ? const Color(0xFF22090E)
-              : const Color(0xFFF8F1F0),
+              ? const Color(0xFF17171D)
+              : const Color(0xFFF6F6F9),
           surfaceContainer: dark
-              ? const Color(0xFF2A0E14)
-              : const Color(0xFFF3EAE9),
+              ? const Color(0xFF1D1D24)
+              : const Color(0xFFF1F1F5),
           surfaceContainerHigh: dark
-              ? const Color(0xFF34131A)
-              : const Color(0xFFEDE2E1),
+              ? const Color(0xFF24242C)
+              : const Color(0xFFEAEAF0),
         );
 
     final base = ThemeData(

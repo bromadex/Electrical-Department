@@ -402,7 +402,8 @@ class _ProfileChip extends ConsumerWidget {
   }
 }
 
-/// Vertical floating capsule of icons (desktop navigation).
+/// Floating glass capsule (desktop navigation): icons with their names on
+/// wide windows, icons alone on narrower ones.
 class _NavCapsule extends StatelessWidget {
   const _NavCapsule({required this.index, required this.onTap});
 
@@ -414,16 +415,19 @@ class _NavCapsule extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final labels = MediaQuery.sizeOf(context).width >= 1100;
+    final width = labels ? 188.0 : _item;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         const BrandLogo(width: 64),
         const SizedBox(height: Space.lg),
         GlassSurface(
-          radius: 40,
+          radius: labels ? 30 : 40,
+          strong: true,
           padding: const EdgeInsets.all(8),
           child: SizedBox(
-            width: _item,
+            width: width,
             height: _item * shellTabs.length,
             child: Stack(
               children: [
@@ -432,20 +436,31 @@ class _NavCapsule extends StatelessWidget {
                   curve: Motion.spring,
                   top: index * _item,
                   left: 0,
-                  width: _item,
+                  width: width,
                   height: _item,
                   child: Container(
                     margin: const EdgeInsets.all(3),
                     decoration: BoxDecoration(
-                      shape: BoxShape.circle,
+                      borderRadius: BorderRadius.circular(Radii.pill),
                       gradient: BrandColors.brandGradient,
                       boxShadow: [
                         BoxShadow(
-                          color: BrandColors.maroon.withValues(alpha: 0.45),
+                          color: BrandColors.maroon.withValues(alpha: 0.4),
                           blurRadius: 16,
                           offset: const Offset(0, 6),
                         ),
                       ],
+                    ),
+                    foregroundDecoration: RimDecoration(
+                      radius: Radii.pill,
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Colors.white.withValues(alpha: 0.6),
+                          Colors.white.withValues(alpha: 0.05),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -453,24 +468,45 @@ class _NavCapsule extends StatelessWidget {
                   children: [
                     for (var i = 0; i < shellTabs.length; i++)
                       Tooltip(
-                        message: shellTabs[i].label,
+                        message: labels ? '' : shellTabs[i].label,
                         preferBelow: false,
                         child: Pressable(
                           onTap: () => onTap(i),
-                          scale: 0.88,
-                          child: SizedBox.square(
-                            dimension: _item,
-                            child: AnimatedSwitcher(
-                              duration: Motion.of(context, Motion.medium),
-                              child: Icon(
-                                i == index
-                                    ? shellTabs[i].selectedIcon
-                                    : shellTabs[i].icon,
-                                key: ValueKey(i == index),
-                                color: i == index
-                                    ? Colors.white
-                                    : scheme.onSurfaceVariant,
-                              ),
+                          scale: 0.92,
+                          child: SizedBox(
+                            width: width,
+                            height: _item,
+                            child: Row(
+                              mainAxisAlignment: labels
+                                  ? MainAxisAlignment.start
+                                  : MainAxisAlignment.center,
+                              children: [
+                                if (labels) const SizedBox(width: 18),
+                                AnimatedSwitcher(
+                                  duration: Motion.of(context, Motion.medium),
+                                  child: Icon(
+                                    i == index
+                                        ? shellTabs[i].selectedIcon
+                                        : shellTabs[i].icon,
+                                    key: ValueKey(i == index),
+                                    color: i == index
+                                        ? Colors.white
+                                        : scheme.onSurfaceVariant,
+                                  ),
+                                ),
+                                if (labels) ...[
+                                  const SizedBox(width: Space.sm),
+                                  Text(
+                                    shellTabs[i].label,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: i == index
+                                          ? Colors.white
+                                          : scheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
                         ),
