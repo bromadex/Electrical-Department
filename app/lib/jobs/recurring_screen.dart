@@ -32,6 +32,10 @@ class RecurringScreen extends ConsumerWidget {
     final session = ref.watch(sessionProvider);
     final site = ref.watch(currentSiteProvider);
     final areaNames = {for (final a in session.areas) a.id: a.name};
+    final assetTags = {
+      for (final a in ref.watch(siteAssetsProvider).value ?? const [])
+        a.id: a.tag,
+    };
     final top = MediaQuery.paddingOf(context).top + kToolbarHeight;
 
     return Scaffold(
@@ -124,6 +128,7 @@ class RecurringScreen extends ConsumerWidget {
                                         _everyLabels[r['every']] ?? r['every'],
                                         'next ${r['next_run']}',
                                         ?areaNames[r['area_id']],
+                                        ?assetTags[r['asset_id']],
                                         if (r['assignee_id'] != null)
                                           'to ${people[r['assignee_id']] ?? 'someone'}',
                                       ].join(' · '),
@@ -185,6 +190,9 @@ class _RecurrenceFormState extends ConsumerState<_RecurrenceForm> {
   late String? _areaId = widget.existing?['area_id'] as String?;
   late String? _assigneeId = widget.existing?['assignee_id'] as String?;
   late int _dueDays = (widget.existing?['due_days'] as num?)?.toInt() ?? 1;
+  late String? _assetId = widget.existing?['asset_id'] as String?;
+  late bool _isolation =
+      (widget.existing?['isolation_required'] as bool?) ?? false;
   late DateTime _nextRun = widget.existing == null
       ? DateTime.now().add(const Duration(days: 1))
       : DateTime.parse(widget.existing!['next_run'] as String);
@@ -219,6 +227,8 @@ class _RecurrenceFormState extends ConsumerState<_RecurrenceForm> {
           dueDays: _dueDays,
           assigneeId: _assigneeId,
           archived: archive,
+          assetId: _assetId,
+          isolationRequired: _isolation,
         );
     // Give the queued save a moment to reach the server, then reload.
     await Future<void>.delayed(const Duration(milliseconds: 800));
@@ -235,6 +245,7 @@ class _RecurrenceFormState extends ConsumerState<_RecurrenceForm> {
     final people = site == null
         ? const AsyncValue<List<Assignee>>.data([])
         : ref.watch(assigneesProvider(site.id));
+    final assets = ref.watch(siteAssetsProvider).value ?? const [];
     Widget label(String t) => Padding(
       padding: const EdgeInsets.only(top: Space.md, bottom: Space.xs),
       child: Text(t, style: theme.textTheme.labelLarge),
@@ -344,6 +355,33 @@ class _RecurrenceFormState extends ConsumerState<_RecurrenceForm> {
               onChanged: (v) => setState(() => _areaId = v),
             ),
           ],
+          if (assets.isNotEmpty) ...[
+            label('Asset (makes it planned maintenance)'),
+            DropdownButtonFormField<String?>(
+              initialValue: assets.any((a) => a.id == _assetId)
+                  ? _assetId
+                  : null,
+              isExpanded: true,
+              items: [
+                const DropdownMenuItem(value: null, child: Text('No asset')),
+                for (final a in assets)
+                  DropdownMenuItem(
+                    value: a.id,
+                    child: Text(
+                      '${a.tag} · ${a.name}',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+              ],
+              onChanged: (v) => setState(() => _assetId = v),
+            ),
+          ],
+          SwitchListTile.adaptive(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Isolation (lock-out) required'),
+            value: _isolation,
+            onChanged: (v) => setState(() => _isolation = v),
+          ),
           label('Assign to'),
           people.when(
             loading: () => const LinearProgressIndicator(),

@@ -36,8 +36,23 @@ LocalJob jobFromRow(Map<String, dynamic> r) {
     createdAt: t('created_at')!,
     updatedAt: t('updated_at')!,
     pending: false,
+    assetId: r['asset_id'] as String?,
+    maintenanceType: (r['maintenance_type'] as String?) ?? 'corrective',
+    isolationRequired: (r['isolation_required'] as bool?) ?? false,
   );
 }
+
+LocalAsset assetFromRow(Map<String, dynamic> r) => LocalAsset(
+  id: r['id'] as String,
+  siteId: r['site_id'] as String,
+  areaId: r['area_id'] as String?,
+  tag: r['tag'] as String,
+  name: r['name'] as String,
+  kind: r['kind'] as String?,
+  makeModel: r['make_model'] as String?,
+  serialNo: r['serial_no'] as String?,
+  notes: r['notes'] as String?,
+);
 
 class JobsSyncState {
   const JobsSyncState({this.loading = false, this.error, this.synced = false});
@@ -109,6 +124,12 @@ class JobsSyncNotifier extends Notifier<JobsSyncState> {
             .order('updated_at', ascending: false)
             .limit(500),
         _client.from('profiles').select('id, full_name'),
+        _client
+            .from('assets')
+            .select()
+            .eq('site_id', site)
+            .eq('is_archived', false)
+            .order('tag'),
       ]);
       if (!ref.mounted || _siteId != site) return;
 
@@ -122,6 +143,15 @@ class JobsSyncNotifier extends Notifier<JobsSyncState> {
               ..where((j) => j.id.isNotIn(keep)))
             .go();
         await _upsertFromServer(jobs);
+        // The register is small: replace this site's copy outright.
+        await (_db.delete(
+          _db.localAssets,
+        )..where((a) => a.siteId.equals(site))).go();
+        await _db.batch((b) {
+          b.insertAll(_db.localAssets, [
+            for (final r in results[2] as List) assetFromRow(r),
+          ]);
+        });
         await _db.batch((b) {
           b.insertAllOnConflictUpdate(_db.localPeople, [
             for (final p in results[1] as List)
@@ -509,6 +539,9 @@ class JobActions {
     double? lng,
     List<Uint8List> photos = const [],
     String? assigneeId,
+    String? assetId,
+    bool preventive = false,
+    bool isolationRequired = false,
   }) async {
     final id = _uuid.v4();
     final now = DateTime.now();
@@ -529,6 +562,9 @@ class JobActions {
       createdAt: now,
       updatedAt: now,
       pending: true,
+      assetId: assetId,
+      maintenanceType: preventive ? 'preventive' : 'corrective',
+      isolationRequired: isolationRequired,
     );
     await _db.into(_db.localJobs).insert(job);
     await _ref
@@ -545,6 +581,9 @@ class JobActions {
             'p_due_at': dueAt?.toUtc().toIso8601String(),
             'p_lat': lat,
             'p_lng': lng,
+            'p_asset': assetId,
+            'p_maintenance_type': job.maintenanceType,
+            'p_isolation_required': isolationRequired,
           },
           clientRef: id,
           flushNow: false,
@@ -574,6 +613,9 @@ class JobActions {
     String? areaId,
     required JobPriority priority,
     DateTime? dueAt,
+    String? assetId,
+    bool preventive = false,
+    bool isolationRequired = false,
   }) async {
     await _patch(
       job.id,
@@ -585,6 +627,9 @@ class JobActions {
         areaId: Value(areaId),
         priority: Value(priority.name),
         dueAt: Value(dueAt),
+        assetId: Value(assetId),
+        maintenanceType: Value(preventive ? 'preventive' : 'corrective'),
+        isolationRequired: Value(isolationRequired),
       ),
     );
     await _queue('fn_edit_job', {
@@ -594,6 +639,9 @@ class JobActions {
       'p_area': areaId,
       'p_priority': priority.name,
       'p_due_at': dueAt?.toUtc().toIso8601String(),
+      'p_asset': assetId,
+      'p_maintenance_type': preventive ? 'preventive' : 'corrective',
+      'p_isolation_required': isolationRequired,
     });
   }
 
@@ -681,6 +729,56 @@ class JobActions {
     }, clientRef: id);
   }
 
+  /// Adds or edits an asset (supervisors). Saved on the device first, so the
+  /// register works offline; the next sync replaces it with the server's.
+  Future<String> saveAsset({
+    String? id,
+    required String siteId,
+    String? areaId,
+    required String tag,
+    required String name,
+    String? kind,
+    String? makeModel,
+    String? serialNo,
+    String? notes,
+    bool archived = false,
+  }) async {
+    final ref = id ?? _uuid.v4();
+    String? clean(String? v) => v == null || v.trim().isEmpty ? null : v.trim();
+    if (archived) {
+      await (_db.delete(_db.localAssets)..where((a) => a.id.equals(ref))).go();
+    } else {
+      await _db
+          .into(_db.localAssets)
+          .insertOnConflictUpdate(
+            LocalAsset(
+              id: ref,
+              siteId: siteId,
+              areaId: areaId,
+              tag: tag.trim().toUpperCase(),
+              name: name.trim(),
+              kind: clean(kind),
+              makeModel: clean(makeModel),
+              serialNo: clean(serialNo),
+              notes: clean(notes),
+            ),
+          );
+    }
+    await _queue('fn_save_asset', {
+      'p_client_ref': ref,
+      'p_site': siteId,
+      'p_area': areaId,
+      'p_tag': tag.trim(),
+      'p_name': name.trim(),
+      'p_kind': clean(kind),
+      'p_make_model': clean(makeModel),
+      'p_serial_no': clean(serialNo),
+      'p_notes': clean(notes),
+      'p_archived': archived,
+    });
+    return ref;
+  }
+
   Future<void> saveRecurrence({
     String? id,
     required String siteId,
@@ -693,6 +791,8 @@ class JobActions {
     required int dueDays,
     String? assigneeId,
     bool archived = false,
+    String? assetId,
+    bool isolationRequired = false,
   }) async {
     final ref = id ?? _uuid.v4();
     final d = nextRun;
@@ -709,6 +809,8 @@ class JobActions {
       'p_due_days': dueDays,
       'p_assignee': assigneeId,
       'p_archived': archived,
+      'p_asset': assetId,
+      'p_isolation_required': isolationRequired,
     });
   }
 }
@@ -727,3 +829,35 @@ final recurrencesProvider =
           .order('next_run');
       return [for (final r in rows) Map<String, dynamic>.from(r)];
     });
+
+/// The asset register at the current site, from the device cache.
+final siteAssetsProvider = StreamProvider<List<LocalAsset>>((ref) {
+  final site = ref.watch(currentSiteProvider.select((s) => s?.id));
+  if (site == null) return Stream.value(const []);
+  final db = ref.watch(localDbProvider);
+  return (db.select(db.localAssets)
+        ..where((a) => a.siteId.equals(site))
+        ..orderBy([(a) => OrderingTerm(expression: a.tag)]))
+      .watch();
+});
+
+final assetProvider = StreamProvider.family<LocalAsset?, String>((ref, id) {
+  final db = ref.watch(localDbProvider);
+  return (db.select(
+    db.localAssets,
+  )..where((a) => a.id.equals(id))).watchSingleOrNull();
+});
+
+/// Every cached job on one asset, newest first.
+final assetJobsProvider = StreamProvider.family<List<LocalJob>, String>((
+  ref,
+  assetId,
+) {
+  final db = ref.watch(localDbProvider);
+  return (db.select(db.localJobs)
+        ..where((j) => j.assetId.equals(assetId))
+        ..orderBy([
+          (j) => OrderingTerm(expression: j.createdAt, mode: OrderingMode.desc),
+        ]))
+      .watch();
+});

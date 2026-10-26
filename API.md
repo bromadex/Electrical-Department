@@ -231,6 +231,17 @@ For system administrators only: `admin.users` at all sites (site-only admins are
 - Edge function `admin-users` (POST, caller's token): `{action: "create", email, password, full_name}` → `{id}`; `{action: "reset_password", user_id, password}` → `{ok: true}`. Errors are `{error: "CODE: message"}`. The sign-up trigger creates the profile; roles are then set with `fn_set_user_roles`.
 - App: More → Admin → People (`/admin/users`). Online only.
 
+## 10. Assets and planned maintenance (migration 0005)
+
+A light asset register; jobs can point at an asset, so each asset has a job history.
+
+- Table `assets`: `site_id, area_id, tag` (upper case, unique among live assets at a site), `name, kind, make_model, serial_no, notes`, `is_archived`. Readable with `jobs.view` at the site.
+- `fn_save_asset(p_client_ref, p_site, p_area, p_tag, p_name, p_kind, p_make_model, p_serial_no, p_notes, p_archived)`: supervisors (`jobs.assign`); insert or edit by id; archive to remove.
+- `jobs` gains `asset_id`, `maintenance_type` (`corrective` | `preventive`, default corrective) and `isolation_required` (default false).
+- `fn_create_job(..., p_asset, p_maintenance_type, p_isolation_required)` and `fn_edit_job(..., p_asset, p_maintenance_type, p_isolation_required)`: new trailing parameters with defaults, so calls from older apps still work. In `fn_edit_job` a null `p_maintenance_type` leaves the asset, type and isolation unchanged.
+- `job_recurrences` gains `asset_id` and `isolation_required`; `fn_save_recurrence(..., p_asset, p_isolation_required)`. Planned maintenance = a recurring job on an asset: `fn_run_recurrences` marks those jobs `preventive`.
+- App: Board → Assets (`/assets`), asset page (`/assets/<id>`) with open/done counts, planned maintenance and job history, "Job on this asset". The job form has Asset, "Isolation (lock-out) required" and "Planned maintenance"; jobs needing isolation show a lock and a LOTO warning. Assets are cached on the device with the jobs (drift schema v3).
+
 ## 6. Feature sections (filled in as features are built)
 
 - 7. Jobs board — Clement, phase 1 (done, see above)
@@ -246,6 +257,7 @@ For system administrators only: `admin.users` at all sites (site-only admins are
 
 ## Changelog
 
+- v0.5 — asset register, planned maintenance, isolation flag (assets, jobs.asset_id/maintenance_type/isolation_required).
 - v0.4 — user management (fn_admin_users, fn_set_user_profile, fn_set_user_roles, admin-users function).
 - v0.3 — push notifications (push_config, notifications_push trigger, push-send function).
 

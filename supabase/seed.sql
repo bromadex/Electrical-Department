@@ -101,3 +101,23 @@ join (values
 ) as j (title, descr, priority, status, waiting, due, assignee, area, age) on true
 left join public.areas a on a.site_id = s.id and a.name = j.area
 where s.code = 'KAM';
+
+-- A few assets at Kamativi; the crusher and MCC jobs point at theirs.
+insert into public.assets (site_id, area_id, tag, name, kind, make_model)
+select s.id, a.id, x.tag, x.name, x.kind, x.make
+from public.sites s
+join (values
+  ('CR-M01', 'Primary crusher motor', 'Motor', 'WEG W22 75 kW', 'Plant – Crusher'),
+  ('MCC-03', 'MCC panel 3', 'MCC / panel', null, 'Plant – MCC room'),
+  ('TX-01', 'Plant transformer 1', 'Transformer', '1 MVA 11/0.4 kV', 'Plant – MCC room'),
+  ('DB-C', 'Block C distribution board', 'Distribution board', null, 'Camp – Block C')
+) as x (tag, name, kind, make, area) on true
+left join public.areas a on a.site_id = s.id and a.name = x.area
+where s.code = 'KAM';
+
+update public.jobs j set asset_id = x.id, isolation_required = true
+from public.assets x
+where x.tag = 'CR-M01' and j.title = 'Crusher motor overheating';
+update public.jobs j set asset_id = x.id, isolation_required = true
+from public.assets x
+where x.tag = 'MCC-03' and j.title = 'Replace isolator on MCC panel 3';

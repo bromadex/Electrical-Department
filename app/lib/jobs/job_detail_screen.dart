@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../data/local_db.dart';
 import '../services/core_providers.dart';
@@ -69,6 +70,9 @@ class _Body extends ConsumerWidget {
     final priority = JobPriority.parse(job.priority);
     final area = session.areas.where((a) => a.id == job.areaId).firstOrNull;
     final site = session.siteById(job.siteId);
+    final asset = job.assetId == null
+        ? null
+        : ref.watch(assetProvider(job.assetId!)).value;
     final scheme = theme.colorScheme;
     final wide = MediaQuery.sizeOf(context).width >= 900;
     final top = MediaQuery.paddingOf(context).top + kToolbarHeight;
@@ -93,6 +97,11 @@ class _Body extends ConsumerWidget {
                   Pill(label: priority.label, color: priority.color),
                 if (isOverdue(job))
                   Pill(label: 'Overdue', color: JobPriority.urgent.color),
+                if (job.maintenanceType == 'preventive')
+                  const Pill(
+                    label: 'Planned maintenance',
+                    icon: CupertinoIcons.calendar_badge_plus,
+                  ),
                 if (job.pending)
                   const Pill(
                     label: 'Waiting to sync',
@@ -108,6 +117,33 @@ class _Body extends ConsumerWidget {
                 job.description!,
                 style: theme.textTheme.bodyLarge?.copyWith(
                   color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+            if (job.isolationRequired &&
+                status != JobStatus.done &&
+                status != JobStatus.cancelled) ...[
+              const SizedBox(height: Space.sm),
+              Container(
+                padding: const EdgeInsets.all(Space.sm),
+                decoration: BoxDecoration(
+                  color: JobPriority.urgent.color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(Radii.md),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      CupertinoIcons.lock_fill,
+                      color: JobPriority.urgent.color,
+                    ),
+                    const SizedBox(width: Space.sm),
+                    const Expanded(
+                      child: Text(
+                        'Isolate, lock out and tag out before work starts. '
+                        'Test for dead.',
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -133,6 +169,8 @@ class _Body extends ConsumerWidget {
                   CupertinoIcons.location_solid,
                   [site?.name, area?.name].nonNulls.join(' · '),
                 ),
+                if (asset != null)
+                  (CupertinoIcons.gear_alt, '${asset.tag} · ${asset.name}'),
                 if (job.dueAt != null)
                   (
                     CupertinoIcons.calendar,
@@ -152,6 +190,14 @@ class _Body extends ConsumerWidget {
                 ),
               ],
             ),
+            if (asset != null) ...[
+              const SizedBox(height: Space.sm),
+              OutlinedButton.icon(
+                onPressed: () => context.push('/assets/${asset.id}'),
+                icon: const Icon(CupertinoIcons.gear_alt),
+                label: Text('${asset.tag} history'),
+              ),
+            ],
             if (job.lat != null && job.lng != null) ...[
               const SizedBox(height: Space.sm),
               OutlinedButton.icon(

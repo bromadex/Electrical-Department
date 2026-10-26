@@ -80,6 +80,27 @@ class LocalJobs extends Table {
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
   BoolColumn get pending => boolean().withDefault(const Constant(false))();
+  TextColumn get assetId => text().nullable()();
+  TextColumn get maintenanceType =>
+      text().withDefault(const Constant('corrective'))();
+  BoolColumn get isolationRequired =>
+      boolean().withDefault(const Constant(false))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// The asset register at the user's sites (API.md section 10).
+class LocalAssets extends Table {
+  TextColumn get id => text()();
+  TextColumn get siteId => text()();
+  TextColumn get areaId => text().nullable()();
+  TextColumn get tag => text()();
+  TextColumn get name => text()();
+  TextColumn get kind => text().nullable()();
+  TextColumn get makeModel => text().nullable()();
+  TextColumn get serialNo => text().nullable()();
+  TextColumn get notes => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -120,6 +141,7 @@ class PendingUploads extends Table {
     LocalJobs,
     LocalPeople,
     PendingUploads,
+    LocalAssets,
   ],
 )
 class LocalDb extends _$LocalDb {
@@ -136,7 +158,7 @@ class LocalDb extends _$LocalDb {
       );
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -145,7 +167,12 @@ class LocalDb extends _$LocalDb {
         await m.createTable(localJobs);
         await m.createTable(localPeople);
         await m.createTable(pendingUploads);
+      } else if (from < 3) {
+        await m.addColumn(localJobs, localJobs.assetId);
+        await m.addColumn(localJobs, localJobs.maintenanceType);
+        await m.addColumn(localJobs, localJobs.isolationRequired);
       }
+      if (from < 3) await m.createTable(localAssets);
     },
   );
 

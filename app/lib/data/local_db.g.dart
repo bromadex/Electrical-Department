@@ -1908,6 +1908,44 @@ class $LocalJobsTable extends LocalJobs
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _assetIdMeta = const VerificationMeta(
+    'assetId',
+  );
+  @override
+  late final GeneratedColumn<String> assetId = GeneratedColumn<String>(
+    'asset_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _maintenanceTypeMeta = const VerificationMeta(
+    'maintenanceType',
+  );
+  @override
+  late final GeneratedColumn<String> maintenanceType = GeneratedColumn<String>(
+    'maintenance_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('corrective'),
+  );
+  static const VerificationMeta _isolationRequiredMeta = const VerificationMeta(
+    'isolationRequired',
+  );
+  @override
+  late final GeneratedColumn<bool> isolationRequired = GeneratedColumn<bool>(
+    'isolation_required',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("isolation_required" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1930,6 +1968,9 @@ class $LocalJobsTable extends LocalJobs
     createdAt,
     updatedAt,
     pending,
+    assetId,
+    maintenanceType,
+    isolationRequired,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2083,6 +2124,30 @@ class $LocalJobsTable extends LocalJobs
         pending.isAcceptableOrUnknown(data['pending']!, _pendingMeta),
       );
     }
+    if (data.containsKey('asset_id')) {
+      context.handle(
+        _assetIdMeta,
+        assetId.isAcceptableOrUnknown(data['asset_id']!, _assetIdMeta),
+      );
+    }
+    if (data.containsKey('maintenance_type')) {
+      context.handle(
+        _maintenanceTypeMeta,
+        maintenanceType.isAcceptableOrUnknown(
+          data['maintenance_type']!,
+          _maintenanceTypeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('isolation_required')) {
+      context.handle(
+        _isolationRequiredMeta,
+        isolationRequired.isAcceptableOrUnknown(
+          data['isolation_required']!,
+          _isolationRequiredMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -2172,6 +2237,18 @@ class $LocalJobsTable extends LocalJobs
         DriftSqlType.bool,
         data['${effectivePrefix}pending'],
       )!,
+      assetId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}asset_id'],
+      ),
+      maintenanceType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}maintenance_type'],
+      )!,
+      isolationRequired: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}isolation_required'],
+      )!,
     );
   }
 
@@ -2202,6 +2279,9 @@ class LocalJob extends DataClass implements Insertable<LocalJob> {
   final DateTime createdAt;
   final DateTime updatedAt;
   final bool pending;
+  final String? assetId;
+  final String maintenanceType;
+  final bool isolationRequired;
   const LocalJob({
     required this.id,
     required this.siteId,
@@ -2223,6 +2303,9 @@ class LocalJob extends DataClass implements Insertable<LocalJob> {
     required this.createdAt,
     required this.updatedAt,
     required this.pending,
+    this.assetId,
+    required this.maintenanceType,
+    required this.isolationRequired,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2271,6 +2354,11 @@ class LocalJob extends DataClass implements Insertable<LocalJob> {
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     map['pending'] = Variable<bool>(pending);
+    if (!nullToAbsent || assetId != null) {
+      map['asset_id'] = Variable<String>(assetId);
+    }
+    map['maintenance_type'] = Variable<String>(maintenanceType);
+    map['isolation_required'] = Variable<bool>(isolationRequired);
     return map;
   }
 
@@ -2314,6 +2402,11 @@ class LocalJob extends DataClass implements Insertable<LocalJob> {
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
       pending: Value(pending),
+      assetId: assetId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(assetId),
+      maintenanceType: Value(maintenanceType),
+      isolationRequired: Value(isolationRequired),
     );
   }
 
@@ -2343,6 +2436,9 @@ class LocalJob extends DataClass implements Insertable<LocalJob> {
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       pending: serializer.fromJson<bool>(json['pending']),
+      assetId: serializer.fromJson<String?>(json['assetId']),
+      maintenanceType: serializer.fromJson<String>(json['maintenanceType']),
+      isolationRequired: serializer.fromJson<bool>(json['isolationRequired']),
     );
   }
   @override
@@ -2369,6 +2465,9 @@ class LocalJob extends DataClass implements Insertable<LocalJob> {
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'pending': serializer.toJson<bool>(pending),
+      'assetId': serializer.toJson<String?>(assetId),
+      'maintenanceType': serializer.toJson<String>(maintenanceType),
+      'isolationRequired': serializer.toJson<bool>(isolationRequired),
     };
   }
 
@@ -2393,6 +2492,9 @@ class LocalJob extends DataClass implements Insertable<LocalJob> {
     DateTime? createdAt,
     DateTime? updatedAt,
     bool? pending,
+    Value<String?> assetId = const Value.absent(),
+    String? maintenanceType,
+    bool? isolationRequired,
   }) => LocalJob(
     id: id ?? this.id,
     siteId: siteId ?? this.siteId,
@@ -2416,6 +2518,9 @@ class LocalJob extends DataClass implements Insertable<LocalJob> {
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
     pending: pending ?? this.pending,
+    assetId: assetId.present ? assetId.value : this.assetId,
+    maintenanceType: maintenanceType ?? this.maintenanceType,
+    isolationRequired: isolationRequired ?? this.isolationRequired,
   );
   LocalJob copyWithCompanion(LocalJobsCompanion data) {
     return LocalJob(
@@ -2447,6 +2552,13 @@ class LocalJob extends DataClass implements Insertable<LocalJob> {
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       pending: data.pending.present ? data.pending.value : this.pending,
+      assetId: data.assetId.present ? data.assetId.value : this.assetId,
+      maintenanceType: data.maintenanceType.present
+          ? data.maintenanceType.value
+          : this.maintenanceType,
+      isolationRequired: data.isolationRequired.present
+          ? data.isolationRequired.value
+          : this.isolationRequired,
     );
   }
 
@@ -2472,13 +2584,16 @@ class LocalJob extends DataClass implements Insertable<LocalJob> {
           ..write('recurrenceId: $recurrenceId, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
-          ..write('pending: $pending')
+          ..write('pending: $pending, ')
+          ..write('assetId: $assetId, ')
+          ..write('maintenanceType: $maintenanceType, ')
+          ..write('isolationRequired: $isolationRequired')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     siteId,
     areaId,
@@ -2499,7 +2614,10 @@ class LocalJob extends DataClass implements Insertable<LocalJob> {
     createdAt,
     updatedAt,
     pending,
-  );
+    assetId,
+    maintenanceType,
+    isolationRequired,
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2523,7 +2641,10 @@ class LocalJob extends DataClass implements Insertable<LocalJob> {
           other.recurrenceId == this.recurrenceId &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
-          other.pending == this.pending);
+          other.pending == this.pending &&
+          other.assetId == this.assetId &&
+          other.maintenanceType == this.maintenanceType &&
+          other.isolationRequired == this.isolationRequired);
 }
 
 class LocalJobsCompanion extends UpdateCompanion<LocalJob> {
@@ -2547,6 +2668,9 @@ class LocalJobsCompanion extends UpdateCompanion<LocalJob> {
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<bool> pending;
+  final Value<String?> assetId;
+  final Value<String> maintenanceType;
+  final Value<bool> isolationRequired;
   final Value<int> rowid;
   const LocalJobsCompanion({
     this.id = const Value.absent(),
@@ -2569,6 +2693,9 @@ class LocalJobsCompanion extends UpdateCompanion<LocalJob> {
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.pending = const Value.absent(),
+    this.assetId = const Value.absent(),
+    this.maintenanceType = const Value.absent(),
+    this.isolationRequired = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   LocalJobsCompanion.insert({
@@ -2592,6 +2719,9 @@ class LocalJobsCompanion extends UpdateCompanion<LocalJob> {
     required DateTime createdAt,
     required DateTime updatedAt,
     this.pending = const Value.absent(),
+    this.assetId = const Value.absent(),
+    this.maintenanceType = const Value.absent(),
+    this.isolationRequired = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        siteId = Value(siteId),
@@ -2621,6 +2751,9 @@ class LocalJobsCompanion extends UpdateCompanion<LocalJob> {
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<bool>? pending,
+    Expression<String>? assetId,
+    Expression<String>? maintenanceType,
+    Expression<bool>? isolationRequired,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -2644,6 +2777,9 @@ class LocalJobsCompanion extends UpdateCompanion<LocalJob> {
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (pending != null) 'pending': pending,
+      if (assetId != null) 'asset_id': assetId,
+      if (maintenanceType != null) 'maintenance_type': maintenanceType,
+      if (isolationRequired != null) 'isolation_required': isolationRequired,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -2669,6 +2805,9 @@ class LocalJobsCompanion extends UpdateCompanion<LocalJob> {
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
     Value<bool>? pending,
+    Value<String?>? assetId,
+    Value<String>? maintenanceType,
+    Value<bool>? isolationRequired,
     Value<int>? rowid,
   }) {
     return LocalJobsCompanion(
@@ -2692,6 +2831,9 @@ class LocalJobsCompanion extends UpdateCompanion<LocalJob> {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       pending: pending ?? this.pending,
+      assetId: assetId ?? this.assetId,
+      maintenanceType: maintenanceType ?? this.maintenanceType,
+      isolationRequired: isolationRequired ?? this.isolationRequired,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2759,6 +2901,15 @@ class LocalJobsCompanion extends UpdateCompanion<LocalJob> {
     if (pending.present) {
       map['pending'] = Variable<bool>(pending.value);
     }
+    if (assetId.present) {
+      map['asset_id'] = Variable<String>(assetId.value);
+    }
+    if (maintenanceType.present) {
+      map['maintenance_type'] = Variable<String>(maintenanceType.value);
+    }
+    if (isolationRequired.present) {
+      map['isolation_required'] = Variable<bool>(isolationRequired.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2788,6 +2939,9 @@ class LocalJobsCompanion extends UpdateCompanion<LocalJob> {
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('pending: $pending, ')
+          ..write('assetId: $assetId, ')
+          ..write('maintenanceType: $maintenanceType, ')
+          ..write('isolationRequired: $isolationRequired, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3507,6 +3661,557 @@ class PendingUploadsCompanion extends UpdateCompanion<PendingUpload> {
   }
 }
 
+class $LocalAssetsTable extends LocalAssets
+    with TableInfo<$LocalAssetsTable, LocalAsset> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LocalAssetsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _siteIdMeta = const VerificationMeta('siteId');
+  @override
+  late final GeneratedColumn<String> siteId = GeneratedColumn<String>(
+    'site_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _areaIdMeta = const VerificationMeta('areaId');
+  @override
+  late final GeneratedColumn<String> areaId = GeneratedColumn<String>(
+    'area_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _tagMeta = const VerificationMeta('tag');
+  @override
+  late final GeneratedColumn<String> tag = GeneratedColumn<String>(
+    'tag',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _kindMeta = const VerificationMeta('kind');
+  @override
+  late final GeneratedColumn<String> kind = GeneratedColumn<String>(
+    'kind',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _makeModelMeta = const VerificationMeta(
+    'makeModel',
+  );
+  @override
+  late final GeneratedColumn<String> makeModel = GeneratedColumn<String>(
+    'make_model',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _serialNoMeta = const VerificationMeta(
+    'serialNo',
+  );
+  @override
+  late final GeneratedColumn<String> serialNo = GeneratedColumn<String>(
+    'serial_no',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+    'notes',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    siteId,
+    areaId,
+    tag,
+    name,
+    kind,
+    makeModel,
+    serialNo,
+    notes,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'local_assets';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<LocalAsset> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('site_id')) {
+      context.handle(
+        _siteIdMeta,
+        siteId.isAcceptableOrUnknown(data['site_id']!, _siteIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_siteIdMeta);
+    }
+    if (data.containsKey('area_id')) {
+      context.handle(
+        _areaIdMeta,
+        areaId.isAcceptableOrUnknown(data['area_id']!, _areaIdMeta),
+      );
+    }
+    if (data.containsKey('tag')) {
+      context.handle(
+        _tagMeta,
+        tag.isAcceptableOrUnknown(data['tag']!, _tagMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_tagMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('kind')) {
+      context.handle(
+        _kindMeta,
+        kind.isAcceptableOrUnknown(data['kind']!, _kindMeta),
+      );
+    }
+    if (data.containsKey('make_model')) {
+      context.handle(
+        _makeModelMeta,
+        makeModel.isAcceptableOrUnknown(data['make_model']!, _makeModelMeta),
+      );
+    }
+    if (data.containsKey('serial_no')) {
+      context.handle(
+        _serialNoMeta,
+        serialNo.isAcceptableOrUnknown(data['serial_no']!, _serialNoMeta),
+      );
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+        _notesMeta,
+        notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  LocalAsset map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return LocalAsset(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      siteId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}site_id'],
+      )!,
+      areaId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}area_id'],
+      ),
+      tag: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tag'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      kind: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}kind'],
+      ),
+      makeModel: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}make_model'],
+      ),
+      serialNo: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}serial_no'],
+      ),
+      notes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}notes'],
+      ),
+    );
+  }
+
+  @override
+  $LocalAssetsTable createAlias(String alias) {
+    return $LocalAssetsTable(attachedDatabase, alias);
+  }
+}
+
+class LocalAsset extends DataClass implements Insertable<LocalAsset> {
+  final String id;
+  final String siteId;
+  final String? areaId;
+  final String tag;
+  final String name;
+  final String? kind;
+  final String? makeModel;
+  final String? serialNo;
+  final String? notes;
+  const LocalAsset({
+    required this.id,
+    required this.siteId,
+    this.areaId,
+    required this.tag,
+    required this.name,
+    this.kind,
+    this.makeModel,
+    this.serialNo,
+    this.notes,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['site_id'] = Variable<String>(siteId);
+    if (!nullToAbsent || areaId != null) {
+      map['area_id'] = Variable<String>(areaId);
+    }
+    map['tag'] = Variable<String>(tag);
+    map['name'] = Variable<String>(name);
+    if (!nullToAbsent || kind != null) {
+      map['kind'] = Variable<String>(kind);
+    }
+    if (!nullToAbsent || makeModel != null) {
+      map['make_model'] = Variable<String>(makeModel);
+    }
+    if (!nullToAbsent || serialNo != null) {
+      map['serial_no'] = Variable<String>(serialNo);
+    }
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
+    }
+    return map;
+  }
+
+  LocalAssetsCompanion toCompanion(bool nullToAbsent) {
+    return LocalAssetsCompanion(
+      id: Value(id),
+      siteId: Value(siteId),
+      areaId: areaId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(areaId),
+      tag: Value(tag),
+      name: Value(name),
+      kind: kind == null && nullToAbsent ? const Value.absent() : Value(kind),
+      makeModel: makeModel == null && nullToAbsent
+          ? const Value.absent()
+          : Value(makeModel),
+      serialNo: serialNo == null && nullToAbsent
+          ? const Value.absent()
+          : Value(serialNo),
+      notes: notes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(notes),
+    );
+  }
+
+  factory LocalAsset.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return LocalAsset(
+      id: serializer.fromJson<String>(json['id']),
+      siteId: serializer.fromJson<String>(json['siteId']),
+      areaId: serializer.fromJson<String?>(json['areaId']),
+      tag: serializer.fromJson<String>(json['tag']),
+      name: serializer.fromJson<String>(json['name']),
+      kind: serializer.fromJson<String?>(json['kind']),
+      makeModel: serializer.fromJson<String?>(json['makeModel']),
+      serialNo: serializer.fromJson<String?>(json['serialNo']),
+      notes: serializer.fromJson<String?>(json['notes']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'siteId': serializer.toJson<String>(siteId),
+      'areaId': serializer.toJson<String?>(areaId),
+      'tag': serializer.toJson<String>(tag),
+      'name': serializer.toJson<String>(name),
+      'kind': serializer.toJson<String?>(kind),
+      'makeModel': serializer.toJson<String?>(makeModel),
+      'serialNo': serializer.toJson<String?>(serialNo),
+      'notes': serializer.toJson<String?>(notes),
+    };
+  }
+
+  LocalAsset copyWith({
+    String? id,
+    String? siteId,
+    Value<String?> areaId = const Value.absent(),
+    String? tag,
+    String? name,
+    Value<String?> kind = const Value.absent(),
+    Value<String?> makeModel = const Value.absent(),
+    Value<String?> serialNo = const Value.absent(),
+    Value<String?> notes = const Value.absent(),
+  }) => LocalAsset(
+    id: id ?? this.id,
+    siteId: siteId ?? this.siteId,
+    areaId: areaId.present ? areaId.value : this.areaId,
+    tag: tag ?? this.tag,
+    name: name ?? this.name,
+    kind: kind.present ? kind.value : this.kind,
+    makeModel: makeModel.present ? makeModel.value : this.makeModel,
+    serialNo: serialNo.present ? serialNo.value : this.serialNo,
+    notes: notes.present ? notes.value : this.notes,
+  );
+  LocalAsset copyWithCompanion(LocalAssetsCompanion data) {
+    return LocalAsset(
+      id: data.id.present ? data.id.value : this.id,
+      siteId: data.siteId.present ? data.siteId.value : this.siteId,
+      areaId: data.areaId.present ? data.areaId.value : this.areaId,
+      tag: data.tag.present ? data.tag.value : this.tag,
+      name: data.name.present ? data.name.value : this.name,
+      kind: data.kind.present ? data.kind.value : this.kind,
+      makeModel: data.makeModel.present ? data.makeModel.value : this.makeModel,
+      serialNo: data.serialNo.present ? data.serialNo.value : this.serialNo,
+      notes: data.notes.present ? data.notes.value : this.notes,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalAsset(')
+          ..write('id: $id, ')
+          ..write('siteId: $siteId, ')
+          ..write('areaId: $areaId, ')
+          ..write('tag: $tag, ')
+          ..write('name: $name, ')
+          ..write('kind: $kind, ')
+          ..write('makeModel: $makeModel, ')
+          ..write('serialNo: $serialNo, ')
+          ..write('notes: $notes')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    siteId,
+    areaId,
+    tag,
+    name,
+    kind,
+    makeModel,
+    serialNo,
+    notes,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is LocalAsset &&
+          other.id == this.id &&
+          other.siteId == this.siteId &&
+          other.areaId == this.areaId &&
+          other.tag == this.tag &&
+          other.name == this.name &&
+          other.kind == this.kind &&
+          other.makeModel == this.makeModel &&
+          other.serialNo == this.serialNo &&
+          other.notes == this.notes);
+}
+
+class LocalAssetsCompanion extends UpdateCompanion<LocalAsset> {
+  final Value<String> id;
+  final Value<String> siteId;
+  final Value<String?> areaId;
+  final Value<String> tag;
+  final Value<String> name;
+  final Value<String?> kind;
+  final Value<String?> makeModel;
+  final Value<String?> serialNo;
+  final Value<String?> notes;
+  final Value<int> rowid;
+  const LocalAssetsCompanion({
+    this.id = const Value.absent(),
+    this.siteId = const Value.absent(),
+    this.areaId = const Value.absent(),
+    this.tag = const Value.absent(),
+    this.name = const Value.absent(),
+    this.kind = const Value.absent(),
+    this.makeModel = const Value.absent(),
+    this.serialNo = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  LocalAssetsCompanion.insert({
+    required String id,
+    required String siteId,
+    this.areaId = const Value.absent(),
+    required String tag,
+    required String name,
+    this.kind = const Value.absent(),
+    this.makeModel = const Value.absent(),
+    this.serialNo = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       siteId = Value(siteId),
+       tag = Value(tag),
+       name = Value(name);
+  static Insertable<LocalAsset> custom({
+    Expression<String>? id,
+    Expression<String>? siteId,
+    Expression<String>? areaId,
+    Expression<String>? tag,
+    Expression<String>? name,
+    Expression<String>? kind,
+    Expression<String>? makeModel,
+    Expression<String>? serialNo,
+    Expression<String>? notes,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (siteId != null) 'site_id': siteId,
+      if (areaId != null) 'area_id': areaId,
+      if (tag != null) 'tag': tag,
+      if (name != null) 'name': name,
+      if (kind != null) 'kind': kind,
+      if (makeModel != null) 'make_model': makeModel,
+      if (serialNo != null) 'serial_no': serialNo,
+      if (notes != null) 'notes': notes,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  LocalAssetsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? siteId,
+    Value<String?>? areaId,
+    Value<String>? tag,
+    Value<String>? name,
+    Value<String?>? kind,
+    Value<String?>? makeModel,
+    Value<String?>? serialNo,
+    Value<String?>? notes,
+    Value<int>? rowid,
+  }) {
+    return LocalAssetsCompanion(
+      id: id ?? this.id,
+      siteId: siteId ?? this.siteId,
+      areaId: areaId ?? this.areaId,
+      tag: tag ?? this.tag,
+      name: name ?? this.name,
+      kind: kind ?? this.kind,
+      makeModel: makeModel ?? this.makeModel,
+      serialNo: serialNo ?? this.serialNo,
+      notes: notes ?? this.notes,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (siteId.present) {
+      map['site_id'] = Variable<String>(siteId.value);
+    }
+    if (areaId.present) {
+      map['area_id'] = Variable<String>(areaId.value);
+    }
+    if (tag.present) {
+      map['tag'] = Variable<String>(tag.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (kind.present) {
+      map['kind'] = Variable<String>(kind.value);
+    }
+    if (makeModel.present) {
+      map['make_model'] = Variable<String>(makeModel.value);
+    }
+    if (serialNo.present) {
+      map['serial_no'] = Variable<String>(serialNo.value);
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalAssetsCompanion(')
+          ..write('id: $id, ')
+          ..write('siteId: $siteId, ')
+          ..write('areaId: $areaId, ')
+          ..write('tag: $tag, ')
+          ..write('name: $name, ')
+          ..write('kind: $kind, ')
+          ..write('makeModel: $makeModel, ')
+          ..write('serialNo: $serialNo, ')
+          ..write('notes: $notes, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$LocalDb extends GeneratedDatabase {
   _$LocalDb(QueryExecutor e) : super(e);
   $LocalDbManager get managers => $LocalDbManager(this);
@@ -3520,6 +4225,7 @@ abstract class _$LocalDb extends GeneratedDatabase {
   late final $LocalJobsTable localJobs = $LocalJobsTable(this);
   late final $LocalPeopleTable localPeople = $LocalPeopleTable(this);
   late final $PendingUploadsTable pendingUploads = $PendingUploadsTable(this);
+  late final $LocalAssetsTable localAssets = $LocalAssetsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3533,6 +4239,7 @@ abstract class _$LocalDb extends GeneratedDatabase {
     localJobs,
     localPeople,
     pendingUploads,
+    localAssets,
   ];
 }
 
@@ -4535,6 +5242,9 @@ typedef $$LocalJobsTableCreateCompanionBuilder = LocalJobsCompanion Function({
   required DateTime createdAt,
   required DateTime updatedAt,
   Value<bool> pending,
+  Value<String?> assetId,
+  Value<String> maintenanceType,
+  Value<bool> isolationRequired,
   Value<int> rowid,
 });
 typedef $$LocalJobsTableUpdateCompanionBuilder = LocalJobsCompanion Function({
@@ -4558,6 +5268,9 @@ typedef $$LocalJobsTableUpdateCompanionBuilder = LocalJobsCompanion Function({
   Value<DateTime> createdAt,
   Value<DateTime> updatedAt,
   Value<bool> pending,
+  Value<String?> assetId,
+  Value<String> maintenanceType,
+  Value<bool> isolationRequired,
   Value<int> rowid,
 });
 
@@ -4667,6 +5380,21 @@ class $$LocalJobsTableFilterComposer
 
   ColumnFilters<bool> get pending => $composableBuilder(
     column: $table.pending,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get assetId => $composableBuilder(
+    column: $table.assetId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get maintenanceType => $composableBuilder(
+    column: $table.maintenanceType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isolationRequired => $composableBuilder(
+    column: $table.isolationRequired,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -4779,6 +5507,21 @@ class $$LocalJobsTableOrderingComposer
     column: $table.pending,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get assetId => $composableBuilder(
+    column: $table.assetId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get maintenanceType => $composableBuilder(
+    column: $table.maintenanceType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isolationRequired => $composableBuilder(
+    column: $table.isolationRequired,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$LocalJobsTableAnnotationComposer
@@ -4857,6 +5600,19 @@ class $$LocalJobsTableAnnotationComposer
 
   GeneratedColumn<bool> get pending =>
       $composableBuilder(column: $table.pending, builder: (column) => column);
+
+  GeneratedColumn<String> get assetId =>
+      $composableBuilder(column: $table.assetId, builder: (column) => column);
+
+  GeneratedColumn<String> get maintenanceType => $composableBuilder(
+    column: $table.maintenanceType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isolationRequired => $composableBuilder(
+    column: $table.isolationRequired,
+    builder: (column) => column,
+  );
 }
 
 class $$LocalJobsTableTableManager
@@ -4907,6 +5663,9 @@ class $$LocalJobsTableTableManager
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<bool> pending = const Value.absent(),
+                Value<String?> assetId = const Value.absent(),
+                Value<String> maintenanceType = const Value.absent(),
+                Value<bool> isolationRequired = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => LocalJobsCompanion(
                 id: id,
@@ -4929,6 +5688,9 @@ class $$LocalJobsTableTableManager
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 pending: pending,
+                assetId: assetId,
+                maintenanceType: maintenanceType,
+                isolationRequired: isolationRequired,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -4953,6 +5715,9 @@ class $$LocalJobsTableTableManager
                 required DateTime createdAt,
                 required DateTime updatedAt,
                 Value<bool> pending = const Value.absent(),
+                Value<String?> assetId = const Value.absent(),
+                Value<String> maintenanceType = const Value.absent(),
+                Value<bool> isolationRequired = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => LocalJobsCompanion.insert(
                 id: id,
@@ -4975,6 +5740,9 @@ class $$LocalJobsTableTableManager
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 pending: pending,
+                assetId: assetId,
+                maintenanceType: maintenanceType,
+                isolationRequired: isolationRequired,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -5423,6 +6191,288 @@ typedef $$PendingUploadsTableProcessedTableManager =
       PendingUpload,
       PrefetchHooks Function()
     >;
+typedef $$LocalAssetsTableCreateCompanionBuilder =
+    LocalAssetsCompanion Function({
+      required String id,
+      required String siteId,
+      Value<String?> areaId,
+      required String tag,
+      required String name,
+      Value<String?> kind,
+      Value<String?> makeModel,
+      Value<String?> serialNo,
+      Value<String?> notes,
+      Value<int> rowid,
+    });
+typedef $$LocalAssetsTableUpdateCompanionBuilder =
+    LocalAssetsCompanion Function({
+      Value<String> id,
+      Value<String> siteId,
+      Value<String?> areaId,
+      Value<String> tag,
+      Value<String> name,
+      Value<String?> kind,
+      Value<String?> makeModel,
+      Value<String?> serialNo,
+      Value<String?> notes,
+      Value<int> rowid,
+    });
+
+class $$LocalAssetsTableFilterComposer
+    extends Composer<_$LocalDb, $LocalAssetsTable> {
+  $$LocalAssetsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get siteId => $composableBuilder(
+    column: $table.siteId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get areaId => $composableBuilder(
+    column: $table.areaId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get tag => $composableBuilder(
+    column: $table.tag,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get makeModel => $composableBuilder(
+    column: $table.makeModel,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get serialNo => $composableBuilder(
+    column: $table.serialNo,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$LocalAssetsTableOrderingComposer
+    extends Composer<_$LocalDb, $LocalAssetsTable> {
+  $$LocalAssetsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get siteId => $composableBuilder(
+    column: $table.siteId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get areaId => $composableBuilder(
+    column: $table.areaId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get tag => $composableBuilder(
+    column: $table.tag,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get makeModel => $composableBuilder(
+    column: $table.makeModel,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get serialNo => $composableBuilder(
+    column: $table.serialNo,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$LocalAssetsTableAnnotationComposer
+    extends Composer<_$LocalDb, $LocalAssetsTable> {
+  $$LocalAssetsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get siteId =>
+      $composableBuilder(column: $table.siteId, builder: (column) => column);
+
+  GeneratedColumn<String> get areaId =>
+      $composableBuilder(column: $table.areaId, builder: (column) => column);
+
+  GeneratedColumn<String> get tag =>
+      $composableBuilder(column: $table.tag, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get kind =>
+      $composableBuilder(column: $table.kind, builder: (column) => column);
+
+  GeneratedColumn<String> get makeModel =>
+      $composableBuilder(column: $table.makeModel, builder: (column) => column);
+
+  GeneratedColumn<String> get serialNo =>
+      $composableBuilder(column: $table.serialNo, builder: (column) => column);
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+}
+
+class $$LocalAssetsTableTableManager
+    extends
+        RootTableManager<
+          _$LocalDb,
+          $LocalAssetsTable,
+          LocalAsset,
+          $$LocalAssetsTableFilterComposer,
+          $$LocalAssetsTableOrderingComposer,
+          $$LocalAssetsTableAnnotationComposer,
+          $$LocalAssetsTableCreateCompanionBuilder,
+          $$LocalAssetsTableUpdateCompanionBuilder,
+          (
+            LocalAsset,
+            BaseReferences<_$LocalDb, $LocalAssetsTable, LocalAsset>,
+          ),
+          LocalAsset,
+          PrefetchHooks Function()
+        > {
+  $$LocalAssetsTableTableManager(_$LocalDb db, $LocalAssetsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LocalAssetsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$LocalAssetsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$LocalAssetsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> siteId = const Value.absent(),
+                Value<String?> areaId = const Value.absent(),
+                Value<String> tag = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String?> kind = const Value.absent(),
+                Value<String?> makeModel = const Value.absent(),
+                Value<String?> serialNo = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocalAssetsCompanion(
+                id: id,
+                siteId: siteId,
+                areaId: areaId,
+                tag: tag,
+                name: name,
+                kind: kind,
+                makeModel: makeModel,
+                serialNo: serialNo,
+                notes: notes,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String siteId,
+                Value<String?> areaId = const Value.absent(),
+                required String tag,
+                required String name,
+                Value<String?> kind = const Value.absent(),
+                Value<String?> makeModel = const Value.absent(),
+                Value<String?> serialNo = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocalAssetsCompanion.insert(
+                id: id,
+                siteId: siteId,
+                areaId: areaId,
+                tag: tag,
+                name: name,
+                kind: kind,
+                makeModel: makeModel,
+                serialNo: serialNo,
+                notes: notes,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$LocalAssetsTable, LocalAsset>(table),
+                  BaseReferences<_$LocalDb, $LocalAssetsTable, LocalAsset>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$LocalAssetsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$LocalDb,
+      $LocalAssetsTable,
+      LocalAsset,
+      $$LocalAssetsTableFilterComposer,
+      $$LocalAssetsTableOrderingComposer,
+      $$LocalAssetsTableAnnotationComposer,
+      $$LocalAssetsTableCreateCompanionBuilder,
+      $$LocalAssetsTableUpdateCompanionBuilder,
+      (LocalAsset, BaseReferences<_$LocalDb, $LocalAssetsTable, LocalAsset>),
+      LocalAsset,
+      PrefetchHooks Function()
+    >;
 
 class $LocalDbManager {
   final _$LocalDb _db;
@@ -5443,4 +6493,6 @@ class $LocalDbManager {
       $$LocalPeopleTableTableManager(_db, _db.localPeople);
   $$PendingUploadsTableTableManager get pendingUploads =>
       $$PendingUploadsTableTableManager(_db, _db.pendingUploads);
+  $$LocalAssetsTableTableManager get localAssets =>
+      $$LocalAssetsTableTableManager(_db, _db.localAssets);
 }

@@ -92,14 +92,20 @@ class _Label extends StatelessWidget {
 }
 
 /// New job (no [job]) or edit an existing one.
-Future<void> showJobEditor(BuildContext context, {LocalJob? job}) {
-  return showFormSheet(context, _JobEditor(job: job));
+/// New job, or edit [job]. [assetId] starts a new job on that asset.
+Future<void> showJobEditor(
+  BuildContext context, {
+  LocalJob? job,
+  String? assetId,
+}) {
+  return showFormSheet(context, _JobEditor(job: job, assetId: assetId));
 }
 
 class _JobEditor extends ConsumerStatefulWidget {
-  const _JobEditor({this.job});
+  const _JobEditor({this.job, this.assetId});
 
   final LocalJob? job;
+  final String? assetId;
 
   @override
   ConsumerState<_JobEditor> createState() => _JobEditorState();
@@ -120,6 +126,9 @@ class _JobEditorState extends ConsumerState<_JobEditor> {
   bool _locating = false;
   List<Uint8List> _photos = [];
   String? _assigneeId;
+  late String? _assetId = widget.job?.assetId ?? widget.assetId;
+  late bool _preventive = widget.job?.maintenanceType == 'preventive';
+  late bool _isolation = widget.job?.isolationRequired ?? false;
 
   @override
   void dispose() {
@@ -183,6 +192,9 @@ class _JobEditorState extends ConsumerState<_JobEditor> {
         lng: _location?.$2,
         photos: _photos,
         assigneeId: _assigneeId,
+        assetId: _assetId,
+        preventive: _preventive,
+        isolationRequired: _isolation,
       );
     } else {
       await actions.edit(
@@ -192,6 +204,9 @@ class _JobEditorState extends ConsumerState<_JobEditor> {
         areaId: _areaId,
         priority: _priority,
         dueAt: _due,
+        assetId: _assetId,
+        preventive: _preventive,
+        isolationRequired: _isolation,
       );
     }
     if (mounted) Navigator.pop(context);
@@ -204,6 +219,7 @@ class _JobEditorState extends ConsumerState<_JobEditor> {
     final areas = site == null ? <LocalArea>[] : session.areasAt(site.id);
     final scheme = Theme.of(context).colorScheme;
     final editing = widget.job != null;
+    final assets = ref.watch(siteAssetsProvider).value ?? const [];
 
     return Form(
       key: _form,
@@ -275,6 +291,53 @@ class _JobEditorState extends ConsumerState<_JobEditor> {
               ),
             ),
           ],
+          if (assets.isNotEmpty) ...[
+            const _Label('Asset'),
+            DropdownButtonFormField<String?>(
+              initialValue: assets.any((a) => a.id == _assetId)
+                  ? _assetId
+                  : null,
+              isExpanded: true,
+              items: [
+                const DropdownMenuItem(value: null, child: Text('No asset')),
+                for (final a in assets)
+                  DropdownMenuItem(
+                    value: a.id,
+                    child: Text(
+                      '${a.tag} · ${a.name}',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+              ],
+              onChanged: (v) => setState(() => _assetId = v),
+              decoration: const InputDecoration(
+                prefixIcon: Icon(CupertinoIcons.gear_alt),
+              ),
+            ),
+          ],
+          const SizedBox(height: Space.sm),
+          SurfaceCard(
+            padding: const EdgeInsets.symmetric(
+              horizontal: Space.sm,
+              vertical: 4,
+            ),
+            child: Column(
+              children: [
+                _SwitchRow(
+                  icon: CupertinoIcons.lock_fill,
+                  label: 'Isolation (lock-out) required',
+                  value: _isolation,
+                  onChanged: (v) => setState(() => _isolation = v),
+                ),
+                _SwitchRow(
+                  icon: CupertinoIcons.calendar_badge_plus,
+                  label: 'Planned maintenance',
+                  value: _preventive,
+                  onChanged: (v) => setState(() => _preventive = v),
+                ),
+              ],
+            ),
+          ),
           if (!editing &&
               site != null &&
               session.can('jobs.assign', siteId: site.id)) ...[
@@ -378,6 +441,37 @@ class _JobEditorState extends ConsumerState<_JobEditor> {
           ],
         ],
       ),
+    );
+  }
+}
+
+class _SwitchRow extends StatelessWidget {
+  const _SwitchRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        Icon(icon, color: scheme.primary, size: 20),
+        const SizedBox(width: Space.sm),
+        Expanded(child: Text(label)),
+        CupertinoSwitch(
+          value: value,
+          activeTrackColor: scheme.primary,
+          onChanged: onChanged,
+        ),
+      ],
     );
   }
 }

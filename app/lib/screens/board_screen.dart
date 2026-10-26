@@ -349,6 +349,13 @@ class _ControlsState extends ConsumerState<_Controls> {
               side: BorderSide(color: g.border),
             ),
           ),
+        ActionChip(
+          avatar: const Icon(CupertinoIcons.gear_alt, size: 16),
+          label: const Text('Assets'),
+          onPressed: () => context.push('/assets'),
+          backgroundColor: g.fill,
+          side: BorderSide(color: g.border),
+        ),
         if (isSuper)
           ActionChip(
             avatar: const Icon(CupertinoIcons.repeat, size: 16),

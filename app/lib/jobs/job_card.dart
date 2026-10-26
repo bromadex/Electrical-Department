@@ -68,6 +68,23 @@ class JobCard extends StatelessWidget {
                           ? CupertinoIcons.exclamationmark
                           : null,
                     ),
+                  if (job.isolationRequired)
+                    Padding(
+                      padding: const EdgeInsets.only(right: Space.xs),
+                      child: Tooltip(
+                        message: 'Isolation required',
+                        child: Icon(
+                          CupertinoIcons.lock_fill,
+                          size: 14,
+                          color: JobPriority.urgent.color,
+                        ),
+                      ),
+                    ),
+                  if (job.maintenanceType == 'preventive')
+                    const Tooltip(
+                      message: 'Planned maintenance',
+                      child: Icon(CupertinoIcons.calendar_badge_plus, size: 14),
+                    ),
                   const Spacer(),
                   if (showStatus)
                     Pill(
