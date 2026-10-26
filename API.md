@@ -1,11 +1,12 @@
 # Bravura Electrical - API.md
 
-App <-> Supabase contract · v0.2 job card & maintenance management
+App <-> Supabase contract · v0.4 work execution, verification and audit
 
 The contract between the Flutter app (Android + web) and Supabase. **Every**
 table, view, function, bucket and realtime channel the app uses is listed here.
 Change it in the same pull request as the migration or screen that needs it.
-Version: v0.2 (CMMS phase 1: job cards, requests, assets, dashboard, admin).
+Version: v0.4 (CMMS phase 2: work sessions and time tracking, safety checks,
+engineering verification, escalation rules, audit log).
 
 ## 1. Conventions
 
@@ -191,9 +192,10 @@ meetings (section 16); until then nobody can read or write them.
 
 ## 6. Feature sections
 
-- 7. Job card & maintenance management — phase 1 (below)
-- Later phases add: work sessions and time tracking, verification and escalation rules,
-  audit log screen (phase 2); SOP library, asset register details, preventive maintenance,
+- 7. Job card & maintenance management — phase 1
+- 8. Push notifications
+- 9. Work execution, time tracking, verification, escalation and audit — phase 2
+- Later phases add: SOP library, asset register details, preventive maintenance,
   calendar (phase 3); materials, email notifications, reports and analytics (phase 4);
   QR codes, offline work, monitoring-ready measurements (phase 5).
 
@@ -340,9 +342,8 @@ p_warranty_expires_on, p_warranty_notes, p_notes, p_archived)` (`assets.manage`)
 `fn_set_user_roles(p_user, p_roles jsonb [{role_id, site_id}])`. At least one active
 administrator must always remain; nobody can deactivate themselves.
 
-Scheduled (pg_cron): `jobcards-overdue` at :10 every hour notifies the responsible
-person and assigner once per deadline (`fn_notify_overdue_job_cards`);
-`legacy-recurrences` daily at 04:00.
+Scheduled (pg_cron): `legacy-recurrences` daily at 04:00. The hourly `jobcards-overdue`
+notice was replaced in 0008 by escalation rules (section 9.5).
 
 Error codes: `NOT_ALLOWED`, `INVALID`, `NOT_FOUND`, `CONFLICT`.
 
@@ -381,8 +382,7 @@ secret is set.
   the responsible person and registrar.
 - The requester: request returned or not accepted, registered, more information needed,
   work started, requester-visible updates, complete, cancelled.
-- Overdue (hourly) → the responsible person and assigner, or `jc.assign` holders when
-  unassigned.
+- Overdue and other escalations → as the escalation rules say (section 9.5).
 
 ## 8. Push notifications (0007)
 
@@ -425,8 +425,118 @@ registered phones and browsers, so alerts arrive when the app is closed.
   `APP_URL` into the function's secrets, then calls `fn_set_push_endpoint`. It needs the
   `SUPABASE_ACCESS_TOKEN` repo secret.
 
+## 9. Work execution, time tracking, verification, escalation and audit (0008)
+
+Every table below is read-only for the app: select with `jc.view` at the job's site
+(`safety_checklist_items` and `escalation_rules`: any active user). Every write goes
+through a function, and every table is audited by `fn_log_activity`.
+
+### 9.1 Work sessions, waits and time
+
+| table | what |
+| --- | --- |
+| `job_work_sessions` | one per person per stretch of work: started_at, ended_at, end_reason (pause \| hold \| submitted \| cancelled \| stopped \| reassigned \| corrected), pause_reason (break \| end_of_shift \| other_job \| other), pause_note, corrected. At most one open session per person per job |
+| `job_waits` | one per hold: hold_status, note, counts_toward_sla (false = the wait moves the deadline), sla_reason / sla_changed_by / sla_changed_at, started/ended at and by. At most one open wait per job |
+| `job_time_corrections` | every change to recorded time: session, user, old and new start/end, reason (5+ characters), corrected_by, corrected_at |
+
+Sessions and waits follow the status, so none can be missed: trigger
+`job_cards_time_tracking` opens a wait when a job goes on any hold status and closes it on
+resume, and ends everyone's sessions whenever the job leaves in_progress (hold,
+submission, cancellation).
+Trigger `job_assignments_sessions` ends a person's session when they come off the job.
+Times are always the server's.
+
+**Measured time** (`fn_job_work` → `time`, all in seconds): `active_seconds` (sessions
+merged, so two people working together count once), `labour_seconds` (sessions added
+up: person-time), `wait_seconds`, `sla_excluded_seconds`, `pause_count`,
+`session_count`, `elapsed_seconds` (received → now or closed), `response_seconds`,
+`assignment_seconds`, `start_seconds`.
+
+**Deadline.** Waits with `counts_toward_sla = false` move the completion deadline by
+their length. `v_job_cards` now adds `effective_deadline`, `sla_excluded_minutes`,
+`open_sessions` (how many people are working now) and `review_question_open`; its
+overdue, at-risk and remaining-time fields use the effective deadline.
+
+### 9.2 Work log and safety checks
+
+| table | what |
+| --- | --- |
+| `job_work_records` | append-only: kind (work_performed \| symptoms \| diagnosis \| root_cause \| corrective_action \| components \| spares_used \| readings \| test_results \| safety_observation \| recommendation \| follow_up \| delay_reason), body (≤ 4000), readings `[{name, value, unit}]` (≤ 50), author |
+| `safety_checklist_items` | phase (before \| after), label, category (null = all), applies_when (always \| isolation \| permit \| loto: only when the assessment asks for it), needs_reference, sort_order. 14 seeded |
+| `job_safety_records` | each confirmation as recorded: item, label and phase at the time, confirmed, reference (e.g. permit number), note, recorded_by, recorded_at. The latest per item counts |
+
+`system_settings.safety_before_start` (off \| when_required \| always; default off) sets
+whether Start needs the required "before" checks and Submit needs the "after" checks.
+`when_required` applies to job cards whose assessment asks for isolation, a permit or
+lockout. The checklist is a record of what people confirmed, never a control.
+
+### 9.3 Submissions and engineering reviews
+
+Every round is kept.
+
+| table | what |
+| --- | --- |
+| `job_submissions` | completion_summary, findings, corrective_action, equipment_state_after (operational \| degraded \| out_of_service), functional_tests, electrical_tests, materials_used, labour_hours (reported), recorded_labour_minutes (measured then), outstanding_defects, recommendations, checks_confirmed, safety_confirmed |
+| `job_reviews` | submission, reviewer, decision (approve \| reject \| request_info), notes, follow_up_job_id, self_approved, answer / answered_by / answered_at |
+| `job_closures` (new columns) | submission_id and the metrics frozen at approval: received_at, elapsed, active, labour, wait and sla_excluded minutes, pause_count, response, assignment and start minutes, response_target_met, completion_target_met, labour_hours_reported |
+
+### 9.4 Functions
+
+| function | who | what |
+| --- | --- | --- |
+| `fn_start_work(p_job)` | the assigned team (`jc.execute`) | start, resume or join as support: accepts for the responsible person, moves the job to in_progress, opens the caller's session. With the safety policy on, needs the "before" checks |
+| `fn_pause_work(p_job, p_reason, p_note, p_counts_toward_sla)` | the team, or `jc.assign` | break \| end_of_shift \| other_job \| other stops only the caller's timer; a hold status (on_hold, awaiting_materials, …) puts the job on hold, stops everyone and starts a wait (note required) |
+| `fn_set_job_card_status(p_job, p_status, p_reason)` | as before | phase 1 action, now runs through start and pause |
+| `fn_add_work_record(p_client_ref, p_job, p_kind, p_body, p_readings)` | the team, `jc.assign` or `jc.review`; not on closed or cancelled jobs | adds to the work log (outbox-safe) |
+| `fn_record_safety(p_job, p_items)` | the team, `jc.assign` or `jc.assess` | `p_items = [{item_id, confirmed, reference, note}]` |
+| `fn_submit_for_review(p_job, p_summary, p_findings, p_corrective_action, p_equipment_state_after, p_functional_tests, p_electrical_tests, p_materials_used, p_labour_hours, p_outstanding_defects, p_recommendations, p_checks_confirmed, p_safety_confirmed)` | the responsible person or `jc.assign`; job in progress | both confirmations must be true; → awaiting_review. `fn_submit_job_card` (phase 1) calls it |
+| `fn_verify_job_card(p_job, p_decision, p_notes, p_follow_up_title, p_follow_up_description, p_follow_up_priority)` | `jc.review`; not the performer unless `jc.self_approve` | `approve` → closed with metrics frozen; with a follow-up title it also registers a linked job card (source `follow_up`, `parent_job_id`); `reject` → back to accepted (notes required); `request_info` → stays awaiting review with a question. `fn_review_job_card` (phase 1) calls it |
+| `fn_answer_review(p_job, p_answer)` | the team or `jc.assign` | answers the open question |
+| `fn_correct_work_session(p_session, p_started_at, p_ended_at, p_reason)` | `jc.assign` | fixes a session's times; no future times, overlaps or starts before receipt |
+| `fn_add_work_session(p_job, p_user, p_started_at, p_ended_at, p_reason)` | `jc.assign` | a session someone forgot to start; the person must have been assigned |
+| `fn_set_wait_sla(p_wait, p_counts, p_reason)` | `jc.assign` | whether a wait counts toward the deadline |
+| `fn_job_work(p_job)` | `jc.view` | jsonb for the Work, Safety and Closure tabs: `now`, `time`, `deadline`, `effective_deadline`, `sessions`, `waits`, `corrections`, `records`, `safety {policy, required, missing_before, missing_after, items}`, `submissions`, `reviews` |
+| `fn_job_card_timeline(p_job)` | `jc.view` | now also lists sessions, waits, work log, safety checks, submissions, reviews, corrections and escalations |
+
+Settings (`settings.manage` at all sites): `fn_save_escalation_rule(p_id, p_name, p_kind,
+p_priority, p_after_minutes, p_notify_responsible, p_notify_assigner, p_notify_engineers,
+p_notify_contacts, p_notify_managers, p_active, p_sort_order, p_archived)`,
+`fn_save_safety_item(p_id, p_category, p_phase, p_label, p_applies_when,
+p_needs_reference, p_sort_order, p_archived)`, `fn_save_safety_policy(p_policy)`.
+
+Audit (`audit.view` at all sites): `fn_audit_log(p_from, p_to, p_table, p_user, p_query,
+p_limit, p_offset)` returns `id, at, user_id, user_name, table_name, record_id,
+record_label, action, details, total` from `activity`, newest first. `details` holds the
+new record for inserts and `{field: {from, to}}` for changes.
+
+### 9.5 Escalation rules
+
+`escalation_rules`: name, kind (not_acknowledged \| approaching_deadline \| overdue \|
+on_hold_too_long \| review_waiting), priority_code (null = all), after_minutes (null =
+the kind's default: the at-risk share for deadlines, `hold_alert_hours` for holds, 24 h
+for reviews), who to tell (notify_responsible, notify_assigner, notify_engineers =
+`jc.assign` holders, notify_contacts = escalation contacts for the priority,
+notify_managers = `stats.view` holders), is_active. Nine are seeded, covering the
+spec: P1/P2 not acknowledged, deadline approaching, overdue, P1 overdue by 1 h, P2 by
+4 h, any by a day, on hold too long, review waiting a day.
+
+pg_cron `jobcards-escalations` runs `fn_run_escalations()` every 10 minutes. Each notice
+(type `escalation` for not acknowledged, `reminder`, `overdue`, `on_hold` or `review` for
+the others) is sent once per job, rule and trigger point
+(`job_escalations`), so a new deadline re-arms a rule. When nobody is responsible yet,
+the engineers are told instead.
+
+### 9.6 Realtime
+
+The job card channel also listens to `job_work_sessions`, `job_waits`,
+`job_work_records`, `job_submissions` and `job_reviews`.
+
 ## Changelog
 
+- v0.4 — phase 2: work sessions, waits and time corrections; work log; safety checklist
+  and policy; submissions and engineering reviews with follow-up jobs and questions;
+  closure metrics; escalation rules every 10 minutes (replacing the hourly overdue
+  notice); audit log function; `v_job_cards` effective deadline.
 - v0.3 — push notifications: `push_config`, trigger `notifications_push`,
   `fn_unregister_device`, `fn_push_job`, `fn_push_drop_tokens`, `fn_set_push_endpoint`; the
   `push-send` edge function; alerts toggle in the app.

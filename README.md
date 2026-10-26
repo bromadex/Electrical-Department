@@ -152,6 +152,25 @@ their department, home site and roles per site. This needs the `admin-users`
 edge function, deployed by CI when `SUPABASE_ACCESS_TOKEN` is set; until then,
 add people in the Supabase dashboard as above and set their roles in the app.
 
+## Work, safety and escalation settings
+
+A System Administrator sets these under **Settings**:
+
+- **Safety checks before work.** Off by default, so nothing changes until someone
+  chooses. *When required* makes Start wait for the "before" checks on job cards whose
+  assessment asks for isolation, a permit or lockout, and Submit wait for the "after"
+  checks. *Always* applies them to every job card. The checklist itself (14 seeded
+  checks) can be edited, limited to a job category, or set to need a reference such as
+  a permit number. It records what people confirmed; it does not replace the site's
+  permit-to-work system.
+- **Escalation rules.** Nine seeded rules (P1/P2 not acknowledged, deadline
+  approaching, overdue at several steps, on hold too long, review waiting) are checked
+  every 10 minutes. Each says what it watches for, for which priority, after how long,
+  and who is told. Each notice goes out once per job and trigger point.
+
+**Audit Logs** (Department Manager, System Administrator) lists every change with who
+and when, filterable by period, record type and text. Nothing in it can be edited.
+
 ## Push notifications and testers' APKs
 
 Both use the team's Firebase project (sender ID `86873598340`). See API.md section 8.

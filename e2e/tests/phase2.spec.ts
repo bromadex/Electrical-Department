@@ -119,6 +119,42 @@ test('Test 6: returned once, then approved, with the whole history kept', async 
   expect(statuses).toContain('closed');
 });
 
+test('Settings and audit log: a rule change is saved and shows in the audit trail', async ({ browser }) => {
+  const RULE = 'Waiting for engineering review';
+  const api = await Api.as(people.admin);
+  const admin = await signIn(browser, people.admin);
+  await open(admin, '/admin/settings');
+  await expectShown(admin, /P1 not acknowledged within its response target/);
+  await expectShown(admin, /Hazards identified/);
+  await shot(admin, 'p2-settings-escalation-safety');
+
+  await tap(admin, new RegExp(RULE));
+  await fill(admin, /After \(minutes\)/, '720');
+  await shot(admin, 'p2-settings-edit-rule');
+  await admin.getByRole('button', { name: 'Save', exact: true }).last().click();
+  await expect
+    .poll(async () => (await api.select(`escalation_rules?select=after_minutes&name=eq.${q(RULE)}`))[0]?.after_minutes)
+    .toBe(720);
+  await expectShown(admin, /Waiting for review longer than 12 h/);
+
+  await open(admin, '/admin/audit');
+  await expectShown(admin, /Every change: who, what and when/);
+  await fill(admin, /Search number, person or value/, RULE);
+  await admin.keyboard.press('Enter');
+  await expectShown(admin, new RegExp(`Escalation rules ${RULE}`));
+  await expectShown(admin, /1440 → 720/);
+  await shot(admin, 'p2-audit-log');
+
+  const techApi = await Api.as(people.electrician);
+  const rows = await techApi.call('fn_audit_log', {
+    p_from: null, p_to: null, p_table: null, p_user: null, p_query: null, p_limit: 10, p_offset: 0,
+  });
+  expect(rows).toHaveLength(0);
+  const tech = await signIn(browser, people.electrician);
+  await open(tech, '/admin/audit');
+  await expectShown(tech, /Audit log access needed/);
+});
+
 test('Both themes: light and dark', async ({ browser }) => {
   const api = await Api.as(people.engineer);
   const [running] = await api.select(`v_job_cards?select=number&title=eq.${q('Conveyor 3 VFD fault F0002')}`);
