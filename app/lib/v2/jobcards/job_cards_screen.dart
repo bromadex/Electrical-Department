@@ -80,7 +80,6 @@ class JobCardsScreen extends ConsumerWidget {
 
     return AppPage(
       title: 'Job Cards',
-      subtitle: filter.view.label,
       actions: [
         // Phones start a job card from the + in the bottom bar.
         if (perms.can('jc.register') && width >= Breakpoints.phone)
