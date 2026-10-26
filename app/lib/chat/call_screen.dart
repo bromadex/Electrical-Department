@@ -228,7 +228,9 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   Widget build(BuildContext context) {
     final chats = ref.watch(conversationsProvider).value ?? const [];
     final chat = chats.where((c) => c.id == widget.conversationId).firstOrNull;
-    final title = _title ?? chat?.title ?? 'Call';
+    // The chat's own name (for a direct chat, the other person); the
+    // server's title is a fallback before the chat list loads.
+    final title = chat?.title ?? _title ?? 'Call';
     final room = _room;
     final wide = MediaQuery.sizeOf(context).width >= 1000;
 
@@ -1234,12 +1236,42 @@ class _CallSideState extends ConsumerState<_CallSide> {
                                       fontWeight: FontWeight.w700,
                                     ),
                                   ),
-                                Text(
-                                  m.body ?? (m.kind == 'photo' ? 'Photo' : ''),
-                                  style: TextStyle(
-                                    color: mine ? Colors.white : null,
+                                if (m.kind == 'photo')
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(10),
+                                    child: SizedBox(
+                                      width: 220,
+                                      height: 165,
+                                      child: m.bytes != null
+                                          ? Image.memory(
+                                              m.bytes!,
+                                              fit: BoxFit.cover,
+                                            )
+                                          : thread.photoUrls[m
+                                                    .attachmentPath] !=
+                                                null
+                                          ? Image.network(
+                                              thread.photoUrls[m
+                                                  .attachmentPath]!,
+                                              fit: BoxFit.cover,
+                                            )
+                                          : const Center(
+                                              child: Icon(CupertinoIcons.photo),
+                                            ),
+                                    ),
                                   ),
-                                ),
+                                if (m.body != null)
+                                  Padding(
+                                    padding: EdgeInsets.only(
+                                      top: m.kind == 'photo' ? 6 : 0,
+                                    ),
+                                    child: Text(
+                                      m.body!,
+                                      style: TextStyle(
+                                        color: mine ? Colors.white : null,
+                                      ),
+                                    ),
+                                  ),
                               ],
                             ),
                           ),
