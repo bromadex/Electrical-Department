@@ -161,7 +161,7 @@ join (values
 
 with users (id, email, full_name) as (
   values
-    ('10000000-0000-0000-0000-000000000005'::uuid, 'tech2@bravura.test', 'Test Technician Two'),
+    ('10000000-0000-0000-0000-000000000005'::uuid, 'tech2@bravura.test', 'Second Technician'),
     ('10000000-0000-0000-0000-000000000006'::uuid, 'manager@bravura.test', 'Test Manager'),
     ('10000000-0000-0000-0000-000000000007'::uuid, 'requester@bravura.test', 'Test Requester')
 ), inserted as (
