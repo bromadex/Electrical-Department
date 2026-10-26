@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../jobs/job_rules.dart';
+import '../jobs/jobs_repository.dart';
+import '../services/core_providers.dart';
 import '../services/notifications_controller.dart';
 import '../services/session_controller.dart';
 import '../theme/tokens.dart';
@@ -165,7 +168,20 @@ class _GeneralStats extends ConsumerWidget {
     final narrow = MediaQuery.sizeOf(context).width < 520;
     final chartHeight = MediaQuery.sizeOf(context).width >= 980 ? 330.0 : 220.0;
 
-    // Notifications per day over the last 14 days (Harare dates).
+    final jobs = ref.watch(siteJobsProvider).value ?? const [];
+    final me = ref.watch(authUserIdProvider);
+    final active = [
+      for (final j in jobs)
+        if (j.status != 'done' && j.status != 'cancelled') j,
+    ];
+    final mine = [
+      for (final j in active)
+        if (j.assigneeId == me) j,
+    ];
+    final urgent = active.where((j) => j.priority == 'urgent').length;
+    final overdue = mine.where(isOverdue).length;
+
+    // Jobs opened per day over the last 14 days (Harare dates).
     final today = harareNow();
     final days = [
       for (var i = 13; i >= 0; i--)
@@ -173,12 +189,11 @@ class _GeneralStats extends ConsumerWidget {
     ];
     final perDay = [
       for (final d in days)
-        notes.items.where((n) {
+        jobs.where((n) {
           final t = n.createdAt.toUtc().add(const Duration(hours: 2));
           return t.year == d.year && t.month == d.month && t.day == d.day;
         }).length,
     ];
-    final todayCount = perDay.last;
 
     final mySites = session.mySites;
     final areaCounts = [for (final s in mySites) session.areasAt(s.id).length];
@@ -200,15 +215,16 @@ class _GeneralStats extends ConsumerWidget {
 
     final tiles = [
       _StatTile(
-        label: 'Unread',
-        value: notes.unread,
-        chip: todayCount > 0 ? TrendChip('$todayCount today') : null,
-        onTap: () => context.push('/notifications'),
+        label: 'Open jobs',
+        value: active.length,
+        chip: urgent > 0 ? TrendChip('$urgent urgent', up: false) : null,
+        onTap: () => context.go('/board'),
       ),
       _StatTile(
-        label: 'Areas here',
-        value: site == null ? 0 : session.areasAt(site.id).length,
-        chip: Pill(label: site?.code ?? '—', dense: true),
+        label: 'My jobs',
+        value: mine.length,
+        chip: overdue > 0 ? TrendChip('$overdue overdue', up: false) : null,
+        onTap: () => context.go('/board'),
       ),
     ];
 
@@ -220,7 +236,7 @@ class _GeneralStats extends ConsumerWidget {
           : GlassSegmented<_ChartMode>(
               value: mode,
               segments: const {
-                _ChartMode.activity: 'Activity',
+                _ChartMode.activity: 'Jobs opened',
                 _ChartMode.areas: 'Areas',
               },
               onChanged: ref.read(_chartModeProvider.notifier).set,
@@ -259,7 +275,7 @@ class _GeneralStats extends ConsumerWidget {
                   child: GlassSegmented<_ChartMode>(
                     value: mode,
                     segments: const {
-                      _ChartMode.activity: 'Activity',
+                      _ChartMode.activity: 'Jobs opened',
                       _ChartMode.areas: 'Areas',
                     },
                     onChanged: ref.read(_chartModeProvider.notifier).set,

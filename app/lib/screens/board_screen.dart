@@ -246,9 +246,6 @@ class BoardScreen extends ConsumerWidget {
   }
 }
 
-/// Recurring jobs screen is not wired up yet.
-const _recurringReady = false;
-
 class _Controls extends ConsumerStatefulWidget {
   const _Controls({required this.areas, required this.total});
 
@@ -352,7 +349,7 @@ class _ControlsState extends ConsumerState<_Controls> {
               side: BorderSide(color: g.border),
             ),
           ),
-        if (isSuper && _recurringReady)
+        if (isSuper)
           ActionChip(
             avatar: const Icon(CupertinoIcons.repeat, size: 16),
             label: const Text('Recurring'),

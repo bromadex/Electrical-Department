@@ -170,9 +170,47 @@ meetings (section 16); until then nobody can read or write them.
   after one try and are shown to the user. Outbox actions so far: `fn_mark_read`, `fn_register_device`.
 - Realtime channels: `notifications:<user_id>` (week 1). Features add theirs here.
 
+## 7. Jobs board (migration 0002)
+
+### Tables (read-only for the app; writes go through functions)
+
+| table | key columns | read |
+| --- | --- | --- |
+| `jobs` | `id`, `site_id`, `area_id`, `code` (J-0001, unique per site), `title`, `description`, `priority` (low/normal/urgent), `status` (open/taken/in_progress/waiting/done/cancelled), `waiting_reason`, `due_at`, `lat`, `lng`, `created_by`, `assignee_id`, `taken_at`, `closed_at`, `closed_by`, `close_note`, `recurrence_id`, `overdue_notified_at` | `jobs.view` at the site |
+| `job_photos` | `id`, `job_id`, `kind` (before/after), `path` | job readers |
+| `job_comments` | `id`, `job_id`, `author_id`, `body` | job readers |
+| `job_recurrences` | `id`, `site_id`, `area_id`, `title`, `priority`, `every` (daily/weekly/monthly), `next_run`, `due_days`, `assignee_id` | `jobs.view` at the site |
+
+### Functions
+
+| function | who | what |
+| --- | --- | --- |
+| `fn_create_job(p_client_ref, p_site, p_area, p_title, p_description, p_priority, p_due_at, p_lat, p_lng)` | `jobs.create` | job id = client ref; urgent → notify `jobs.assign` |
+| `fn_edit_job(p_job, p_title, p_description, p_area, p_priority, p_due_at)` | poster or `jobs.assign` | open jobs only |
+| `fn_take_job(p_job)` | `jobs.close` | open → taken; `CONFLICT` if someone else took it |
+| `fn_assign_job(p_job, p_user)` | `jobs.assign` | null = back to open; notifies the assignee |
+| `fn_set_job_status(p_job, p_status, p_reason)` | assignee or `jobs.assign` (cancel: poster or `jobs.assign`) | in_progress, waiting (reason required), open (hand back), cancelled |
+| `fn_close_job(p_job, p_note)` | assignee with `jobs.close`, or `jobs.assign` | needs a note and ≥1 after photo; notifies the poster |
+| `fn_add_job_photo(p_client_ref, p_job, p_kind, p_path)` | `jobs.create` or `jobs.close` | path `<site>/job/<job>/<file>` in `job-photos` |
+| `fn_comment_job(p_client_ref, p_job, p_body)` | job readers | notifies poster and assignee |
+| `fn_job_assignees(p_site)` | job readers | people with `jobs.close` at the site + open job count |
+| `fn_job_history(p_job)` | job readers | activity timeline |
+| `fn_save_recurrence(p_client_ref, p_site, …, p_archived)` | `jobs.assign` | create/update/stop a recurring job |
+| `fn_run_recurrences()` | pg_cron 04:00 UTC (06:00 Harare) | posts due recurring jobs |
+| `fn_notify_overdue()` | pg_cron hourly | notifies assignee (or supervisors) once per overdue job |
+
+Errors: `NOT_ALLOWED`, `NOT_FOUND`, `INVALID`, `CONFLICT`.
+
+### App side
+- Outbox actions: every function above except the cron and read ones.
+- Photos upload first (pending uploads table), then their `fn_add_job_photo`.
+- Cache: jobs at the current site (open + closed in the last 30 days) and people's names in drift.
+- Realtime: `jobs:<site_id>` (jobs), `job:<job_id>` (comments, photos).
+- Routes: `/board`, `/jobs/<id>`, `/jobs/recurring`. Notification link `job:<uuid>` opens `/jobs/<uuid>`.
+
 ## 6. Feature sections (filled in as features are built)
 
-- 7. Jobs board — Clement, phase 1
+- 7. Jobs board — Clement, phase 1 (done, see above)
 - 8. Push notifications + reminders — Tafara, phase 1
 - 9. Daily checklists + daily report — Clement, phase 2
 - 10. Group chat — Tafara, phase 2
@@ -184,5 +222,7 @@ meetings (section 16); until then nobody can read or write them.
 - 16. Meetings, transcription, minutes — Tafara, phase 5
 
 ## Changelog
+
+- v0.2 — jobs board (jobs, photos, comments, recurrences, overdue alerts).
 
 - v0.1 — foundation (sites, areas, profiles, roles/permissions, activity, notifications, device tokens, codes, buckets).
