@@ -14,6 +14,7 @@ import '../ui/charts.dart';
 import '../ui/motion.dart';
 import '../ui/page.dart';
 import '../ui/surfaces.dart';
+import 'today_overview.dart';
 import '../widgets/push_prompt.dart';
 
 enum _ChartMode { activity, areas }
@@ -57,20 +58,19 @@ class TodayScreen extends ConsumerWidget {
           builder: (context, c) {
             final wide = c.maxWidth >= 980;
             final stats = _GeneralStats(session: session, notes: notes);
-            final side = [
-              _SitesDonut(session: session),
-              _PermissionsDonut(session: session),
-            ];
-            final lower = [const _Roadmap(), _Latest(notes: notes)];
-
             if (!wide) {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _Greeting(session: session).entrance(context),
                   const SizedBox(height: Space.md),
-                  stats.entrance(context, index: 1),
-                  for (final (i, w) in [...side, ...lower].indexed) ...[
+                  const NeedsAttention(),
+                  const TodayKpis(),
+                  for (final (i, w) in [
+                    stats,
+                    _Latest(notes: notes),
+                    const _Roadmap(),
+                  ].indexed) ...[
                     const SizedBox(height: Space.md),
                     w.entrance(context, index: 2 + i),
                   ],
@@ -80,38 +80,22 @@ class TodayScreen extends ConsumerWidget {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(flex: 13, child: stats.entrance(context)),
-                      const SizedBox(width: Space.md),
-                      Expanded(
-                        flex: 7,
-                        child: Column(
-                          children: [
-                            Expanded(
-                              child: side[0].entrance(context, index: 1),
-                            ),
-                            const SizedBox(height: Space.md),
-                            Expanded(
-                              child: side[1].entrance(context, index: 2),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                const NeedsAttention(),
+                const TodayKpis(),
                 const SizedBox(height: Space.md),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(child: lower[0].entrance(context, index: 3)),
+                    Expanded(flex: 13, child: stats.entrance(context)),
                     const SizedBox(width: Space.md),
-                    Expanded(child: lower[1].entrance(context, index: 4)),
+                    Expanded(
+                      flex: 7,
+                      child: _Latest(notes: notes).entrance(context, index: 1),
+                    ),
                   ],
                 ),
+                const SizedBox(height: Space.md),
+                const _Roadmap().entrance(context, index: 2),
               ],
             );
           },
@@ -358,116 +342,6 @@ class _StatTile extends StatelessWidget {
   }
 }
 
-class _DonutPanel extends StatelessWidget {
-  const _DonutPanel({
-    required this.icon,
-    required this.title,
-    required this.rows,
-  });
-
-  final IconData icon;
-  final String title;
-  final List<(String, num, Color)> rows;
-
-  @override
-  Widget build(BuildContext context) {
-    final total = rows.fold<num>(0, (a, r) => a + r.$2);
-    String pct(num v) => total == 0 ? '0%' : '${(v * 100 / total).round()}%';
-    return PanelCard(
-      icon: icon,
-      title: title,
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              children: [
-                for (final (i, r) in rows.indexed)
-                  LegendRow(
-                    color: r.$3,
-                    label: r.$1,
-                    value: pct(r.$2),
-                    last: i == rows.length - 1,
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(width: Space.lg),
-          DonutChart(
-            size: 116,
-            values: [for (final r in rows) r.$2],
-            colors: [for (final r in rows) r.$3],
-            center: Text(
-              '$total',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-const _palette = [
-  BrandColors.coral,
-  BrandColors.blush,
-  Color(0xFFE8E2E3),
-  BrandColors.maroon,
-  Color(0xFFB85C64),
-  Color(0xFF8C7A7C),
-];
-
-class _SitesDonut extends StatelessWidget {
-  const _SitesDonut({required this.session});
-
-  final SessionState session;
-
-  @override
-  Widget build(BuildContext context) {
-    return _DonutPanel(
-      icon: CupertinoIcons.location_solid,
-      title: 'Areas by site',
-      rows: [
-        for (final (i, s) in session.mySites.indexed)
-          (s.name, session.areasAt(s.id).length, _palette[i % _palette.length]),
-      ],
-    );
-  }
-}
-
-class _PermissionsDonut extends StatelessWidget {
-  const _PermissionsDonut({required this.session});
-
-  final SessionState session;
-
-  static const _modules = {
-    'jobs': 'Jobs',
-    'store': 'Store',
-    'tools': 'Tools',
-    'docs': 'Documents',
-    'chat': 'Chat',
-  };
-
-  @override
-  Widget build(BuildContext context) {
-    final counts = <String, int>{};
-    for (final code in session.perms.codes) {
-      final module = _modules[code.split('.').first] ?? 'Other';
-      counts[module] = (counts[module] ?? 0) + 1;
-    }
-    final entries = counts.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    return _DonutPanel(
-      icon: CupertinoIcons.checkmark_shield_fill,
-      title: 'My permissions',
-      rows: [
-        for (final (i, e) in entries.take(4).indexed)
-          (e.key, e.value, _palette[i % _palette.length]),
-      ],
-    );
-  }
-}
-
-/// What the team is building next, from the build plan.
 class _Roadmap extends StatelessWidget {
   const _Roadmap();
 
