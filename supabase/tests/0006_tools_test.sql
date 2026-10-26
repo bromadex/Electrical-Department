@@ -115,9 +115,12 @@ select pg_temp.check((select count(*) from public.notifications
 select pg_temp.check((select count(*) from public.notifications
   where title like 'T-0001 calibration due%' and user_id = 'a0000000-0000-0000-0000-000000000001') = 1,
   'calibration due soon: the store is told');
-create temp table before_count as select count(*) as n from public.notifications;
+-- Counts only this tool's reminders: scheduled jobs (escalations every ten
+-- minutes) may notify seeded people while the test runs.
+create temp table before_count as
+  select count(*) as n from public.notifications where title like 'T-0001%';
 select public.fn_notify_tools();
-select pg_temp.check((select count(*) from public.notifications) = (select n from before_count),
-  'each reminder is sent once');
+select pg_temp.check((select count(*) from public.notifications where title like 'T-0001%')
+  = (select n from before_count), 'each reminder is sent once');
 
 rollback;

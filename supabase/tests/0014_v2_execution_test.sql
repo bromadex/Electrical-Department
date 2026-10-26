@@ -349,9 +349,13 @@ select pg_temp.check(public.fn_run_escalations() >= 1, 'the escalation run finds
 select pg_temp.check(exists (select 1 from public.notifications n join public.job_cards j on n.link = 'jobcard:' || j.id
   where j.id = (select job3 from t) and n.user_id = (select eng from t) and n.title like j.number || ' not acknowledged%'),
   'an unacknowledged P2 is escalated to the engineers');
-create temp table n1 as select count(*) as n from public.notifications;
+-- Counts only this job card's notices: the scheduled escalation run may
+-- notify people about seeded job cards while the test runs.
+create temp table n1 as
+  select count(*) as n from public.notifications where link = 'jobcard:' || (select job3 from t);
 select public.fn_run_escalations();
-select pg_temp.check((select count(*) from public.notifications) = (select n from n1),
+select pg_temp.check((select count(*) from public.notifications
+  where link = 'jobcard:' || (select job3 from t)) = (select n from n1),
   'an escalation is sent once, not on every run');
 update public.job_cards set target_completion_at = now() - interval '30 minutes' where id = (select job3 from t);
 select public.fn_run_escalations();
