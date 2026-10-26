@@ -241,6 +241,14 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
             ),
           ],
         ),
+        actions: [
+          IconButton(
+            tooltip: 'Call',
+            icon: const Icon(CupertinoIcons.phone_fill),
+            onPressed: () => context.push('/chat/${widget.id}/call?join=1'),
+          ),
+          const SizedBox(width: Space.xs),
+        ],
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
       ),
       body: MeshBackground(

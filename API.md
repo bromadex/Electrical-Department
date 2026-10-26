@@ -304,6 +304,18 @@ Adopted in a light form from Tafara's PR #19, on top of the jobs board.
 - Table `priority_targets` (`priority, respond_minutes, close_hours`; defaults urgent 30 min / 24 h, normal 4 h / 72 h, low 24 h / 7 days). A job inserted without `due_at` gets `created_at + close_hours` (trigger `jobs_default_due`). The urgent escalation uses the urgent response time. `fn_set_priority_target(p_priority, p_respond_minutes, p_close_hours)`: `admin.users` at all sites.
 - App: More → Library → Requests (`/requests`: incoming for supervisors, mine for everyone; new request form; accept as a job with priority and assignee, or decline with a reason); More → Admin → Priority targets (`/admin/targets`). "Requests to decide" appears under Needs attention.
 
+## 16b. Calls (migration 0017)
+
+Voice and video calls in any chat, on LiveKit Cloud. A chat's call is the room
+`chat-<conversation id>`. `fn_start_call(p_conversation)` checks the caller is a member with
+`chat.use`, records `conversation_calls` and, when no one joined in the last 30 minutes,
+tells the other members ("<name> started a call", type `meeting`, link `call:<id>` →
+`/chat/<id>/call`). The `livekit-token` edge function calls it with the user's sign-in and
+signs a two-hour LiveKit token (HS256) with `LIVEKIT_API_SECRET`; it returns `{ url, token,
+room, title }`, or 503 `UNAVAILABLE` until `LIVEKIT_URL`, `LIVEKIT_API_KEY` and
+`LIVEKIT_API_SECRET` are set as Supabase secrets. Calls start with sound only; cameras are
+optional.
+
 ## 17. Job Cards Version 2 (migrations 0012–0014)
 
 The job card & maintenance management system from Tafara's PR #19 and its phase 2.

@@ -52,6 +52,7 @@ function appPath(link: string | null): string | null {
   if (kind === "servicerequest") return `/requests/${id}`;
   if (kind === "asset") return `/assets/${id}`;
   if (kind === "chat") return `/chat/${id}`;
+  if (kind === "call") return `/chat/${id}/call`;
   if (kind === "tool") return `/tools/${id}`;
   if (kind === "doc") return `/documents/${id}`;
   if (kind === "checklist") return `/checklists/${id}`;

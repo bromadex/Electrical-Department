@@ -41,6 +41,7 @@ String? notificationPath(String? link) {
     'jobcard' => '/jobs/$id',
     'servicerequest' => '/requests/$id',
     'chat' => '/chat/$id',
+    'call' => '/chat/$id/call',
     'tool' => '/tools/$id',
     'asset' => '/assets/$id',
     'doc' => '/documents/$id',
