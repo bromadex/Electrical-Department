@@ -7,13 +7,19 @@ in `API.md`.
 ## Open tasks
 - **Handover from Tafara (job cards).** Read `docs/tasks/handover-from-tafara.md`:
   what is left, his direction, and prompts 1–5 to run in order.
-- **Job Cards V2 layout fixes.** Read `docs/tasks/v2-layout.md` and do it
-  before other v2 UI work. Screenshots are in `docs/tasks/v2-layout/`.
 
 ## Working rules
 - Main app tabs: Home `/home`, Jobs `/jobs`, Chat `/chat`, Menu `/menu`. The
-  ➕ New sheet is `app/lib/widgets/create_sheet.dart`. Job Cards V2 lives in
-  `app/lib/v2/` under `/v2`.
+  ➕ New sheet is `app/lib/widgets/create_sheet.dart`.
+- Job cards are the one job system: code in `app/lib/v2/`, screens at
+  `/jobs` (list, the Jobs tab), `/jobs/<number>`, `/jobs/mine`, `/jobs/new`,
+  `/requests`, `/my-requests`, `/job-stats` (see `app/lib/v2/routes.dart`).
+  The old jobs board is gone; its tables keep their data but nothing writes
+  to them. Shared data (people, equipment, plans) is in
+  `app/lib/data/site_data.dart`.
+- One UI kit: `app/lib/theme/tokens.dart`, `app/lib/ui/` (bits, surfaces with
+  `Panel`, charts, media, time). `app/lib/v2/ui/` only adds job-card pieces
+  (status pills, paged table, forms) and re-exports the kit.
 - Keep the liquid-glass look (`app/lib/ui/surfaces.dart`,
   `app/lib/theme/tokens.dart`). Light theme is the default.
 - Pushed screens use `AppBackButton` (`app/lib/widgets/app_back_button.dart`).
