@@ -74,16 +74,45 @@ Deno.serve(async (req) => {
     return reply(503, { error: "UNAVAILABLE: Calls are not set up yet" });
   }
 
-  const authorization = req.headers.get("Authorization");
-  if (!authorization) return reply(401, { error: "NOT_ALLOWED: Sign in first" });
-
-  let conversationId = "";
+  let body: Record<string, unknown>;
   try {
-    const body = await req.json();
-    conversationId = typeof body.conversation_id === "string" ? body.conversation_id : "";
+    body = await req.json();
   } catch {
     return reply(400, { error: "INVALID: The request is not valid JSON" });
   }
+
+  // { "check": true }: asks LiveKit whether the key and secret are accepted
+  // at LIVEKIT_URL. Shows nothing secret (the key name is in every pass).
+  if (body.check === true) {
+    const now = Math.floor(Date.now() / 1000);
+    const probe = await sign({ iss: apiKey, sub: "setup-check", nbf: now - 10, exp: now + 60, video: { roomList: true } }, apiSecret);
+    const host = livekitUrl.replace(/^wss:\/\//, "https://").replace(/^ws:\/\//, "http://");
+    let status = 0;
+    let answer = "";
+    try {
+      const res = await fetch(`${host}/twirp/livekit.RoomService/ListRooms`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${probe}`, "Content-Type": "application/json" },
+        body: "{}",
+      });
+      status = res.status;
+      answer = (await res.text()).slice(0, 200);
+    } catch (e) {
+      answer = String(e).slice(0, 200);
+    }
+    return reply(200, {
+      livekit_host: new URL(host).host,
+      api_key: apiKey,
+      secret_length: apiSecret.length,
+      livekit_status: status,
+      livekit_answer: answer,
+    });
+  }
+
+  const authorization = req.headers.get("Authorization");
+  if (!authorization) return reply(401, { error: "NOT_ALLOWED: Sign in first" });
+
+  const conversationId = typeof body.conversation_id === "string" ? body.conversation_id : "";
   if (!uuid.test(conversationId)) return reply(400, { error: "INVALID: Unknown chat" });
 
   // The caller's own sign-in: the database decides whether they may join.
