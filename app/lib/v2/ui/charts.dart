@@ -1,8 +1,8 @@
 import 'dart:math' as math;
 
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
+import '../../ui/charts.dart' as kit;
 import '../theme/tokens.dart';
 import 'format.dart';
 
@@ -103,21 +103,10 @@ class DonutChart extends StatelessWidget {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          PieChart(
-            PieChartData(
-              sectionsSpace: 2,
-              centerSpaceRadius: size * 0.32,
-              startDegreeOffset: -90,
-              sections: [
-                for (final s in shown)
-                  PieChartSectionData(
-                    value: s.value.toDouble(),
-                    color: s.color,
-                    radius: size * 0.16,
-                    showTitle: false,
-                  ),
-              ],
-            ),
+          kit.DonutChart(
+            values: [for (final s in shown) s.value],
+            colors: [for (final s in shown) s.color],
+            size: size,
           ),
           Column(
             mainAxisSize: MainAxisSize.min,
@@ -181,20 +170,9 @@ class TrendChart extends StatelessWidget {
         (m, p) => math.max(m, math.max(p.received, p.closed)),
       ),
     );
-    final labelEvery = math.max(1, (points.length / 7).ceil()).toDouble();
 
-    LineChartBarData line(List<int> values, Color color) => LineChartBarData(
-      spots: [
-        for (final (i, v) in values.indexed) FlSpot(i.toDouble(), v.toDouble()),
-      ],
-      color: color,
-      barWidth: 2.5,
-      dotData: FlDotData(show: points.length <= 31),
-      belowBarData: BarAreaData(
-        show: true,
-        color: color.withValues(alpha: 0.08),
-      ),
-    );
+    final labelEvery = math.max(1, (points.length / 6).ceil());
+    final small = _small(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -209,78 +187,128 @@ class TrendChart extends StatelessWidget {
         const SizedBox(height: Space.sm),
         SizedBox(
           height: height,
-          child: LineChart(
-            LineChartData(
-              minY: 0,
-              maxY: maxY,
-              minX: 0,
-              maxX: (points.length - 1).toDouble().clamp(0, double.infinity),
-              gridData: FlGridData(
-                drawVerticalLine: false,
-                horizontalInterval: maxY / 4,
-                getDrawingHorizontalLine: (_) =>
-                    FlLine(color: scheme.outlineVariant, strokeWidth: 1),
-              ),
-              borderData: FlBorderData(show: false),
-              titlesData: FlTitlesData(
-                topTitles: const AxisTitles(),
-                rightTitles: const AxisTitles(),
-                leftTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 32,
-                    interval: maxY / 4,
-                    getTitlesWidget: (v, meta) => SideTitleWidget(
-                      meta: meta,
-                      child: Text(v.toInt().toString(), style: _small(context)),
-                    ),
-                  ),
-                ),
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 24,
-                    interval: labelEvery,
-                    getTitlesWidget: (v, meta) {
-                      final i = v.round();
-                      if (i < 0 || i >= points.length || v != i.toDouble()) {
-                        return const SizedBox.shrink();
-                      }
-                      return SideTitleWidget(
-                        meta: meta,
-                        // Keeps the first and last dates inside the chart.
-                        fitInside: SideTitleFitInsideData.fromTitleMeta(meta),
-                        child: Text(
-                          fmtDayMonth(points[i].period),
-                          style: _small(context),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-              lineTouchData: LineTouchData(
-                touchTooltipData: LineTouchTooltipData(
-                  getTooltipColor: (_) => AppColors.black,
-                  getTooltipItems: (spots) => [
-                    for (final s in spots)
-                      LineTooltipItem(
-                        '${s.barIndex == 0 ? 'Received' : 'Closed'}: ${s.y.toInt()}',
-                        const TextStyle(color: Colors.white, fontSize: 12),
-                      ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Y axis: 0 at the bottom, four steps up to the rounded top.
+              Padding(
+                padding: const EdgeInsets.only(bottom: 20),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    for (var i = 4; i >= 0; i--)
+                      Text('${(maxY * i / 4).round()}', style: small),
                   ],
                 ),
               ),
-              lineBarsData: [
-                line([for (final p in points) p.received], AppColors.info),
-                line([for (final p in points) p.closed], AppColors.success),
-              ],
-            ),
+              const SizedBox(width: Space.xs),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: Semantics(
+                        label:
+                            'Received ${points.fold<int>(0, (a, p) => a + p.received)}, '
+                            'closed ${points.fold<int>(0, (a, p) => a + p.closed)}',
+                        child: CustomPaint(
+                          painter: _TrendPainter(
+                            received: [for (final p in points) p.received],
+                            closed: [for (final p in points) p.closed],
+                            maxY: maxY,
+                            grid: scheme.outlineVariant,
+                            dots: points.length <= 31,
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      height: 20,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          for (final (i, p) in points.indexed)
+                            if (i % labelEvery == 0 || i == points.length - 1)
+                              Text(fmtDayMonth(p.period), style: small),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ],
     );
   }
+}
+
+class _TrendPainter extends CustomPainter {
+  _TrendPainter({
+    required this.received,
+    required this.closed,
+    required this.maxY,
+    required this.grid,
+    required this.dots,
+  });
+
+  final List<int> received;
+  final List<int> closed;
+  final double maxY;
+  final Color grid;
+  final bool dots;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final line = Paint()
+      ..color = grid
+      ..strokeWidth = 1;
+    for (var i = 0; i <= 4; i++) {
+      final y = size.height * i / 4;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), line);
+    }
+    Offset at(int i, int v, int n) => Offset(
+      n == 1 ? size.width / 2 : size.width * i / (n - 1),
+      size.height - size.height * v / maxY,
+    );
+    void series(List<int> values, Color color) {
+      if (values.isEmpty) return;
+      final n = values.length;
+      final path = Path()
+        ..moveTo(at(0, values[0], n).dx, at(0, values[0], n).dy);
+      for (var i = 1; i < n; i++) {
+        final p = at(i, values[i], n);
+        path.lineTo(p.dx, p.dy);
+      }
+      final area = Path.from(path)
+        ..lineTo(at(n - 1, 0, n).dx, size.height)
+        ..lineTo(at(0, 0, n).dx, size.height)
+        ..close();
+      canvas.drawPath(area, Paint()..color = color.withValues(alpha: 0.08));
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = color
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.5
+          ..strokeJoin = StrokeJoin.round,
+      );
+      if (dots) {
+        for (var i = 0; i < n; i++) {
+          canvas.drawCircle(at(i, values[i], n), 3, Paint()..color = color);
+        }
+      }
+    }
+
+    series(received, AppColors.info);
+    series(closed, AppColors.success);
+  }
+
+  @override
+  bool shouldRepaint(_TrendPainter old) =>
+      old.received != received || old.closed != closed || old.maxY != maxY;
 }
 
 class BarItem {
