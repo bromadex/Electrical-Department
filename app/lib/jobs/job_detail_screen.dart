@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../data/local_db.dart';
+import '../documents/job_documents_panel.dart';
 import '../services/core_providers.dart';
 import '../services/session_controller.dart';
 import '../theme/tokens.dart';
@@ -247,7 +248,15 @@ class _Body extends ConsumerWidget {
     );
     final history = _History(jobId: job.id);
 
-    final left = [header, if (actions.isNotEmpty) actionBar, photos];
+    final documents = JobDocumentsPanel(
+      job: job,
+      canAttach:
+          job.createdBy == me ||
+          job.assigneeId == me ||
+          session.can('jobs.assign', siteId: job.siteId),
+    );
+
+    final left = [header, if (actions.isNotEmpty) actionBar, photos, documents];
     final right = [comments, history];
 
     return ListView(

@@ -257,6 +257,21 @@ Who holds which tool, when it is due back, and when calibration is due.
 - Storage bucket `tool-files`: `<site_id>/tool/<tool_id>/signature-<id>.png` and photos; read `tools.view`, upload `tools.issue`.
 - App: Store tab (tools summary, my tools) → `/tools` register (search; All, In store, Out, Mine, Attention), `/tools/<id>` (issue with on-screen signature, take back with condition, history with signatures), `/tools/count`. Cached offline (drift schema v4); all writes go through the outbox.
 
+## 12. SOPs and documents (migration 0007)
+
+Per-site documents with versions, read-and-sign acknowledgement, and links to jobs.
+
+- Table `documents`: `site_id, code (S-0001), title, category (sop | drawing | manual | form | other), needs_ack, current_version`. Read with `docs.view`.
+- Table `document_versions`: `document_id, version, path, file_name, mime_type, size_bytes, note`. Files live in the `documents` bucket at `<site_id>/doc/<document_id>/<file>` (upload needs `docs.manage`).
+- Table `document_acks`: `document_id, version, user_id, acked_at`. You read your own; supervisors read all.
+- Table `job_documents`: `job_id, document_id`.
+- `fn_save_document(p_client_ref, p_site, p_title, p_category, p_needs_ack, p_archived)`: `docs.manage`; new documents get the next S- code.
+- `fn_add_document_version(p_client_ref, p_document, p_path, p_file_name, p_mime_type, p_size_bytes, p_note)`: `docs.manage`; the path must be in the site's folder; becomes the current version. If the document needs acknowledgement, everyone with `docs.view` is notified (`doc:<id>`).
+- `fn_acknowledge_document(p_document, p_version)`: the current version only (`CONFLICT` if a newer one exists).
+- `fn_document_acks(p_document)` → `user_id, full_name, acked_at` for the current version (supervisors).
+- `fn_link_document(p_job, p_document, p_linked)`: the job's poster, assignee or a supervisor; same site only.
+- App: More → Library → Documents & SOPs (`/documents`, filters All / To sign / categories), `/documents/<id>` (open, sign, who has signed, versions, edit or new version). Images open in the app; PDFs and drawings open in the phone's or browser's viewer through a one-hour signed link. Jobs show a Documents panel to attach SOPs. Online only for now (no offline file copies yet).
+
 ## 6. Feature sections (filled in as features are built)
 
 - 7. Jobs board — Clement, phase 1 (done, see above)
@@ -264,7 +279,7 @@ Who holds which tool, when it is due back, and when calibration is due.
 - 9. Daily checklists + daily report — Clement, phase 2
 - 10. Group chat — Tafara, phase 2
 - 11. Tools — phase 3 (done, see above)
-- 12. SOPs & documents — Tafara, phase 3
+- 12. SOPs & documents — phase 3 (done, see above)
 - 13. Electrical store — Clement, phase 4
 - 14. Material requests, purchases, BOQ — Tafara, phase 4
 - 15. Projects, calendar, roster — Clement, phase 5
@@ -272,6 +287,7 @@ Who holds which tool, when it is due back, and when calibration is due.
 
 ## Changelog
 
+- v0.7 — SOPs and documents (documents, versions, acknowledgements, job links).
 - v0.6 — tools register (tools, tool_issues, tool-files bucket, reminders).
 - v0.5 — asset register, planned maintenance, isolation flag (assets, jobs.asset_id/maintenance_type/isolation_required).
 - v0.4 — user management (fn_admin_users, fn_set_user_profile, fn_set_user_roles, admin-users function).

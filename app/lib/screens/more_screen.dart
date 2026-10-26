@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../config/env.dart';
+import '../documents/documents_repository.dart';
 import '../services/core_providers.dart';
 import '../services/notifications_controller.dart';
 import '../services/push_service.dart';
@@ -25,6 +26,7 @@ class MoreScreen extends ConsumerWidget {
     final unread = ref.watch(notificationsProvider.select((s) => s.unread));
     final mode = ref.watch(themeModeProvider);
     final push = ref.watch(pushProvider);
+    final toSign = ref.watch(toSignCountProvider);
     final profile = session.profile;
     final email = ref.read(supabaseProvider).auth.currentUser?.email ?? '';
     final name = (profile?.fullName.isNotEmpty ?? false)
@@ -188,6 +190,33 @@ class MoreScreen extends ConsumerWidget {
             ],
           ),
         ).entrance(context, index: 2),
+
+        const SectionHeader('Library'),
+        SurfaceCard(
+          padding: const EdgeInsets.symmetric(vertical: Space.xs),
+          child: Column(
+            children: [
+              _Row(
+                icon: Icons.menu_book_outlined,
+                title: 'Documents & SOPs',
+                subtitle: toSign > 0
+                    ? '$toSign to read and sign'
+                    : 'SOPs, drawings and manuals',
+                trailing: toSign > 0
+                    ? Badge(label: Text('$toSign'))
+                    : const Icon(Icons.chevron_right_rounded),
+                onTap: () => context.push('/documents'),
+              ),
+              _Row(
+                icon: Icons.precision_manufacturing_outlined,
+                title: 'Assets',
+                subtitle: 'Plant register and job history',
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => context.push('/assets'),
+              ),
+            ],
+          ),
+        ),
 
         if (session.perms.canEverywhere('admin.users')) ...[
           const SectionHeader('Admin'),

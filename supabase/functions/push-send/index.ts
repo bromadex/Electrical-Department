@@ -43,7 +43,7 @@ function reply(status: number, body: Record<string, unknown>): Response {
   });
 }
 
-/** `job:<id>` → `/jobs/<id>`, `chat:<id>` → `/chat/<id>`, `tool:<id>` → `/tools/<id>`. */
+/** `job:<id>` → `/jobs/<id>`, `chat:<id>` → `/chat/<id>`, `tool:<id>` → `/tools/<id>`, `doc:<id>` → `/documents/<id>`. */
 function appPath(link: string | null): string | null {
   if (!link) return null;
   const [kind, id] = link.split(":", 2);
@@ -51,6 +51,7 @@ function appPath(link: string | null): string | null {
   if (kind === "job") return `/jobs/${id}`;
   if (kind === "chat") return `/chat/${id}`;
   if (kind === "tool") return `/tools/${id}`;
+  if (kind === "doc") return `/documents/${id}`;
   return null;
 }
 

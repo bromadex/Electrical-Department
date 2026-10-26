@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import 'admin/users_screen.dart';
 import 'assets/asset_detail_screen.dart';
 import 'assets/assets_screen.dart';
+import 'documents/document_detail_screen.dart';
+import 'documents/documents_screen.dart';
 import 'jobs/job_detail_screen.dart';
 import 'jobs/recurring_screen.dart';
 import 'screens/board_screen.dart';
@@ -97,6 +99,11 @@ GoRouter buildRouter(WidgetRef ref) {
       GoRoute(path: '/admin/users', builder: (_, _) => const UsersScreen()),
       GoRoute(path: '/assets', builder: (_, _) => const AssetsScreen()),
       GoRoute(path: '/tools', builder: (_, _) => const ToolsScreen()),
+      GoRoute(path: '/documents', builder: (_, _) => const DocumentsScreen()),
+      GoRoute(
+        path: '/documents/:id',
+        builder: (_, s) => DocumentDetailScreen(id: s.pathParameters['id']!),
+      ),
       GoRoute(path: '/tools/count', builder: (_, _) => const ToolCountScreen()),
       GoRoute(
         path: '/tools/:id',
