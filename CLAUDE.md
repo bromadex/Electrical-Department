@@ -5,6 +5,8 @@ Vercel. What changed recently is in `CHANGELOG.md`; the API and data rules are
 in `API.md`.
 
 ## Open tasks
+- **Handover from Tafara (job cards).** Read `docs/tasks/handover-from-tafara.md`:
+  what is left, his direction, and prompts 1–5 to run in order.
 - **Job Cards V2 layout fixes.** Read `docs/tasks/v2-layout.md` and do it
   before other v2 UI work. Screenshots are in `docs/tasks/v2-layout/`.
 
