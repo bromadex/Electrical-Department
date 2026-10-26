@@ -7,6 +7,8 @@ import 'admin/targets_screen.dart';
 import 'admin/users_screen.dart';
 import 'assets/asset_detail_screen.dart';
 import 'assets/assets_screen.dart';
+import 'chat/chat_list_screen.dart';
+import 'chat/conversation_screen.dart';
 import 'checklists/checklist_run_screen.dart';
 import 'checklists/checklists_screen.dart';
 import 'documents/document_detail_screen.dart';
@@ -14,7 +16,6 @@ import 'documents/documents_screen.dart';
 import 'jobs/job_detail_screen.dart';
 import 'jobs/recurring_screen.dart';
 import 'screens/board_screen.dart';
-import 'screens/chat_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/more_screen.dart';
 import 'screens/notifications_screen.dart';
@@ -76,7 +77,7 @@ GoRouter buildRouter(WidgetRef ref) {
 
   final screens = <String, Widget>{
     '/board': const BoardScreen(),
-    '/chat': const ChatScreen(),
+    '/chat': const ChatListScreen(),
     '/today': const TodayScreen(),
     '/store': const StoreScreen(),
     '/more': const MoreScreen(),
@@ -101,6 +102,10 @@ GoRouter buildRouter(WidgetRef ref) {
       GoRoute(
         path: '/jobs/:id',
         builder: (_, s) => JobDetailScreen(id: s.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/chat/:id',
+        builder: (_, s) => ConversationScreen(id: s.pathParameters['id']!),
       ),
       GoRoute(path: '/admin/users', builder: (_, _) => const UsersScreen()),
       GoRoute(path: '/admin/targets', builder: (_, _) => const TargetsScreen()),

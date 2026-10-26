@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../chat/chat_repository.dart';
 import '../config/env.dart';
 import '../router.dart';
 import '../services/core_providers.dart';
@@ -484,14 +485,17 @@ class _NavCapsule extends StatelessWidget {
                                 if (labels) const SizedBox(width: 18),
                                 AnimatedSwitcher(
                                   duration: Motion.of(context, Motion.medium),
-                                  child: Icon(
-                                    i == index
-                                        ? shellTabs[i].selectedIcon
-                                        : shellTabs[i].icon,
+                                  child: _TabBadge(
                                     key: ValueKey(i == index),
-                                    color: i == index
-                                        ? Colors.white
-                                        : scheme.onSurfaceVariant,
+                                    tab: shellTabs[i],
+                                    child: Icon(
+                                      i == index
+                                          ? shellTabs[i].selectedIcon
+                                          : shellTabs[i].icon,
+                                      color: i == index
+                                          ? Colors.white
+                                          : scheme.onSurfaceVariant,
+                                    ),
                                   ),
                                 ),
                                 if (labels) ...[
@@ -622,11 +626,14 @@ class _TabItem extends StatelessWidget {
                 duration: Motion.of(context, Motion.medium),
                 transitionBuilder: (child, a) =>
                     ScaleTransition(scale: a, child: child),
-                child: Icon(
-                  selected ? tab.selectedIcon : tab.icon,
+                child: _TabBadge(
                   key: ValueKey(selected),
-                  color: color,
-                  size: 25,
+                  tab: tab,
+                  child: Icon(
+                    selected ? tab.selectedIcon : tab.icon,
+                    color: color,
+                    size: 25,
+                  ),
                 ),
               ),
               const SizedBox(height: 3),
@@ -704,6 +711,25 @@ class _AccountGate extends StatelessWidget {
                   const EdgeInsets.all(Space.lg),
               child: Center(child: body),
             ),
+    );
+  }
+}
+
+/// Unread chat messages on the Chat tab.
+class _TabBadge extends ConsumerWidget {
+  const _TabBadge({super.key, required this.tab, required this.child});
+
+  final ShellTab tab;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final count = tab.path == '/chat' ? ref.watch(chatUnreadProvider) : 0;
+    return Badge(
+      isLabelVisible: count > 0,
+      backgroundColor: BrandColors.maroon,
+      label: Text(count > 99 ? '99+' : '$count'),
+      child: child,
     );
   }
 }
