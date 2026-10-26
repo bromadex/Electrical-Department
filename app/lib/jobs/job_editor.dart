@@ -91,21 +91,33 @@ class _Label extends StatelessWidget {
   );
 }
 
-/// New job (no [job]) or edit an existing one.
-/// New job, or edit [job]. [assetId] starts a new job on that asset.
+/// New job, or edit [job]. [assetId] starts a new job on that asset;
+/// [title] and [description] prefill a new job (e.g. from a chat message).
 Future<void> showJobEditor(
   BuildContext context, {
   LocalJob? job,
   String? assetId,
+  String? title,
+  String? description,
 }) {
-  return showFormSheet(context, _JobEditor(job: job, assetId: assetId));
+  return showFormSheet(
+    context,
+    _JobEditor(
+      job: job,
+      assetId: assetId,
+      title: title,
+      description: description,
+    ),
+  );
 }
 
 class _JobEditor extends ConsumerStatefulWidget {
-  const _JobEditor({this.job, this.assetId});
+  const _JobEditor({this.job, this.assetId, this.title, this.description});
 
   final LocalJob? job;
   final String? assetId;
+  final String? title;
+  final String? description;
 
   @override
   ConsumerState<_JobEditor> createState() => _JobEditorState();
@@ -113,9 +125,11 @@ class _JobEditor extends ConsumerStatefulWidget {
 
 class _JobEditorState extends ConsumerState<_JobEditor> {
   final _form = GlobalKey<FormState>();
-  late final _title = TextEditingController(text: widget.job?.title);
+  late final _title = TextEditingController(
+    text: widget.job?.title ?? widget.title,
+  );
   late final _description = TextEditingController(
-    text: widget.job?.description,
+    text: widget.job?.description ?? widget.description,
   );
   late JobPriority _priority = JobPriority.parse(
     widget.job?.priority ?? 'normal',

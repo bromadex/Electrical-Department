@@ -88,7 +88,9 @@ class NotificationsNotifier extends Notifier<NotificationsState> {
           ),
           callback: (payload) {
             final n = AppNotification.fromRow(payload.newRecord);
-            if (state.items.any((i) => i.id == n.id)) return;
+            if (n.type == 'chat' || state.items.any((i) => i.id == n.id)) {
+              return;
+            }
             state = NotificationsState(items: [n, ...state.items]);
           },
         )
@@ -106,6 +108,8 @@ class NotificationsNotifier extends Notifier<NotificationsState> {
           .from('notifications')
           .select()
           .eq('is_archived', false)
+          // Chat messages show as unread counts on the Chat tab instead.
+          .neq('type', 'chat')
           .order('created_at', ascending: false)
           .limit(pageSize);
       if (!ref.mounted) return;
