@@ -221,6 +221,16 @@ Every row inserted into `notifications` is also sent to the person's phones and 
 - Links: `job:<id>` → `/jobs/<id>`, `chat:<id>` → `/chat/<id>`. Browser notifications open `APP_URL/#/<path>`.
 - App: push stays off until `FirebaseConfig` has the project id and the platform's API key. Users switch alerts on from the Today card or More → Alerts on this device.
 
+## 9. Users (migration 0004)
+
+For system administrators only: `admin.users` at all sites (site-only admins are refused).
+
+- `fn_admin_users()` → `id, email, full_name, phone, home_site_id, active, last_sign_in_at, created_at, roles` where `roles` is `[{role, site_id}]` (`site_id` null = all sites).
+- `fn_set_user_profile(p_user, p_full_name, p_phone, p_home_site, p_active)`: name needed; you cannot switch yourself off.
+- `fn_set_user_roles(p_user, p_roles jsonb)`: replaces all of a person's roles with `[{"role": "Technician", "site_id": uuid|null}]`. You cannot remove your own admin rights.
+- Edge function `admin-users` (POST, caller's token): `{action: "create", email, password, full_name}` → `{id}`; `{action: "reset_password", user_id, password}` → `{ok: true}`. Errors are `{error: "CODE: message"}`. The sign-up trigger creates the profile; roles are then set with `fn_set_user_roles`.
+- App: More → Admin → People (`/admin/users`). Online only.
+
 ## 6. Feature sections (filled in as features are built)
 
 - 7. Jobs board — Clement, phase 1 (done, see above)
@@ -236,6 +246,7 @@ Every row inserted into `notifications` is also sent to the person's phones and 
 
 ## Changelog
 
+- v0.4 — user management (fn_admin_users, fn_set_user_profile, fn_set_user_roles, admin-users function).
 - v0.3 — push notifications (push_config, notifications_push trigger, push-send function).
 
 - v0.2 — jobs board (jobs, photos, comments, recurrences, overdue alerts).

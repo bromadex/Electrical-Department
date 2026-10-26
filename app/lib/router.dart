@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'admin/users_screen.dart';
 import 'jobs/job_detail_screen.dart';
 import 'jobs/recurring_screen.dart';
 import 'screens/board_screen.dart';
@@ -89,6 +90,7 @@ GoRouter buildRouter(WidgetRef ref) {
         path: '/jobs/:id',
         builder: (_, s) => JobDetailScreen(id: s.pathParameters['id']!),
       ),
+      GoRoute(path: '/admin/users', builder: (_, _) => const UsersScreen()),
       GoRoute(
         path: '/notifications',
         builder: (_, _) => const NotificationsScreen(),

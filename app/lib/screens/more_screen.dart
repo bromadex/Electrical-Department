@@ -189,6 +189,20 @@ class MoreScreen extends ConsumerWidget {
           ),
         ).entrance(context, index: 2),
 
+        if (session.perms.canEverywhere('admin.users')) ...[
+          const SectionHeader('Admin'),
+          SurfaceCard(
+            padding: const EdgeInsets.symmetric(vertical: Space.xs),
+            child: _Row(
+              icon: Icons.group_outlined,
+              title: 'People',
+              subtitle: 'Accounts, roles and sites',
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => context.push('/admin/users'),
+            ),
+          ).entrance(context, index: 3),
+        ],
+
         const SizedBox(height: Space.lg),
         Pressable(
           onTap: () => ref.read(authUserIdProvider.notifier).signOut(),
