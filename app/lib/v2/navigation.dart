@@ -97,7 +97,7 @@ List<NavItem> phoneNavItems(PermissionSet p) {
 String homePath(PermissionSet p) {
   if (p.can('jc.view')) return '/v2/dashboard';
   if (p.can('req.submit')) return '/v2/my-requests';
-  return '/today';
+  return '/home';
 }
 
 /// The menu entry a location belongs to (for highlighting and titles).

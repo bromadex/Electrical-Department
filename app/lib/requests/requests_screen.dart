@@ -18,6 +18,7 @@ import '../theme/tokens.dart';
 import '../ui/bits.dart';
 import '../ui/motion.dart';
 import '../ui/surfaces.dart';
+import '../widgets/app_back_button.dart';
 
 /// A work request from outside the electrical team (API.md section 15).
 class WorkRequest {
@@ -118,12 +119,13 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen> {
       backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text('Requests · ${site?.code ?? ''}'),
+        leading: const AppBackButton(),
+        title: Text('Work requests · ${site?.code ?? ''}'),
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
       ),
       floatingActionButton: canRequest
           ? FloatingActionButton.extended(
-              onPressed: () => showFormSheet(context, const _RequestForm()),
+              onPressed: () => showFormSheet(context, const RequestForm()),
               icon: const Icon(CupertinoIcons.paperplane_fill),
               label: const Text('New request'),
             )
@@ -309,14 +311,14 @@ class _RequestTile extends StatelessWidget {
   }
 }
 
-class _RequestForm extends ConsumerStatefulWidget {
-  const _RequestForm();
+class RequestForm extends ConsumerStatefulWidget {
+  const RequestForm({super.key});
 
   @override
-  ConsumerState<_RequestForm> createState() => _RequestFormState();
+  ConsumerState<RequestForm> createState() => _RequestFormState();
 }
 
-class _RequestFormState extends ConsumerState<_RequestForm> {
+class _RequestFormState extends ConsumerState<RequestForm> {
   final _title = TextEditingController();
   final _details = TextEditingController();
   final _department = TextEditingController();

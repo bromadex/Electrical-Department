@@ -18,6 +18,7 @@ import '../ui/bits.dart';
 import '../ui/surfaces.dart';
 import 'chat_list_screen.dart';
 import 'chat_repository.dart';
+import '../widgets/app_back_button.dart';
 
 const _quickReactions = ['👍', '✅', '❤️', '😂', '🙏', '⚠️'];
 
@@ -204,12 +205,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         titleSpacing: 0,
-        leading: IconButton(
-          tooltip: 'Chats',
-          icon: const Icon(CupertinoIcons.back),
-          onPressed: () =>
-              context.canPop() ? context.pop() : context.go('/chat'),
-        ),
+        leading: const AppBackButton(fallback: '/chat'),
         title: Row(
           children: [
             chat == null || chat.isDirect

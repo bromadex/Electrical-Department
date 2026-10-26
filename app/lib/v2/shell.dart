@@ -164,10 +164,10 @@ class V2Shell extends ConsumerWidget {
   }
 }
 
-/// The way back to the jobs board, first in every Version 2 menu.
+/// The way back to the main app, first in every Version 2 menu.
 final versionOneItem = NavItem(
-  '/today',
-  'Back to Version 1',
+  '/home',
+  'Back to main app',
   Icons.arrow_back_rounded,
   Icons.arrow_back_rounded,
   (_) => true,
@@ -559,9 +559,9 @@ class _AccountGate extends ConsumerWidget {
       title: title,
       message: message,
       action: FilledButton.icon(
-        onPressed: () => context.go('/today'),
+        onPressed: () => context.go('/home'),
         icon: const Icon(Icons.arrow_back_rounded),
-        label: const Text('Back to Version 1'),
+        label: const Text('Back to main app'),
       ),
     );
 

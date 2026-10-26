@@ -18,6 +18,7 @@ import '../ui/signature_pad.dart';
 import '../ui/surfaces.dart';
 import 'tools_repository.dart';
 import 'tools_screen.dart';
+import '../widgets/app_back_button.dart';
 
 /// One tool: where it is, its condition and calibration, and who had it.
 class ToolDetailScreen extends ConsumerWidget {
@@ -42,6 +43,7 @@ class ToolDetailScreen extends ConsumerWidget {
       backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
+        leading: const AppBackButton(),
         title: Text(tool?.code ?? 'Tool'),
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
         actions: [

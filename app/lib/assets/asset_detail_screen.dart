@@ -13,6 +13,7 @@ import '../ui/bits.dart';
 import '../ui/motion.dart';
 import '../ui/surfaces.dart';
 import 'assets_screen.dart';
+import '../widgets/app_back_button.dart';
 
 /// One asset: its details, planned maintenance and every job on it.
 class AssetDetailScreen extends ConsumerWidget {
@@ -43,7 +44,8 @@ class AssetDetailScreen extends ConsumerWidget {
       backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text(asset?.tag ?? 'Asset'),
+        leading: const AppBackButton(),
+        title: Text(asset?.tag ?? 'Equipment'),
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
         actions: [
           if (canEdit)

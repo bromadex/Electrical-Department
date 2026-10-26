@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,6 +15,7 @@ import '../ui/bits.dart';
 import '../ui/motion.dart';
 import '../ui/surfaces.dart';
 import 'brand_logo.dart';
+import 'create_sheet.dart';
 import 'notifications_button.dart';
 import 'site_picker.dart';
 import 'sync_banner.dart';
@@ -319,7 +321,7 @@ class _ProfileChip extends ConsumerWidget {
           case 'dark':
             ref.read(themeModeProvider.notifier).set(ThemeMode.dark);
           case 'more':
-            context.go('/more');
+            context.go('/menu');
           case 'signout':
             ref.read(authUserIdProvider.notifier).signOut();
         }
@@ -403,129 +405,216 @@ class _ProfileChip extends ConsumerWidget {
   }
 }
 
-/// Floating glass capsule (desktop navigation): icons with their names on
-/// wide windows, icons alone on narrower ones.
-class _NavCapsule extends StatelessWidget {
+/// Desktop navigation: the New button, the tabs, then direct links to the
+/// everyday screens. Icons with names on wide windows, icons alone on
+/// narrower ones.
+class _NavCapsule extends ConsumerWidget {
   const _NavCapsule({required this.index, required this.onTap});
 
   final int index;
   final ValueChanged<int> onTap;
 
-  static const _item = 56.0;
+  static const _item = 52.0;
+
+  static const _links = [
+    ('/checklists', 'Checklists', CupertinoIcons.checkmark_rectangle),
+    ('/reports', 'Daily report', CupertinoIcons.doc_chart),
+    ('/assets', 'Equipment', CupertinoIcons.gear_alt),
+    ('/tools', 'Tools', CupertinoIcons.wrench),
+    ('/documents', 'Documents', CupertinoIcons.book),
+  ];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     final labels = MediaQuery.sizeOf(context).width >= 1100;
     final width = labels ? 188.0 : _item;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const BrandLogo(width: 64),
-        const SizedBox(height: Space.lg),
-        GlassSurface(
-          radius: labels ? 30 : 40,
-          strong: true,
-          padding: const EdgeInsets.all(8),
-          child: SizedBox(
-            width: width,
-            height: _item * shellTabs.length,
-            child: Stack(
-              children: [
-                AnimatedPositioned(
-                  duration: Motion.of(context, Motion.slow),
-                  curve: Motion.spring,
-                  top: index * _item,
-                  left: 0,
-                  width: width,
-                  height: _item,
-                  child: Container(
-                    margin: const EdgeInsets.all(3),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(Radii.pill),
-                      gradient: BrandColors.brandGradient,
-                      boxShadow: [
-                        BoxShadow(
-                          color: BrandColors.maroon.withValues(alpha: 0.4),
-                          blurRadius: 16,
-                          offset: const Offset(0, 6),
-                        ),
-                      ],
-                    ),
-                    foregroundDecoration: RimDecoration(
-                      radius: Radii.pill,
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Colors.white.withValues(alpha: 0.6),
-                          Colors.white.withValues(alpha: 0.05),
-                        ],
-                      ),
-                    ),
-                  ),
+    final session = ref.watch(sessionProvider);
+    final site = ref.watch(currentSiteProvider);
+    final links = [
+      if (session.can('jc.view') || session.can('req.submit'))
+        ('/v2', 'Job cards', CupertinoIcons.doc_checkmark),
+      for (final l in _links)
+        if (l.$1 != '/tools' || session.can('tools.view', siteId: site?.id))
+          if (l.$1 != '/documents' ||
+              session.can('docs.view', siteId: site?.id))
+            if (session.can('jobs.view', siteId: site?.id)) l,
+    ];
+
+    Widget row(IconData icon, String label, Color color, {Widget? badge}) =>
+        SizedBox(
+          width: width,
+          height: _item,
+          child: Row(
+            mainAxisAlignment: labels
+                ? MainAxisAlignment.start
+                : MainAxisAlignment.center,
+            children: [
+              if (labels) const SizedBox(width: 18),
+              badge ?? Icon(icon, color: color, size: 22),
+              if (labels) ...[
+                const SizedBox(width: Space.sm),
+                Text(
+                  label,
+                  style: TextStyle(fontWeight: FontWeight.w600, color: color),
                 ),
-                Column(
+              ],
+            ],
+          ),
+        );
+
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const BrandLogo(width: 64),
+          const SizedBox(height: Space.md),
+          Tooltip(
+            message: labels ? '' : 'New',
+            child: Pressable(
+              onTap: () => showCreateSheet(context),
+              scale: 0.94,
+              child: Container(
+                width: width + 16,
+                height: 52,
+                decoration: BoxDecoration(
+                  gradient: BrandColors.brandGradient,
+                  borderRadius: BorderRadius.circular(Radii.pill),
+                  boxShadow: [
+                    BoxShadow(
+                      color: BrandColors.maroon.withValues(alpha: 0.4),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    for (var i = 0; i < shellTabs.length; i++)
-                      Tooltip(
-                        message: labels ? '' : shellTabs[i].label,
-                        preferBelow: false,
-                        child: Pressable(
-                          onTap: () => onTap(i),
-                          scale: 0.92,
-                          child: SizedBox(
-                            width: width,
-                            height: _item,
-                            child: Row(
-                              mainAxisAlignment: labels
-                                  ? MainAxisAlignment.start
-                                  : MainAxisAlignment.center,
-                              children: [
-                                if (labels) const SizedBox(width: 18),
-                                AnimatedSwitcher(
-                                  duration: Motion.of(context, Motion.medium),
-                                  child: _TabBadge(
-                                    key: ValueKey(i == index),
+                    const Icon(CupertinoIcons.add, color: Colors.white),
+                    if (labels) ...[
+                      const SizedBox(width: Space.xs),
+                      const Text(
+                        'New',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: Space.md),
+          GlassSurface(
+            radius: labels ? 30 : 40,
+            strong: true,
+            padding: const EdgeInsets.all(8),
+            child: Column(
+              children: [
+                SizedBox(
+                  width: width,
+                  height: _item * shellTabs.length,
+                  child: Stack(
+                    children: [
+                      AnimatedPositioned(
+                        duration: Motion.of(context, Motion.slow),
+                        curve: Motion.spring,
+                        top: index * _item,
+                        left: 0,
+                        width: width,
+                        height: _item,
+                        child: Container(
+                          margin: const EdgeInsets.all(3),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(Radii.pill),
+                            gradient: BrandColors.brandGradient,
+                          ),
+                          foregroundDecoration: RimDecoration(
+                            radius: Radii.pill,
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                Colors.white.withValues(alpha: 0.6),
+                                Colors.white.withValues(alpha: 0.05),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      Column(
+                        children: [
+                          for (var i = 0; i < shellTabs.length; i++)
+                            Tooltip(
+                              message: labels ? '' : shellTabs[i].label,
+                              preferBelow: false,
+                              child: Pressable(
+                                onTap: () => onTap(i),
+                                scale: 0.92,
+                                child: row(
+                                  shellTabs[i].icon,
+                                  shellTabs[i].label,
+                                  i == index
+                                      ? Colors.white
+                                      : scheme.onSurfaceVariant,
+                                  badge: _TabBadge(
                                     tab: shellTabs[i],
                                     child: Icon(
                                       i == index
                                           ? shellTabs[i].selectedIcon
                                           : shellTabs[i].icon,
+                                      size: 22,
                                       color: i == index
                                           ? Colors.white
                                           : scheme.onSurfaceVariant,
                                     ),
                                   ),
                                 ),
-                                if (labels) ...[
-                                  const SizedBox(width: Space.sm),
-                                  Text(
-                                    shellTabs[i].label,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      color: i == index
-                                          ? Colors.white
-                                          : scheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                ],
-                              ],
+                              ),
                             ),
-                          ),
-                        ),
+                        ],
                       ),
-                  ],
+                    ],
+                  ),
                 ),
+                if (links.isNotEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: SizedBox(
+                      width: width - 24,
+                      child: Divider(
+                        height: 1,
+                        color: scheme.outlineVariant.withValues(alpha: 0.6),
+                      ),
+                    ),
+                  ),
+                  for (final (path, label, icon) in links)
+                    Tooltip(
+                      message: labels ? '' : label,
+                      preferBelow: false,
+                      child: Pressable(
+                        onTap: () => path == '/v2'
+                            ? context.go(path)
+                            : context.push(path),
+                        scale: 0.92,
+                        child: row(icon, label, scheme.onSurfaceVariant),
+                      ),
+                    ),
+                ],
               ],
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
+/// Phone tab bar: two tabs, the + button, two tabs.
 class _FloatingTabBar extends StatelessWidget {
   const _FloatingTabBar({required this.index, required this.onTap});
 
@@ -535,6 +624,8 @@ class _FloatingTabBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    // Slot on screen for each tab: the + takes the middle slot.
+    int slot(int i) => i < 2 ? i : i + 1;
     return DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(34),
@@ -555,13 +646,13 @@ class _FloatingTabBar extends StatelessWidget {
           height: 60,
           child: LayoutBuilder(
             builder: (context, c) {
-              final w = c.maxWidth / shellTabs.length;
+              final w = c.maxWidth / (shellTabs.length + 1);
               return Stack(
                 children: [
                   AnimatedPositioned(
                     duration: Motion.of(context, Motion.slow),
                     curve: Motion.spring,
-                    left: index * w,
+                    left: slot(index) * w,
                     top: 0,
                     bottom: 0,
                     width: w,
@@ -575,7 +666,9 @@ class _FloatingTabBar extends StatelessWidget {
                   ),
                   Row(
                     children: [
-                      for (var i = 0; i < shellTabs.length; i++)
+                      for (var i = 0; i < shellTabs.length; i++) ...[
+                        if (i == 2)
+                          const Expanded(child: Center(child: _CreateButton())),
                         Expanded(
                           child: _TabItem(
                             tab: shellTabs[i],
@@ -583,12 +676,46 @@ class _FloatingTabBar extends StatelessWidget {
                             onTap: () => onTap(i),
                           ),
                         ),
+                      ],
                     ],
                   ),
                 ],
               );
             },
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The round + in the middle of the phone tab bar.
+class _CreateButton extends StatelessWidget {
+  const _CreateButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'New',
+      child: Pressable(
+        onTap: () => showCreateSheet(context),
+        scale: 0.88,
+        child: Container(
+          width: 52,
+          height: 52,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: BrandColors.brandGradient,
+            boxShadow: [
+              BoxShadow(
+                color: BrandColors.maroon.withValues(alpha: 0.45),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: const Icon(CupertinoIcons.add, color: Colors.white, size: 28),
         ),
       ),
     );
