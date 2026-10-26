@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
+import '../navigation.dart';
 import '../theme/tokens.dart';
 
-/// Page title, subtitle and actions above the page content.
+/// Page subtitle and actions above the page content. Menu screens leave
+/// their name to the shell header, so it is shown once; detail pages (a job
+/// card's number, "New request") keep their own title.
 class AppPage extends StatelessWidget {
   const AppPage({
     super.key,
@@ -25,11 +29,24 @@ class AppPage extends StatelessWidget {
   final bool scroll;
   final double maxWidth;
 
+  /// True when the shell header already shows [title] (a menu screen).
+  bool _titleInShell(BuildContext context) {
+    try {
+      final location = GoRouterState.of(context).uri.path;
+      return navItems.any((i) => i.path == location && i.label == title);
+    } catch (_) {
+      return false; // Outside the router, e.g. in widget tests.
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final phone = MediaQuery.sizeOf(context).width < Breakpoints.phone;
     final pad = phone ? Space.sm : Space.lg;
+    final showTitle = !_titleInShell(context);
+    final hasHeader =
+        showTitle || subtitle != null || leading != null || actions.isNotEmpty;
 
     final header = Wrap(
       spacing: Space.sm,
@@ -46,12 +63,13 @@ class AppPage extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    title,
-                    style: phone
-                        ? theme.textTheme.titleLarge
-                        : theme.textTheme.headlineSmall,
-                  ),
+                  if (showTitle)
+                    Text(
+                      title,
+                      style: phone
+                          ? theme.textTheme.titleLarge
+                          : theme.textTheme.headlineSmall,
+                    ),
                   if (subtitle != null)
                     Text(
                       subtitle!,
@@ -79,8 +97,7 @@ class AppPage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                header,
-                const SizedBox(height: Space.md),
+                if (hasHeader) ...[header, const SizedBox(height: Space.md)],
                 Expanded(child: child),
               ],
             ),
@@ -98,8 +115,7 @@ class AppPage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              header,
-              const SizedBox(height: Space.md),
+              if (hasHeader) ...[header, const SizedBox(height: Space.md)],
               child,
             ],
           ),

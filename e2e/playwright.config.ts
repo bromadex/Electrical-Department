@@ -6,8 +6,10 @@ import { defineConfig } from '@playwright/test';
 export default defineConfig({
   testDir: './tests',
   outputDir: process.env.E2E_OUTPUT_DIR ?? 'test-results',
-  timeout: 240_000,
-  expect: { timeout: 30_000 },
+  // The glass look is drawn in software on CI (no graphics card), so pages
+  // take far longer than on a phone or PC.
+  timeout: 480_000,
+  expect: { timeout: 60_000 },
   fullyParallel: false,
   workers: 1,
   retries: 0,
@@ -16,7 +18,7 @@ export default defineConfig({
     baseURL: 'http://127.0.0.1:8091',
     // Tall enough that long forms fit without scrolling the Flutter canvas.
     viewport: { width: 1440, height: 2400 },
-    actionTimeout: 30_000,
+    actionTimeout: 60_000,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },

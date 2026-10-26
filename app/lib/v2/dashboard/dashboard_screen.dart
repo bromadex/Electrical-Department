@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../jobcards/repository.dart' show jobCardsLiveProvider;
 import '../../services/session_controller.dart';
+import '../../ui/surfaces.dart';
+import '../jobcards/repository.dart' show jobCardsLiveProvider;
+import '../my_jobs/my_jobs_screen.dart' show myJobsProvider;
 import '../site_filter.dart';
 import '../theme/tokens.dart';
 import '../ui/bits.dart';
@@ -11,9 +13,11 @@ import '../ui/charts.dart';
 import '../ui/format.dart';
 import '../ui/page.dart';
 import '../ui/panels.dart';
-import '../ui/status.dart';
+import '../ui/status.dart' show humanize;
 import 'dashboard_data.dart';
 
+/// What needs me first, four numbers, then the charts (like the main app's
+/// Home). Wide windows put "Needs you" on the left and the rest on the right.
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
@@ -26,31 +30,8 @@ class DashboardScreen extends ConsumerWidget {
 
     return AppPage(
       title: 'Dashboard',
-      subtitle:
-          '${site == null ? 'All your sites' : siteName ?? ''} · charts cover job cards received in the last ${range.label}',
+      subtitle: site == null ? 'All your sites' : siteName,
       actions: [
-        SegmentedButton<String>(
-          showSelectedIcon: false,
-          segments: const [
-            ButtonSegment(value: '7 days', label: Text('7 d')),
-            ButtonSegment(value: '30 days', label: Text('30 d')),
-            ButtonSegment(value: '90 days', label: Text('90 d')),
-            ButtonSegment(value: '12 months', label: Text('12 m')),
-          ],
-          selected: {range.label},
-          onSelectionChanged: (s) {
-            final label = s.first;
-            final days = switch (label) {
-              '7 days' => 7,
-              '90 days' => 90,
-              '12 months' => 365,
-              _ => 30,
-            };
-            ref
-                .read(dashRangeProvider.notifier)
-                .set(DashRange.lastDays(days, label));
-          },
-        ),
         IconButton(
           tooltip: 'Refresh',
           onPressed: () => ref.read(jobCardsLiveProvider.notifier).bumpNow(),
@@ -60,25 +41,376 @@ class DashboardScreen extends ConsumerWidget {
       child: AsyncView(
         value: data,
         onRetry: () => ref.invalidate(dashboardProvider((site, range))),
-        data: (d) => _Dashboard(data: d),
+        data: (d) => LayoutBuilder(
+          builder: (context, c) {
+            if (c.maxWidth < 900) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _NeedsYou(data: d),
+                  const SizedBox(height: Space.md),
+                  _Numbers(data: d, siteName: site == null ? null : siteName),
+                  const SizedBox(height: Space.md),
+                  _Charts(data: d),
+                ],
+              );
+            }
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(flex: 3, child: _NeedsYou(data: d)),
+                const SizedBox(width: Space.md),
+                Expanded(
+                  flex: 2,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _Numbers(
+                        data: d,
+                        siteName: site == null ? null : siteName,
+                      ),
+                      const SizedBox(height: Space.md),
+                      _Charts(data: d),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
 }
 
-class _Dashboard extends ConsumerWidget {
-  const _Dashboard({required this.data});
+typedef _Item = ({
+  IconData icon,
+  Color color,
+  String title,
+  String? detail,
+  VoidCallback onTap,
+});
+
+/// Everything waiting on someone, most pressing first. One row per kind;
+/// a single job card opens directly, several open the filtered list.
+class _NeedsYou extends ConsumerWidget {
+  const _NeedsYou({required this.data});
 
   final DashboardData data;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final perms = ref.watch(sessionProvider.select((s) => s.perms));
+    final mine = ref.watch(myJobsProvider).value ?? const [];
     final d = data;
-    final canTriage = ref.watch(
-      sessionProvider.select((s) => s.perms.can('req.triage')),
-    );
-    void open(String view) => context.go('/v2/job-cards?view=$view');
+    void list(String view) => context.go('/v2/job-cards?view=$view');
+    void job(Map<String, dynamic> r) =>
+        context.go('/v2/job-cards/${r['number']}');
 
+    String one(Map<String, dynamic> r) => '${r['number']} · ${r['title']}';
+    String? detail(Map<String, dynamic> r, String extra) => [
+      r['site_code'],
+      r['responsible_name'] ?? 'Not assigned',
+      extra,
+    ].whereType<String>().where((s) => s.isNotEmpty).join(' · ');
+
+    _Item? kind({
+      required String key,
+      required int count,
+      required String several,
+      required IconData icon,
+      required Color color,
+      required String Function(Map<String, dynamic> r) extra,
+      required String view,
+    }) {
+      if (count == 0) return null;
+      final rows = d.alerts[key] ?? const [];
+      if (count == 1 && rows.length == 1) {
+        final r = rows.single;
+        return (
+          icon: icon,
+          color: color,
+          title: one(r),
+          detail: detail(r, extra(r)),
+          onTap: () => job(r),
+        );
+      }
+      return (
+        icon: icon,
+        color: color,
+        title: several,
+        detail: rows.isEmpty
+            ? null
+            : 'Most pressing: ${rows.first['number']} · ${rows.first['title']}',
+        onTap: () => list(view),
+      );
+    }
+
+    final critical = d.card('critical');
+    final overdue = d.card('overdue');
+    final unassigned = d.card('awaiting_assignment');
+    final review = d.card('awaiting_review');
+    final items = <_Item>[
+      ?kind(
+        key: 'critical',
+        count: critical,
+        several: '$critical critical job cards',
+        icon: Icons.report_rounded,
+        color: AppColors.critical,
+        extra: (r) => r['critical_reason'] as String? ?? 'Critical',
+        view: 'critical',
+      ),
+      ?kind(
+        key: 'overdue',
+        count: overdue,
+        several: '$overdue job cards are overdue',
+        icon: Icons.alarm_rounded,
+        color: AppColors.critical,
+        extra: (r) =>
+            'overdue by ${fmtMinutes(parseNum(r['overdue_minutes']))}',
+        view: 'overdue',
+      ),
+      if (unassigned > 0 && perms.can('jc.assign'))
+        (
+          icon: Icons.person_search_outlined,
+          color: AppColors.warning,
+          title: unassigned == 1
+              ? '1 job card needs someone'
+              : '$unassigned job cards need someone',
+          detail: 'Awaiting assignment',
+          onTap: () => list('awaiting_assignment'),
+        ),
+      if (perms.can('jc.review'))
+        ?kind(
+          key: 'awaiting_review',
+          count: review,
+          several: '$review job cards to verify',
+          icon: Icons.fact_check_outlined,
+          color: AppColors.review,
+          extra: (r) =>
+              'submitted ${fmtRelative(parseTime(r['submitted_at']))}',
+          view: 'awaiting_review',
+        ),
+      if (mine.length == 1)
+        (
+          icon: Icons.engineering_outlined,
+          color: AppColors.burgundy,
+          title: '${mine.single.number} · ${mine.single.title}',
+          detail: 'Assigned to you · ${mine.single.status.label}',
+          onTap: () => context.go('/v2/job-cards/${mine.single.number}'),
+        )
+      else if (mine.length > 1)
+        (
+          icon: Icons.engineering_outlined,
+          color: AppColors.burgundy,
+          title: '${mine.length} job cards assigned to you',
+          detail: 'Most urgent first in My Assigned Jobs',
+          onTap: () => context.go('/v2/my-jobs'),
+        ),
+    ];
+
+    return SurfaceCard(
+      radius: Radii.lg,
+      padding: const EdgeInsets.fromLTRB(Space.md, Space.md, Space.md, 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Text('Needs you', style: theme.textTheme.titleMedium),
+              const SizedBox(width: Space.xs),
+              if (items.isNotEmpty)
+                Pill(
+                  label: '${items.length}',
+                  color: AppColors.burgundy,
+                  dense: true,
+                ),
+            ],
+          ),
+          if (items.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: Space.lg),
+              child: Column(
+                children: [
+                  const Icon(
+                    Icons.verified_rounded,
+                    color: AppColors.success,
+                    size: 40,
+                  ),
+                  const SizedBox(height: Space.xs),
+                  Text('All caught up', style: theme.textTheme.titleSmall),
+                  Text(
+                    'No job card is waiting on you.',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            )
+          else
+            for (final (i, it) in items.indexed) ...[
+              if (i > 0) const Divider(height: 1),
+              _Row(item: it),
+            ],
+        ],
+      ),
+    );
+  }
+}
+
+class _Row extends StatelessWidget {
+  const _Row({required this.item});
+
+  final _Item item;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final c = AppColors.adapt(item.color, theme.brightness);
+    return InkWell(
+      onTap: item.onTap,
+      borderRadius: BorderRadius.circular(Radii.md),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: c.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(Radii.md),
+              ),
+              child: Icon(item.icon, color: c, size: 20),
+            ),
+            const SizedBox(width: Space.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall,
+                  ),
+                  if (item.detail != null)
+                    Text(
+                      item.detail!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              size: 20,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Four numbers in one card; each opens the job cards list with that filter.
+class _Numbers extends StatelessWidget {
+  const _Numbers({required this.data, required this.siteName});
+
+  final DashboardData data;
+  final String? siteName;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final d = data;
+    final numbers = [
+      (
+        'Open',
+        d.card('total') - d.card('closed') - d.card('cancelled'),
+        AppColors.burgundy,
+        'open',
+      ),
+      ('Critical', d.card('critical'), AppColors.critical, 'critical'),
+      ('Overdue', d.card('overdue'), AppColors.warning, 'overdue'),
+      (
+        'Closed today',
+        d.card('closed_today'),
+        AppColors.success,
+        'closed_today',
+      ),
+    ];
+    return SurfaceCard(
+      radius: Radii.lg,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            siteName == null ? 'Job cards' : 'Job cards at $siteName',
+            style: theme.textTheme.titleMedium,
+          ),
+          const SizedBox(height: Space.sm),
+          Row(
+            children: [
+              for (final (label, value, color, view) in numbers)
+                Expanded(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(Radii.md),
+                    onTap: () => context.go('/v2/job-cards?view=$view'),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Column(
+                        children: [
+                          Text(
+                            '$value',
+                            style: theme.textTheme.headlineMedium?.copyWith(
+                              color: value > 0
+                                  ? AppColors.adapt(color, theme.brightness)
+                                  : null,
+                              fontWeight: FontWeight.w700,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
+                            ),
+                          ),
+                          Text(
+                            label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The charts, with the period they cover.
+class _Charts extends ConsumerWidget {
+  const _Charts({required this.data});
+
+  final DashboardData data;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final d = data;
+    final range = ref.watch(dashRangeProvider);
     String pct(num part, num whole) =>
         whole == 0 ? '—' : '${(part * 100 / whole).round()}%';
     final respMet = (d.responseTarget['met'] as num?) ?? 0;
@@ -89,94 +421,41 @@ class _Dashboard extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        ResponsiveGrid(
-          minItemWidth: 210,
+        Wrap(
+          spacing: Space.sm,
+          runSpacing: Space.xs,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          alignment: WrapAlignment.spaceBetween,
           children: [
-            KpiCard(
-              label: 'Total job cards',
-              value: '${d.card('total')}',
-              icon: Icons.assignment_outlined,
-              color: AppColors.burgundy,
-              onTap: () => open('all'),
+            Text(
+              'Charts · received in the last ${range.label}',
+              style: theme.textTheme.titleSmall,
             ),
-            KpiCard(
-              label: 'New / received',
-              value: '${d.card('new')}',
-              icon: Icons.fiber_new_outlined,
-              color: AppColors.info,
-              onTap: () => open('new'),
-            ),
-            if (canTriage && d.incomingRequests != null)
-              KpiCard(
-                label: 'Incoming requests',
-                value: '${d.incomingRequests}',
-                icon: Icons.move_to_inbox_outlined,
-                color: AppColors.info,
-                onTap: () => context.go('/v2/requests'),
-              ),
-            KpiCard(
-              label: 'Awaiting assignment',
-              value: '${d.card('awaiting_assignment')}',
-              icon: Icons.person_search_outlined,
-              color: AppColors.warning,
-              onTap: () => open('awaiting_assignment'),
-            ),
-            KpiCard(
-              label: 'Active jobs',
-              value: '${d.card('active')}',
-              caption:
-                  '${d.card('working')} being worked · ${d.card('waiting')} waiting',
-              icon: Icons.construction_rounded,
-              color: AppColors.info,
-              onTap: () => open('active'),
-            ),
-            KpiCard(
-              label: 'Critical',
-              value: '${d.card('critical')}',
-              icon: Icons.report_rounded,
-              color: AppColors.critical,
-              onTap: () => open('critical'),
-            ),
-            KpiCard(
-              label: 'Overdue',
-              value: '${d.card('overdue')}',
-              icon: Icons.alarm_rounded,
-              color: AppColors.critical,
-              onTap: () => open('overdue'),
-            ),
-            KpiCard(
-              label: 'Awaiting engineering review',
-              value: '${d.card('awaiting_review')}',
-              icon: Icons.fact_check_outlined,
-              color: AppColors.review,
-              onTap: () => open('awaiting_review'),
-            ),
-            KpiCard(
-              label: 'Closed',
-              value: '${d.card('closed')}',
-              icon: Icons.check_circle_outline_rounded,
-              color: AppColors.success,
-              onTap: () => open('closed'),
-            ),
-            KpiCard(
-              label: 'Closed today',
-              value: '${d.card('closed_today')}',
-              icon: Icons.today_outlined,
-              color: AppColors.success,
-              onTap: () => open('closed_today'),
-            ),
-            KpiCard(
-              label: 'Equipment out of service',
-              value: '${d.card('equipment_out_of_service')}',
-              icon: Icons.power_off_outlined,
-              color: AppColors.critical,
-              onTap: () => open('out_of_service'),
+            SegmentedButton<String>(
+              showSelectedIcon: false,
+              segments: const [
+                ButtonSegment(value: '7 days', label: Text('7 d')),
+                ButtonSegment(value: '30 days', label: Text('30 d')),
+                ButtonSegment(value: '90 days', label: Text('90 d')),
+                ButtonSegment(value: '12 months', label: Text('12 m')),
+              ],
+              selected: {range.label},
+              onSelectionChanged: (s) {
+                final label = s.first;
+                final days = switch (label) {
+                  '7 days' => 7,
+                  '90 days' => 90,
+                  '12 months' => 365,
+                  _ => 30,
+                };
+                ref
+                    .read(dashRangeProvider.notifier)
+                    .set(DashRange.lastDays(days, label));
+              },
             ),
           ],
         ),
-        const SizedBox(height: Space.md),
-        _Alerts(alerts: d.alerts),
-        const SizedBox(height: Space.md),
+        const SizedBox(height: Space.sm),
         Panel(
           title: 'Job cards received versus closed',
           subtitle:
@@ -333,142 +612,6 @@ class _Dashboard extends ConsumerWidget {
           ],
         ),
       ],
-    );
-  }
-}
-
-/// Jobs that need someone's attention now, each one link away.
-class _Alerts extends StatefulWidget {
-  const _Alerts({required this.alerts});
-
-  final Map<String, List<Map<String, dynamic>>> alerts;
-
-  @override
-  State<_Alerts> createState() => _AlertsState();
-}
-
-class _AlertsState extends State<_Alerts> {
-  static const _sections = [
-    ('critical', 'Critical', Icons.report_rounded, AppColors.critical),
-    ('overdue', 'Overdue', Icons.alarm_rounded, AppColors.critical),
-    (
-      'approaching',
-      'Deadline soon',
-      Icons.hourglass_bottom_rounded,
-      AppColors.warning,
-    ),
-    (
-      'production_impact',
-      'Production impact',
-      Icons.factory_outlined,
-      AppColors.warning,
-    ),
-    (
-      'awaiting_review',
-      'Awaiting review',
-      Icons.fact_check_outlined,
-      AppColors.review,
-    ),
-    (
-      'on_hold_long',
-      'On hold too long',
-      Icons.pause_circle_outline_rounded,
-      AppColors.warning,
-    ),
-  ];
-  String? _selected;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final total = _sections.fold<int>(
-      0,
-      (s, e) => s + (widget.alerts[e.$1]?.length ?? 0),
-    );
-    final key =
-        _selected ??
-        _sections
-            .firstWhere(
-              (s) => (widget.alerts[s.$1]?.isNotEmpty ?? false),
-              orElse: () => _sections.first,
-            )
-            .$1;
-    final rows = widget.alerts[key] ?? const [];
-    return Panel(
-      title: 'Needs attention',
-      icon: Icons.notification_important_outlined,
-      subtitle: total == 0 ? 'Nothing needs attention right now' : null,
-      child: total == 0
-          ? const SizedBox.shrink()
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    for (final (k, label, icon, color) in _sections)
-                      ChoiceChip(
-                        selected: key == k,
-                        showCheckmark: false,
-                        avatar: Icon(icon, size: 16, color: color),
-                        label: Text(
-                          '$label (${widget.alerts[k]?.length ?? 0})',
-                        ),
-                        onSelected: (_) => setState(() => _selected = k),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: Space.xs),
-                if (rows.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.all(Space.md),
-                    child: Text('None.'),
-                  ),
-                for (final r in rows)
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    onTap: () => context.go('/v2/job-cards/${r['number']}'),
-                    leading: PriorityBadge(
-                      Priority.fromCode(r['priority'] as String?),
-                    ),
-                    title: Text(
-                      '${r['number']} · ${r['title']}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    subtitle: Text(
-                      [
-                        r['site_code'],
-                        r['equipment_display'],
-                        r['responsible_name'] ?? 'Not assigned',
-                        switch (key) {
-                          'overdue' =>
-                            'overdue by ${fmtMinutes(parseNum(r['overdue_minutes']))}',
-                          'approaching' =>
-                            '${fmtMinutes(parseNum(r['remaining_minutes']))} left',
-                          'awaiting_review' =>
-                            'submitted ${fmtRelative(parseTime(r['submitted_at']))}',
-                          'on_hold_long' =>
-                            '${humanize(r['status'] as String?)} since ${fmtDateTime(parseTime(r['status_changed_at']))}',
-                          'production_impact' => humanize(
-                            (r['operational_impact'] ?? r['equipment_state'])
-                                as String?,
-                          ),
-                          _ => r['critical_reason'],
-                        },
-                      ].whereType<String>().join(' · '),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall,
-                    ),
-                    trailing: StatusPill(
-                      JobStatus.fromDb(r['status'] as String?),
-                      dense: true,
-                    ),
-                  ),
-              ],
-            ),
     );
   }
 }

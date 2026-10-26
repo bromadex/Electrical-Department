@@ -1,3 +1,4 @@
+import { mkdirSync } from 'node:fs';
 import { expect, Page, test } from '@playwright/test';
 import { Api, expectShown, fill, open, people, q, reportFailure, shot, shown, signIn, tap } from './support';
 
@@ -165,7 +166,7 @@ test('Both themes: light and dark', async ({ browser }) => {
   for (const scheme of ['light', 'dark'] as const) {
     const engineer = await signIn(browser, people.engineer, { width: 1440, height: 1000 }, scheme);
     await open(engineer, '/v2/dashboard');
-    await expectShown(engineer, /Total job cards/);
+    await expectShown(engineer, /Needs you/);
     await shot(engineer, `theme-${scheme}-dashboard`);
     await open(engineer, `/v2/job-cards/${running.number}`);
     await expectShown(engineer, /Work time|You are working/);
@@ -193,4 +194,37 @@ test('Version 1 still works beside Version 2', async ({ browser }) => {
   await shot(tech, 'v1-to-v2');
   await tap(tech, /Back to main app/);
   await expect.poll(() => new URL(tech.url()).hash).toContain('/home');
+});
+
+// docs/tasks/v2-layout.md: one title per page, the "Needs you" list and four
+// numbers on a phone without scrolling, filters in two rows, and a table that
+// fits 1280 px. Saves the screenshots the task asks for.
+test('Layout: dashboard, filters and table fit desk and phone', async ({ browser }) => {
+  mkdirSync('screenshots/v2-layout', { recursive: true });
+  const jpeg = (page: Page, name: string) =>
+    page.screenshot({ path: `screenshots/v2-layout/${name}.jpg`, type: 'jpeg', quality: 80 });
+
+  const desk = await signIn(browser, people.engineer, { width: 1440, height: 900 });
+  await open(desk, '/v2/dashboard');
+  await expectShown(desk, /Needs you/);
+  await jpeg(desk, 'desk-dashboard');
+  await open(desk, '/v2/job-cards');
+  await expect(shown(desk, 'Received', true).first()).toBeInViewport();
+  await jpeg(desk, 'desk-job-cards');
+
+  const narrow = await signIn(browser, people.engineer, { width: 1280, height: 800 });
+  await open(narrow, '/v2/job-cards');
+  await expect(shown(narrow, 'Received', true).first()).toBeInViewport();
+  await expect(shown(narrow, 'Priority', true).first()).toBeInViewport();
+
+  const phone = await signIn(browser, people.engineer, { width: 390, height: 844 });
+  await open(phone, '/v2/dashboard');
+  await expect(shown(phone, /Needs you/).first()).toBeInViewport();
+  await expect(shown(phone, /Closed today/).first()).toBeInViewport();
+  await expect(phone.getByRole('button', { name: 'Back to main app' })).toBeVisible();
+  await jpeg(phone, 'phone-dashboard');
+  await open(phone, '/v2/job-cards');
+  await expect(phone.getByRole('button', { name: /^Filter/ })).toBeVisible();
+  await jpeg(phone, 'phone-job-cards');
+  await expect(shown(phone, /Version 2/)).toHaveCount(0);
 });
