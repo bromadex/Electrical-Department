@@ -12,6 +12,7 @@ import '../ui/bits.dart';
 import '../ui/motion.dart';
 import '../ui/surfaces.dart';
 import 'users_repository.dart';
+import '../widgets/app_back_button.dart';
 
 /// System administrators add people, set their roles per site, switch
 /// accounts off and reset passwords.
@@ -37,6 +38,7 @@ class _UsersScreenState extends ConsumerState<UsersScreen> {
       backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
+        leading: const AppBackButton(),
         title: const Text('People'),
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
       ),

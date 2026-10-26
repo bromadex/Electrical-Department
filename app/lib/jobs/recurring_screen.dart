@@ -13,6 +13,7 @@ import '../ui/surfaces.dart';
 import 'job_editor.dart';
 import 'job_rules.dart';
 import 'jobs_repository.dart';
+import '../widgets/app_back_button.dart';
 
 const _everyLabels = {
   'daily': 'Daily',
@@ -42,6 +43,7 @@ class RecurringScreen extends ConsumerWidget {
       backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
+        leading: const AppBackButton(fallback: '/jobs'),
         title: Text('Planned maintenance · ${site?.code ?? ''}'),
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
       ),

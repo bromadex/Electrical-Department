@@ -14,6 +14,7 @@ import '../ui/bits.dart';
 import '../ui/motion.dart';
 import '../ui/surfaces.dart';
 import 'checklists_repository.dart';
+import '../widgets/app_back_button.dart';
 
 /// Rounds at the current site: what is due, what is done, and (for
 /// supervisors) building the templates.
@@ -34,6 +35,7 @@ class ChecklistsScreen extends ConsumerWidget {
       backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
+        leading: const AppBackButton(),
         title: Text('Checklists · ${site?.code ?? ''}'),
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
       ),

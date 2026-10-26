@@ -18,6 +18,7 @@ import '../theme/tokens.dart';
 import '../ui/bits.dart';
 import '../ui/motion.dart';
 import '../ui/surfaces.dart';
+import '../widgets/app_back_button.dart';
 
 /// A work request from outside the electrical team (API.md section 15).
 class WorkRequest {
@@ -118,6 +119,7 @@ class _RequestsScreenState extends ConsumerState<RequestsScreen> {
       backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
+        leading: const AppBackButton(),
         title: Text('Work requests · ${site?.code ?? ''}'),
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
       ),

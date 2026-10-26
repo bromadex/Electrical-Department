@@ -14,6 +14,7 @@ import '../ui/motion.dart';
 import '../ui/surfaces.dart';
 import 'documents_repository.dart';
 import 'documents_screen.dart';
+import '../widgets/app_back_button.dart';
 
 /// Opens a document file: images inside the app, anything else (PDF,
 /// drawings) in the phone's or browser's own viewer.
@@ -72,6 +73,7 @@ class DocumentDetailScreen extends ConsumerWidget {
       backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
+        leading: const AppBackButton(),
         title: Text(doc?.code ?? 'Document'),
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
         actions: [

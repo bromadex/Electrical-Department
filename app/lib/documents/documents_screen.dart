@@ -12,6 +12,7 @@ import '../ui/bits.dart';
 import '../ui/motion.dart';
 import '../ui/surfaces.dart';
 import 'documents_repository.dart';
+import '../widgets/app_back_button.dart';
 
 IconData docIcon(Doc d) {
   final mime = d.current?.mimeType ?? '';
@@ -57,6 +58,7 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
       backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
+        leading: const AppBackButton(),
         title: Text('Documents · ${site?.code ?? ''}'),
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
       ),

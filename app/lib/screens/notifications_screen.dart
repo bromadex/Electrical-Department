@@ -7,6 +7,7 @@ import '../services/push_service.dart';
 import '../theme/tokens.dart';
 import '../ui/bits.dart';
 import '../ui/motion.dart';
+import '../widgets/app_back_button.dart';
 
 class NotificationsScreen extends ConsumerWidget {
   const NotificationsScreen({super.key});
@@ -45,6 +46,7 @@ class NotificationsScreen extends ConsumerWidget {
           ),
           slivers: [
             SliverAppBar.large(
+              leading: const AppBackButton(),
               title: const Text('Notifications'),
               backgroundColor: theme.colorScheme.surface,
               actions: [

@@ -18,6 +18,7 @@ import '../ui/motion.dart';
 import '../ui/surfaces.dart';
 import 'report_pdf.dart';
 import 'reports_repository.dart';
+import '../widgets/app_back_button.dart';
 
 enum _Range { day, week, month }
 
@@ -51,6 +52,7 @@ class _DailyReportScreenState extends ConsumerState<DailyReportScreen> {
       backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
+        leading: const AppBackButton(),
         title: Text('Daily report · ${site?.code ?? ''}'),
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
         actions: [

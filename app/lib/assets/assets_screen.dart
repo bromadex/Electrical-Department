@@ -12,6 +12,7 @@ import '../theme/tokens.dart';
 import '../ui/bits.dart';
 import '../ui/motion.dart';
 import '../ui/surfaces.dart';
+import '../widgets/app_back_button.dart';
 
 /// Common kinds of plant, offered when adding an asset. Free text is fine.
 const assetKinds = [
@@ -77,6 +78,7 @@ class _AssetsScreenState extends ConsumerState<AssetsScreen> {
       backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
+        leading: const AppBackButton(),
         title: Text('Equipment · ${site?.code ?? ''}'),
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
       ),

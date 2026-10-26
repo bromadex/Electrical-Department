@@ -8,6 +8,7 @@ import '../jobs/job_rules.dart';
 import '../services/core_providers.dart';
 import '../theme/tokens.dart';
 import '../ui/surfaces.dart';
+import '../widgets/app_back_button.dart';
 
 final _targetsProvider = FutureProvider.autoDispose<List<Map<String, dynamic>>>(
   (ref) async {
@@ -36,6 +37,7 @@ class TargetsScreen extends ConsumerWidget {
       backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
+        leading: const AppBackButton(),
         title: const Text('Response times'),
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
       ),
