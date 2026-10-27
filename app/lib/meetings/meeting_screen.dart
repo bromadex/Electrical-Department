@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:printing/printing.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
-import 'package:url_launcher/url_launcher.dart';
 
 import '../chat/chat_repository.dart';
 import '../data/app_error.dart';
@@ -21,6 +20,7 @@ import '../ui/motion.dart';
 import '../ui/record_hero.dart';
 import '../ui/surfaces.dart';
 import '../widgets/app_back_button.dart';
+import 'captions.dart';
 import 'meeting_pdf.dart';
 import 'meetings_repository.dart';
 
@@ -45,14 +45,12 @@ class MeetingScreen extends ConsumerStatefulWidget {
   ConsumerState<MeetingScreen> createState() => _MeetingScreenState();
 }
 
-enum _Tab { minutes, agenda, present }
+enum _Tab { minutes, transcript, agenda, present }
 
 class _MeetingScreenState extends ConsumerState<MeetingScreen> {
   _Tab _tab = _Tab.minutes;
-  bool _busy = false;
 
   Future<void> _run(Future<void> Function() job, {String? done}) async {
-    setState(() => _busy = true);
     try {
       await job();
       if (done != null && mounted) {
@@ -68,8 +66,6 @@ class _MeetingScreenState extends ConsumerState<MeetingScreen> {
           ),
         );
       }
-    } finally {
-      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -176,11 +172,11 @@ class _MeetingScreenState extends ConsumerState<MeetingScreen> {
                       title: m.title,
                       pills: [
                         Pill(label: status.$1, color: status.$2, dense: true),
-                        if (m.recording == 'recording')
+                        if (m.open)
                           const Pill(
-                            label: 'Recording',
+                            label: 'Live captions',
                             color: Colors.red,
-                            icon: CupertinoIcons.circle_fill,
+                            icon: CupertinoIcons.captions_bubble_fill,
                             dense: true,
                           ),
                         if (m.minutesStatus != 'none')
@@ -224,29 +220,6 @@ class _MeetingScreenState extends ConsumerState<MeetingScreen> {
                                 ),
                           color: BrandColors.success,
                         ),
-                        if (canRun)
-                          (
-                            icon: m.recording == 'recording'
-                                ? CupertinoIcons.stop_circle_fill
-                                : CupertinoIcons.recordingtape,
-                            label: m.recording == 'recording'
-                                ? 'Stop recording'
-                                : 'Record',
-                            onTap: _busy || !m.open
-                                ? null
-                                : () => _run(
-                                    () => actions.record(
-                                      m.id,
-                                      start: m.recording != 'recording',
-                                    ),
-                                    done: m.recording == 'recording'
-                                        ? 'Recording stopped. Draft the '
-                                              'minutes in a minute or two.'
-                                        : 'Recording. Everyone in the call '
-                                              'is told.',
-                                  ),
-                            color: Colors.red,
-                          ),
                         (
                           icon: CupertinoIcons.chat_bubble_2_fill,
                           label: 'Chat',
@@ -256,31 +229,12 @@ class _MeetingScreenState extends ConsumerState<MeetingScreen> {
                         ),
                       ],
                     ).entrance(context, index: 1),
-                    if (m.recording == 'failed' && m.recordingError != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: Space.sm),
-                        child: Text(
-                          'Recording failed: ${m.recordingError}',
-                          style: const TextStyle(color: Colors.red),
-                        ),
-                      ),
-                    if (canRun &&
-                        !m.open &&
-                        m.recording == 'none' &&
-                        !m.cancelled)
-                      Padding(
-                        padding: const EdgeInsets.only(top: Space.xs),
-                        child: Text(
-                          'Recording is possible from 15 minutes before the '
-                          'start until an hour after the end.',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ),
                     const SizedBox(height: Space.md),
                     GlassSegmented<_Tab>(
                       value: _tab,
                       segments: const {
                         _Tab.minutes: 'Minutes',
+                        _Tab.transcript: 'Said',
                         _Tab.agenda: 'Agenda',
                         _Tab.present: 'Present',
                       },
@@ -302,6 +256,7 @@ class _MeetingScreenState extends ConsumerState<MeetingScreen> {
                         ),
                       ),
                       _Tab.present => _Present(meetingId: m.id),
+                      _Tab.transcript => _Transcript(meetingId: m.id),
                     },
                   ],
                 ),
@@ -310,6 +265,74 @@ class _MeetingScreenState extends ConsumerState<MeetingScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Everything said in the meeting, live, with names.
+class _Transcript extends ConsumerWidget {
+  const _Transcript({required this.meetingId});
+
+  final String meetingId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final names = ref.watch(peopleProvider).value ?? const {};
+    final lines = ref.watch(meetingCaptionsProvider(meetingId));
+    return lines.when(
+      loading: () => const LinearProgressIndicator(),
+      error: (_, _) => const Text('Loads when you are online.'),
+      data: (list) => list.isEmpty
+          ? const EmptyState(
+              icon: CupertinoIcons.captions_bubble,
+              title: 'Nothing said yet',
+              message:
+                  'During the meeting, what each person in the call says '
+                  'appears here with their name.',
+            )
+          : SurfaceCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final c in list)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: Space.xs),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(
+                            width: 44,
+                            child: Text(
+                              MaterialLocalizations.of(context).formatTimeOfDay(
+                                TimeOfDay.fromDateTime(c.spokenAt),
+                                alwaysUse24HourFormat: true,
+                              ),
+                              style: theme.textTheme.labelSmall,
+                            ),
+                          ),
+                          Expanded(
+                            child: Text.rich(
+                              TextSpan(
+                                children: [
+                                  TextSpan(
+                                    text: '${names[c.userId] ?? 'Someone'}: ',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      color: BrandColors.coral,
+                                    ),
+                                  ),
+                                  TextSpan(text: c.body),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
     );
   }
 }
@@ -483,6 +506,7 @@ class _MinutesPanelState extends ConsumerState<_MinutesPanel> {
     final actions = ref.read(meetingActionsProvider);
     final session = ref.watch(sessionProvider);
     final canJob = session.can('jc.register', siteId: m.siteId);
+    final said = ref.watch(meetingCaptionsProvider(m.id)).value?.length ?? 0;
 
     // Read-only: published minutes, or not the chair.
     if (m.approved || !widget.canRun) {
@@ -596,12 +620,13 @@ class _MinutesPanelState extends ConsumerState<_MinutesPanel> {
             Text('Draft the minutes', style: theme.textTheme.titleMedium),
             const SizedBox(height: 4),
             Text(
-              'Claude drafts a summary, decisions and actions with owners '
-              'and dates. You check and change them before they go out.',
+              'AI drafts a summary, decisions and actions with owners and '
+              'dates from what was said. You check and change them before '
+              'they go out.',
               style: theme.textTheme.bodySmall,
             ),
             const SizedBox(height: Space.md),
-            if (m.audioPath != null) ...[
+            if (said > 0) ...[
               FilledButton.icon(
                 onPressed: _busy
                     ? null
@@ -609,8 +634,10 @@ class _MinutesPanelState extends ConsumerState<_MinutesPanel> {
                         () => actions.draftMinutes(m.id),
                         'Draft ready. Check it below.',
                       ),
-                icon: const Icon(CupertinoIcons.waveform),
-                label: Text(_busy ? 'Listening…' : 'Draft from the recording'),
+                icon: const Icon(CupertinoIcons.captions_bubble),
+                label: Text(
+                  _busy ? 'Reading…' : 'Draft from what was said ($said lines)',
+                ),
               ),
               Row(
                 children: [
@@ -808,20 +835,6 @@ class _MinutesPanelState extends ConsumerState<_MinutesPanel> {
                 child: SelectableText(m.transcript!),
               ),
             ],
-          ),
-        if (m.audioPath != null)
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: () async {
-                final url = await ref.read(
-                  meetingAudioUrlProvider(m.audioPath!).future,
-                );
-                await launchUrl(Uri.parse(url));
-              },
-              icon: const Icon(CupertinoIcons.play_circle),
-              label: const Text('Listen to the recording'),
-            ),
           ),
         const SizedBox(height: Space.sm),
         Row(

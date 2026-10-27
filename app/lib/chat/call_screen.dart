@@ -11,11 +11,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:livekit_client/livekit_client.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../data/site_data.dart';
 import '../services/core_providers.dart';
 import '../theme/tokens.dart';
 import '../ui/bits.dart';
+import '../meetings/captions.dart';
+import '../meetings/meetings_repository.dart';
 import 'chat_repository.dart';
 
 /// The call stage is always dark, like a phone's own call screen, so faces
@@ -78,6 +81,10 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   /// Kept from the start: leaving runs in dispose, when ref is gone.
   late final SupabaseClient _db;
 
+  /// Live captions while a meeting is on in this chat (see captions.dart).
+  CaptionSender? _captions;
+  bool _captionsOff = false;
+
   @override
   void initState() {
     super.initState();
@@ -89,6 +96,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   void dispose() {
     _clock?.cancel();
     _endCall();
+    _stopCaptions();
     final room = _room;
     if (room != null) {
       room.removeListener(_changed);
@@ -100,6 +108,36 @@ class _CallScreenState extends ConsumerState<CallScreen> {
 
   void _changed() {
     if (mounted) setState(() {});
+  }
+
+  void _stopCaptions() {
+    final c = _captions;
+    _captions = null;
+    if (c != null) unawaited(c.stop());
+    unawaited(WakelockPlus.disable().catchError((_) {}));
+  }
+
+  /// Starts or stops this person's captions to match the meeting.
+  void _syncCaptions(Meeting? meeting) {
+    final want = meeting != null && !_captionsOff && _room != null;
+    if (want && _captions?.meetingId != meeting.id) {
+      _captions?.stop();
+      final sender = CaptionSender(
+        client: _db,
+        meetingId: meeting.id,
+        micOn: () => _room?.localParticipant?.isMicrophoneEnabled() ?? false,
+        onProblem: (msg) {
+          _snack(msg);
+          if (mounted) setState(() => _captionsOff = true);
+        },
+      );
+      _captions = sender;
+      unawaited(sender.start());
+      // Captions stop if the phone sleeps, so keep the screen on.
+      unawaited(WakelockPlus.enable().catchError((_) {}));
+    } else if (!want && _captions != null) {
+      _stopCaptions();
+    }
   }
 
   /// Tells our server you left; the last one out ends the call.
@@ -250,6 +288,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
     HapticFeedback.heavyImpact();
     _clock?.cancel();
     _endCall();
+    _stopCaptions();
     await _room?.disconnect();
     if (mounted) _close();
   }
@@ -354,6 +393,15 @@ class _CallScreenState extends ConsumerState<CallScreen> {
     final title = chat?.title ?? _title ?? 'Call';
     final room = _room;
     final wide = MediaQuery.sizeOf(context).width >= 1000;
+    // A meeting on now in this chat: captions run while you are in the call.
+    final meeting =
+        (ref.watch(chatMeetingsProvider(widget.conversationId)).value ??
+                const <Meeting>[])
+            .where((m) => m.open)
+            .firstOrNull;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _syncCaptions(meeting);
+    });
 
     final Widget body;
     if (_stage != _Stage.inCall || room == null) {
@@ -464,6 +512,8 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                     ),
                   ],
                   const SizedBox(height: Space.md),
+                  if (meeting != null && !_captionsOff)
+                    _CaptionsOverlay(meetingId: meeting.id),
                   if (_reactOpen)
                     Padding(
                       padding: const EdgeInsets.only(bottom: Space.sm),
@@ -504,6 +554,9 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                     canFlip: !kIsWeb && (local?.isCameraEnabled() ?? false),
                     canShare: kIsWeb && wide,
                     reactOpen: _reactOpen,
+                    captions: meeting == null ? null : !_captionsOff,
+                    onCaptions: () =>
+                        setState(() => _captionsOff = !_captionsOff),
                     onShare: _toggleShare,
                     onReact: () => setState(() => _reactOpen = !_reactOpen),
                     chatOpen: wide && _chatOpen,
@@ -1100,6 +1153,8 @@ class _Dock extends StatelessWidget {
     required this.reactOpen,
     required this.onShare,
     required this.onReact,
+    required this.captions,
+    required this.onCaptions,
     required this.chatOpen,
     required this.onMic,
     required this.onCamera,
@@ -1116,6 +1171,10 @@ class _Dock extends StatelessWidget {
   final bool reactOpen;
   final VoidCallback onShare;
   final VoidCallback onReact;
+
+  /// null: no meeting on; otherwise whether your captions are on.
+  final bool? captions;
+  final VoidCallback onCaptions;
   final bool chatOpen;
   final VoidCallback onMic;
   final VoidCallback onCamera;
@@ -1188,6 +1247,15 @@ class _Dock extends StatelessWidget {
                     : 'Share your screen',
                 off: local?.isScreenShareEnabled() ?? false,
                 onTap: onShare,
+              ),
+              const SizedBox(width: 10),
+            ],
+            if (captions != null) ...[
+              _GlassButton(
+                icon: CupertinoIcons.captions_bubble_fill,
+                tooltip: captions! ? 'Captions on' : 'Captions off',
+                off: !captions!,
+                onTap: onCaptions,
               ),
               const SizedBox(width: 10),
             ],
@@ -1580,6 +1648,87 @@ class _FloatingEmoji extends StatelessWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// The last two things said, with names, while a meeting is on.
+class _CaptionsOverlay extends ConsumerWidget {
+  const _CaptionsOverlay({required this.meetingId});
+
+  final String meetingId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final all = ref.watch(meetingCaptionsProvider(meetingId)).value ?? const [];
+    final names = ref.watch(peopleProvider).value ?? const {};
+    final recent = [
+      for (final c in all)
+        if (DateTime.now().difference(c.spokenAt) < const Duration(seconds: 75))
+          c,
+    ];
+    final shown = recent.length > 2
+        ? recent.sublist(recent.length - 2)
+        : recent;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: Space.sm),
+      child: _Frost(
+        radius: Radii.lg,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: SizedBox(
+          width: double.infinity,
+          child: shown.isEmpty
+              ? Row(
+                  children: [
+                    const Icon(
+                      CupertinoIcons.captions_bubble,
+                      color: Colors.white70,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Live captions are on. They appear here as people talk.',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.8),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (final c in shown)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 2),
+                        child: Text.rich(
+                          TextSpan(
+                            children: [
+                              TextSpan(
+                                text:
+                                    '${(names[c.userId] ?? 'Someone').split(' ').first}: ',
+                                style: const TextStyle(
+                                  color: BrandColors.blush,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              TextSpan(text: c.body),
+                            ],
+                          ),
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            height: 1.3,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+        ),
       ),
     );
   }

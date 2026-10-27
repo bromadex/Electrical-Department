@@ -166,16 +166,6 @@ final meetingAttendanceProvider = FutureProvider.autoDispose
       ];
     });
 
-/// A short-lived link to play the recording.
-final meetingAudioUrlProvider = FutureProvider.autoDispose
-    .family<String, String>(
-      (ref, path) => ref
-          .watch(supabaseProvider)
-          .storage
-          .from('meeting-audio')
-          .createSignedUrl(path, 3600),
-    );
-
 final meetingActionsProvider = Provider((ref) => MeetingActions(ref));
 
 /// Meetings are office work: these are online only and throw [Exception]s
@@ -230,13 +220,7 @@ class MeetingActions {
     },
   );
 
-  /// Starts or stops the recording (meeting-record edge function).
-  Future<void> record(String id, {required bool start}) => _invoke(
-    'meeting-record',
-    {'meeting_id': id, 'action': start ? 'start' : 'stop'},
-  );
-
-  /// Asks Claude to draft the minutes from the recording or [notes].
+  /// Asks AI to draft the minutes from the live captions or [notes].
   Future<void> draftMinutes(String id, {String? notes}) =>
       _invoke('meeting-minutes', {
         'meeting_id': id,

@@ -386,25 +386,30 @@ Meetings live inside group chats. Someone with `meetings.manage` schedules one f
 - `fn_meeting_reminders()`: pg_cron every 5 minutes; one "Starting soon" notification 15
   minutes before. `fn_meeting_attendance(p_meeting)`: who joined the chat's call from 30
   minutes before until 90 minutes after the planned end.
-- Chair only: `fn_meeting_recording(p_meeting, p_status, p_egress, p_audio_path, p_error)`,
-  `fn_save_minutes(p_meeting, p_transcript, p_minutes)` (a draft; approved minutes are
-  final), `fn_approve_minutes(p_meeting)` (posts "Minutes: …" to the chat and tells each
+- Chair only: `fn_save_minutes(p_meeting, p_transcript, p_minutes)` (a draft; approved minutes
+  are final), `fn_approve_minutes(p_meeting)` (posts "Minutes: …" to the chat and tells each
   action owner). Links `meeting:<id>` open `/meetings/<id>`.
-- Edge function `meeting-record` `{meeting_id, action: start|stop}`: LiveKit Egress records
-  the chat's call (audio only, OGG) into the private `meeting-audio` bucket through
-  Supabase Storage's S3 endpoint. Secrets: the three `LIVEKIT_*` plus `MEETING_S3_ENDPOINT`
-  (`https://<project ref>.storage.supabase.co/storage/v1/s3`), `MEETING_S3_REGION` (the
-  project's region, e.g. `eu-central-1`), `MEETING_S3_ACCESS_KEY`, `MEETING_S3_SECRET_KEY`
-  (Supabase → Storage → S3 connection → New access key). LiveKit Cloud must have egress
-  available on the plan.
-- Edge function `meeting-minutes` `{meeting_id, notes?}`: transcribes the recording with an
-  OpenAI-compatible Whisper endpoint (`TRANSCRIBE_API_KEY`; `TRANSCRIBE_URL` defaults to
-  Groq, `TRANSCRIBE_MODEL` to `whisper-large-v3`), or uses typed notes, then Claude
-  (`ANTHROPIC_API_KEY`, model `claude-opus-5-5`, JSON output, server-side refusal
-  fallback) drafts the minutes; owners are matched to the chat's members by name. Without
-  the keys both functions answer 503 `UNAVAILABLE` and the chair can still write minutes
-  by hand.
-- Not yet: attendees from outside the chat, and deleting audio after 30 days.
+- **Live captions (migration 0023, instead of recordings).** While a meeting is on (15 minutes
+  before until 2 hours after the planned end), each person in the chat's call sends their own
+  voice in 15-second pieces to the edge function `meeting-caption` `{meeting_id, spoken_at,
+  mime, audio (base64)}`. It is transcribed with Groq Whisper (free plan;
+  `whisper-large-v3-turbo`, else `whisper-large-v3`) and saved with `fn_add_caption(p_meeting,
+  p_spoken_at, p_body)` into `meeting_captions` (members read; realtime). No audio is kept.
+  The browser listens to the microphone itself; the Android app takes the call's own
+  microphone sound (flutter_webrtc audio input channel). Muted pieces are dropped; pieces
+  wait and retry on poor signal; the screen stays awake during the call.
+  `fn_meeting_transcript(p_meeting)` gives the whole text with times and names.
+- Edge function `meeting-minutes` `{meeting_id, notes?}` drafts the minutes from the typed
+  notes, else the transcript, as JSON; owners are matched to the chat's members by name.
+  It uses Groq's free chat models (picks `openai/gpt-oss-120b`, else
+  `llama-3.3-70b-versatile`, …; `MINUTES_MODEL` overrides), or Claude `claude-opus-5-5` when
+  `ANTHROPIC_API_KEY` is set.
+- Secrets: `TRANSCRIBE_API_KEY` (a Groq key; `GROQ_API_KEY` also works) for both. Optional:
+  `TRANSCRIBE_URL`, `TRANSCRIBE_MODEL`, `GROQ_BASE_URL`. Without a key both answer 503
+  `UNAVAILABLE` and minutes can still be written by hand. Both accept `{check: true}` to report
+  whether the key works (no secret shown).
+- The recording columns of 0022 (`recording_status`, `egress_id`, `audio_path`) are unused;
+  the `meeting-record` function is gone. Not yet: attendees from outside the chat.
 
 ## 17. Job Cards Version 2 (migrations 0012–0014)
 
