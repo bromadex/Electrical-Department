@@ -1,6 +1,24 @@
 # What's new
 
-## 27 October 2026, afternoon (not on `main` yet)
+## 27 October 2026, evening
+
+### Dark liquid glass is the new look (issue #26)
+- The app now opens in a **dark liquid-glass** theme in the Bravura
+  colours: a deep burgundy backdrop with soft burgundy and rose glows and
+  two slowly drifting blurred blobs (still when the phone asks for less
+  motion).
+- Four levels of glass, each more solid: panels, tiles, controls, then
+  sheets, dialogs and menus (a dark burgundy tint). Panels have a lit top
+  edge and a soft shadow; the top bar fades and blurs what scrolls under it.
+- The open tab glows; text is near-white with two softer levels; inputs
+  are dark wells; focus rings show for keyboards.
+- Light is still there: **Settings → Appearance → Light** (or the sun icon
+  in the top bar).
+- Tool icons now use the Bravura colours only; status colours keep their
+  meaning (green in store, amber due, red late).
+- Fixed: the Jobs tab showed a big empty gap above My jobs / All job cards.
+
+## 27 October 2026, afternoon
 
 ### Tool issue forms, and tools on job cards
 - **Tool issue form** (Equipment & tools → Forms → New form): the paper form
@@ -27,6 +45,10 @@
 - **Repairs**: a tool that comes back Damaged or Needs repair gets a
   **repair job card** straight away, so it queues with the rest of the work
   and shows on the tool's Jobs tab.
+- **First official form recorded**: Tinashe Mademe's Tool Issue Form of 27
+  October (Manhattan, 15 tools) is in the app at Harare as TI-0001, with its
+  15 tools added to the Harare register (migration 0027; the signatures are
+  on the paper form).
 - **Who has what** (people icon on the tools side): everyone holding tools
   right now, also outside contractors with their company, with overdue
   tools first. What to check before someone goes on leave or leaves.

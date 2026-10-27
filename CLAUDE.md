@@ -21,7 +21,10 @@ in `API.md`.
   `Panel`, charts, media, time). `app/lib/v2/ui/` only adds job-card pieces
   (status pills, paged table, forms) and re-exports the kit.
 - Keep the liquid-glass look (`app/lib/ui/surfaces.dart`,
-  `app/lib/theme/tokens.dart`). Light theme is the default.
+  `app/lib/theme/tokens.dart`). Dark liquid glass is the default (issue
+  #26); light stays in Settings → Appearance. In the dark theme all
+  transparency is white or black at low opacity over the brand colours;
+  only status colours (green, amber, red) add other hues.
 - Pushed screens use `AppBackButton` (`app/lib/widgets/app_back_button.dart`).
 - Before pushing: `dart format --set-exit-if-changed lib test`,
   `flutter analyze` and `flutter test` in `app/`; database changes come with

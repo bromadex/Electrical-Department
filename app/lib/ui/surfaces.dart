@@ -5,7 +5,10 @@ import 'package:flutter/material.dart';
 
 import '../theme/tokens.dart';
 
-/// Colours for glass panels on the ambient backdrop, per brightness.
+/// Colours for glass on the ambient backdrop, per brightness. In the dark
+/// theme (the liquid glass of issue #26) every layer is white or black at
+/// low opacity over the burgundy backdrop, in four levels, each more solid:
+/// panel, tile, control, modal.
 class Glass {
   const Glass._(this.dark);
 
@@ -14,62 +17,98 @@ class Glass {
 
   final bool dark;
 
-  Color get fill => dark
-      ? Colors.white.withValues(alpha: 0.075)
-      : Colors.white.withValues(alpha: 0.66);
-  Color get fillStrong => dark
-      ? Colors.white.withValues(alpha: 0.12)
-      : Colors.white.withValues(alpha: 0.82);
+  static Color _w(double a) => Colors.white.withValues(alpha: a);
+
+  /// Controls: buttons, icon buttons, chips (hover: [fillStrong]).
+  Color get fill => dark ? _w(0.13) : _w(0.66);
+  Color get fillStrong => dark ? _w(0.22) : _w(0.82);
+
+  /// Inputs: a dark well.
   Color get fillInset => dark
-      ? Colors.black.withValues(alpha: 0.22)
+      ? Colors.black.withValues(alpha: 0.30)
       : const Color(0xFF1B1D2A).withValues(alpha: 0.04);
-  Color get border => dark
-      ? Colors.white.withValues(alpha: 0.10)
-      : Colors.white.withValues(alpha: 0.85);
-  Color get hairline => dark
-      ? Colors.white.withValues(alpha: 0.07)
-      : BrandColors.maroon.withValues(alpha: 0.08);
 
-  /// Light catching the top-left edge of a pane.
-  Gradient get sheen => LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [
-      Colors.white.withValues(alpha: dark ? 0.10 : 0.55),
-      Colors.white.withValues(alpha: 0),
-      Colors.white.withValues(alpha: dark ? 0.03 : 0.18),
-    ],
-    stops: const [0, 0.55, 1],
+  /// Behind a card's sheen; in the dark the sheen is the whole fill.
+  Color get panelFill => dark ? Colors.transparent : _w(0.66);
+  Color get border => dark ? _w(0.17) : _w(0.85);
+  Color get hairline =>
+      dark ? _w(0.07) : BrandColors.maroon.withValues(alpha: 0.08);
+
+  /// Modals, sheets and menus: the most solid layer, a dark burgundy tint.
+  Color get modal => dark
+      ? BrandColors.maroonDeep.withValues(alpha: 0.76)
+      : Colors.white.withValues(alpha: 0.94);
+  Color get modalBorder => dark ? _w(0.32) : _w(0.9);
+
+  /// Panels: white 15% → 4.5% → 8% at 150°.
+  Gradient get sheen => dark
+      ? LinearGradient(
+          begin: const Alignment(-0.5, -1),
+          end: const Alignment(0.5, 1),
+          colors: [_w(0.15), _w(0.045), _w(0.08)],
+          stops: const [0, 0.48, 1],
+        )
+      : LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [_w(0.55), _w(0), _w(0.18)],
+          stops: const [0, 0.55, 1],
+        );
+
+  /// Tiles: stats and list items, white 11% → 3.5%.
+  Gradient get tile => LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: dark ? [_w(0.11), _w(0.035)] : [_w(0.7), _w(0.5)],
   );
 
-  /// The bright rim of liquid glass: strongest top-left, fading, then a
-  /// softer glint bottom-right.
-  Gradient get rim => LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: dark
-        ? [
-            Colors.white.withValues(alpha: 0.32),
-            Colors.white.withValues(alpha: 0.05),
-            Colors.white.withValues(alpha: 0.16),
-          ]
-        : [
-            Colors.white,
-            Colors.white.withValues(alpha: 0.45),
-            Colors.white.withValues(alpha: 0.9),
-          ],
-    stops: const [0, 0.5, 1],
-  );
+  /// The rim: light catching the top edge (55%), a softer left edge, a
+  /// faint bottom.
+  Gradient get rim => dark
+      ? LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [_w(0.55), _w(0.17), _w(0.16), _w(0.07)],
+          stops: const [0, 0.08, 0.5, 1],
+        )
+      : LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Colors.white, _w(0.45), _w(0.9)],
+          stops: const [0, 0.5, 1],
+        );
 
   List<BoxShadow> get shadow => [
-    BoxShadow(
-      color: (dark ? Colors.black : BrandColors.maroonDeep).withValues(
-        alpha: dark ? 0.28 : 0.08,
-      ),
-      blurRadius: 30,
-      offset: const Offset(0, 14),
-    ),
+    dark
+        ? BoxShadow(
+            color: AppColors.night.withValues(alpha: 0.38),
+            blurRadius: 48,
+            offset: const Offset(0, 18),
+          )
+        : BoxShadow(
+            color: BrandColors.maroonDeep.withValues(alpha: 0.08),
+            blurRadius: 30,
+            offset: const Offset(0, 14),
+          ),
   ];
+
+  /// Blur with the glass "pop": more saturated and a touch brighter
+  /// behind the pane.
+  static ImageFilter frost(double sigma, {double saturate = 1.9}) {
+    final s = saturate;
+    const b = 1.06;
+    final r = (1 - s) * 0.2126, g = (1 - s) * 0.7152, bl = (1 - s) * 0.0722;
+    final matrix = <double>[
+      (r + s) * b, g * b, bl * b, 0, 0, //
+      r * b, (g + s) * b, bl * b, 0, 0,
+      r * b, g * b, (bl + s) * b, 0, 0,
+      0, 0, 0, 1, 0,
+    ];
+    return ImageFilter.compose(
+      outer: ColorFilter.matrix(matrix),
+      inner: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
+    );
+  }
 }
 
 /// Frosted glass panel that blurs whatever is behind it. Use for bars and
@@ -82,6 +121,7 @@ class GlassSurface extends StatelessWidget {
     this.blur = 28,
     this.padding,
     this.strong = false,
+    this.saturate = 1.9,
   });
 
   final Widget child;
@@ -90,21 +130,51 @@ class GlassSurface extends StatelessWidget {
   final EdgeInsetsGeometry? padding;
   final bool strong;
 
+  /// Colour boost behind dark glass; large panes use less so the red
+  /// glows do not turn pink.
+  final double saturate;
+
   @override
   Widget build(BuildContext context) {
     final g = Glass.of(context);
     final scheme = Theme.of(context).colorScheme;
+    if (g.dark && radius == 0) {
+      // A top bar: the backdrop colour fading out, softly blurred.
+      return ClipRect(
+        child: BackdropFilter(
+          filter: Glass.frost(22, saturate: 1.6),
+          child: Container(
+            padding: padding,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  AppColors.night.withValues(alpha: 0.55),
+                  AppColors.night.withValues(alpha: 0),
+                ],
+              ),
+            ),
+            child: child,
+          ),
+        ),
+      );
+    }
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+        filter: g.dark
+            ? Glass.frost(blur > 28 ? blur : 30, saturate: saturate)
+            : ImageFilter.blur(sigmaX: blur, sigmaY: blur),
         child: Container(
           padding: padding,
           decoration: BoxDecoration(
-            color: Color.alphaBlend(
-              strong ? g.fillStrong : g.fill,
-              scheme.surface.withValues(alpha: g.dark ? 0.55 : 0.35),
-            ),
+            color: g.dark
+                ? (strong ? Colors.white.withValues(alpha: 0.06) : null)
+                : Color.alphaBlend(
+                    strong ? g.fillStrong : g.fill,
+                    scheme.surface.withValues(alpha: 0.35),
+                  ),
             gradient: g.sheen,
             borderRadius: BorderRadius.circular(radius),
           ),
@@ -143,7 +213,7 @@ class _RimPainter extends BoxPainter {
       RRect.fromRectAndRadius(rect, Radius.circular(radius)),
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.2
+        ..strokeWidth = 1.1
         ..shader = gradient.createShader(rect),
     );
   }
@@ -174,7 +244,7 @@ class SurfaceCard extends StatelessWidget {
     final r = BorderRadius.circular(radius);
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: gradient == null ? color ?? g.fill : null,
+        color: gradient == null ? color ?? g.panelFill : null,
         gradient: gradient,
         borderRadius: r,
         boxShadow: g.shadow,
@@ -413,56 +483,95 @@ class MeshBackground extends StatefulWidget {
 }
 
 class _MeshBackgroundState extends State<MeshBackground>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final _controller = AnimationController(
     vsync: this,
     duration: const Duration(seconds: 24),
   );
 
+  // The dark theme's two drifting blobs (34 s and 40 s, there and back).
+  late final _blobA = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 34),
+  );
+  late final _blobB = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 40),
+  );
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final dark = Theme.of(context).brightness == Brightness.dark;
     if (Motion.reduced(context)) {
       _controller.stop();
-    } else if (!_controller.isAnimating) {
-      _controller.repeat();
+      _blobA.stop();
+      _blobB.stop();
+    } else if (dark) {
+      _controller.stop();
+      if (!_blobA.isAnimating) _blobA.repeat(reverse: true);
+      if (!_blobB.isAnimating) _blobB.repeat(reverse: true);
+    } else {
+      _blobA.stop();
+      _blobB.stop();
+      if (!_controller.isAnimating) _controller.repeat();
     }
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _blobA.dispose();
+    _blobB.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final base = dark
-        ? const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF15131A), Color(0xFF0E0E12), Color(0xFF0B0B0F)],
-          )
-        : const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFFFFFFFF), Color(0xFFF6F6FA), Color(0xFFF0F1F6)],
-          );
-    final glows = dark
-        ? [
-            BrandColors.maroon.withValues(alpha: 0.55),
-            BrandColors.info.withValues(alpha: 0.22),
-            BrandColors.coral.withValues(alpha: 0.30),
-          ]
-        : [
-            BrandColors.blush.withValues(alpha: 0.45),
-            BrandColors.info.withValues(alpha: 0.16),
-            BrandColors.coral.withValues(alpha: 0.18),
-          ];
+    if (dark) {
+      return DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [AppColors.nightLift, AppColors.night],
+          ),
+        ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            IgnorePointer(
+              child: RepaintBoundary(
+                child: AnimatedBuilder(
+                  animation: Listenable.merge([_blobA, _blobB]),
+                  builder: (context, _) => CustomPaint(
+                    painter: _NightPainter(
+                      Curves.easeInOut.transform(_blobA.value),
+                      Curves.easeInOut.transform(_blobB.value),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            ?widget.child,
+          ],
+        ),
+      );
+    }
+    const base = LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [Color(0xFFFFFFFF), Color(0xFFF6F6FA), Color(0xFFF0F1F6)],
+    );
+    final glows = [
+      BrandColors.blush.withValues(alpha: 0.45),
+      BrandColors.info.withValues(alpha: 0.16),
+      BrandColors.coral.withValues(alpha: 0.18),
+    ];
 
     return DecoratedBox(
-      decoration: BoxDecoration(gradient: base),
+      decoration: const BoxDecoration(gradient: base),
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -479,6 +588,66 @@ class _MeshBackgroundState extends State<MeshBackground>
       ),
     );
   }
+}
+
+/// The dark glass backdrop: three soft brand-colour glows (top-left,
+/// top-right, bottom-centre) and two big blurred blobs that drift.
+class _NightPainter extends CustomPainter {
+  _NightPainter(this.a, this.b);
+
+  /// 0..1, eased: where each blob is on its path.
+  final double a;
+  final double b;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final vmax = size.longestSide;
+    void glow(Offset at, double radius, Color color) {
+      final rect = Rect.fromCircle(center: at, radius: radius);
+      canvas.drawCircle(
+        at,
+        radius,
+        Paint()
+          ..shader = RadialGradient(
+            colors: [color, color.withValues(alpha: 0)],
+            stops: const [0, 0.6],
+          ).createShader(rect),
+      );
+    }
+
+    glow(
+      Offset(size.width * 0.05, size.height * 0.02),
+      vmax * 0.75,
+      BrandColors.maroon.withValues(alpha: 0.55),
+    );
+    glow(
+      Offset(size.width * 0.98, size.height * 0.08),
+      vmax * 0.65,
+      BrandColors.coral.withValues(alpha: 0.38),
+    );
+    glow(
+      Offset(size.width * 0.5, size.height * 1.05),
+      vmax * 0.7,
+      BrandColors.maroon.withValues(alpha: 0.30),
+    );
+
+    // Blobs: 50vmax circles, blurred, drifting slowly.
+    final blur = Paint()
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 46);
+    canvas.drawCircle(
+      Offset(size.width * (0.18 + 0.22 * a), size.height * (0.30 + 0.18 * a)),
+      vmax * 0.25,
+      blur..color = BrandColors.coral.withValues(alpha: 0.22),
+    );
+    canvas.drawCircle(
+      Offset(size.width * (0.82 - 0.25 * b), size.height * (0.72 - 0.2 * b)),
+      vmax * 0.25,
+      blur..color = BrandColors.maroon.withValues(alpha: 0.30),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_NightPainter old) => old.a != a || old.b != b;
 }
 
 class _GlowPainter extends CustomPainter {

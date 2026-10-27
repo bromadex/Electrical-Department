@@ -239,6 +239,7 @@ class _EquipmentScreenState extends ConsumerState<EquipmentScreen> {
         : _assetFilter != AssetFilter.all;
 
     final top = MediaQuery.paddingOf(context).top + kToolbarHeight;
+    final narrow = MediaQuery.sizeOf(context).width < 600;
     return Scaffold(
       backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
@@ -253,13 +254,25 @@ class _EquipmentScreenState extends ConsumerState<EquipmentScreen> {
               onPressed: () => context.push('/tools/holders'),
               icon: const Icon(CupertinoIcons.person_2),
             ),
-          if (onTools)
+          if (onTools && narrow)
+            IconButton(
+              tooltip: 'Tool issue forms',
+              onPressed: () => context.push('/tools/forms'),
+              icon: const Icon(CupertinoIcons.doc_text),
+            )
+          else if (onTools)
             TextButton.icon(
               onPressed: () => context.push('/tools/forms'),
               icon: const Icon(CupertinoIcons.doc_text),
               label: const Text('Forms'),
             ),
-          if (onTools && canTool && tools.isNotEmpty)
+          if (onTools && canTool && tools.isNotEmpty && narrow)
+            IconButton(
+              tooltip: 'Count',
+              onPressed: () => context.push('/tools/count'),
+              icon: const Icon(CupertinoIcons.checkmark_square),
+            )
+          else if (onTools && canTool && tools.isNotEmpty)
             TextButton.icon(
               onPressed: () => context.push('/tools/count'),
               icon: const Icon(CupertinoIcons.checkmark_square),
@@ -295,7 +308,7 @@ class _EquipmentScreenState extends ConsumerState<EquipmentScreen> {
             children: [
               Center(
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 1100),
+                  constraints: BoxConstraints(maxWidth: onTools ? 1320 : 1100),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -358,11 +371,18 @@ class _EquipmentScreenState extends ConsumerState<EquipmentScreen> {
                           ),
                         ),
                       const SizedBox(height: Space.md),
-                      _Stats(
-                        stats: stats,
-                        current: current,
-                        onTap: pick,
-                      ).entrance(context),
+                      if (onTools)
+                        ToolOverview(
+                          tools: tools,
+                          current: _toolFilter,
+                          onFilter: pick,
+                        ).entrance(context)
+                      else
+                        _Stats(
+                          stats: stats,
+                          current: current,
+                          onTap: pick,
+                        ).entrance(context),
                       const SizedBox(height: Space.sm),
                       Row(
                         children: [
@@ -391,10 +411,35 @@ class _EquipmentScreenState extends ConsumerState<EquipmentScreen> {
                       AnimatedSwitcher(
                         duration: const Duration(milliseconds: 220),
                         child: onTools
-                            ? ToolList(
+                            ? LayoutBuilder(
                                 key: const ValueKey('tools'),
-                                query: _search.text,
-                                filter: _toolFilter,
+                                builder: (context, box) {
+                                  final list = ToolList(
+                                    query: _search.text,
+                                    filter: _toolFilter,
+                                  );
+                                  if (!ToolAlerts.hasAny(tools)) return list;
+                                  final alerts = ToolAlerts(
+                                    tools: tools,
+                                    people: people,
+                                  );
+                                  if (box.maxWidth < 1000) {
+                                    return Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      children: [alerts, list],
+                                    );
+                                  }
+                                  return Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(child: list),
+                                      const SizedBox(width: Space.md),
+                                      SizedBox(width: 340, child: alerts),
+                                    ],
+                                  );
+                                },
                               )
                             : AssetList(
                                 key: const ValueKey('assets'),
@@ -466,16 +511,24 @@ class _Stats extends StatelessWidget {
                     child: SurfaceCard(
                       padding: const EdgeInsets.all(Space.sm),
                       radius: Radii.lg,
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          s.color.withValues(alpha: s.value > 0 ? 0.20 : 0.07),
+                          s.color.withValues(alpha: 0.02),
+                        ],
+                      ),
                       child: Row(
                         children: [
                           Container(
-                            width: 36,
-                            height: 36,
+                            width: 44,
+                            height: 44,
                             decoration: BoxDecoration(
-                              color: s.color.withValues(alpha: 0.14),
-                              borderRadius: BorderRadius.circular(Radii.sm),
+                              color: s.color.withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(Radii.md),
                             ),
-                            child: Icon(s.icon, color: s.color, size: 20),
+                            child: Icon(s.icon, color: s.color, size: 24),
                           ),
                           const SizedBox(width: Space.sm),
                           Expanded(
@@ -484,13 +537,11 @@ class _Stats extends StatelessWidget {
                               children: [
                                 Text(
                                   '${s.value}',
-                                  style: theme.textTheme.titleLarge?.copyWith(
-                                    fontWeight: FontWeight.w800,
-                                    color:
-                                        s.value > 0 && (s.color == Colors.red)
-                                        ? Colors.red
-                                        : null,
-                                  ),
+                                  style: theme.textTheme.headlineSmall
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.w800,
+                                        color: s.value > 0 ? s.color : null,
+                                      ),
                                 ),
                                 Text(
                                   s.label,

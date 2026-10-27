@@ -41,6 +41,11 @@ class JobsTab extends ConsumerWidget {
     );
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 220),
+      // Top-aligned: the default centres a short page, leaving a gap above.
+      layoutBuilder: (current, previous) => Stack(
+        alignment: Alignment.topCenter,
+        children: [...previous, ?current],
+      ),
       child: mine
           ? MyJobsScreen(key: const ValueKey('mine'), leading: toggle)
           : JobCardsScreen(
