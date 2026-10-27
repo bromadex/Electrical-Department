@@ -5,6 +5,42 @@
 Tafara is handing the job cards work over to you. This file lists where it
 stands, what is left, and ready-to-paste prompts that carry his instructions.
 
+## Status on 27 October
+
+**Done by Clement:**
+- the layout task;
+- prompt 1, one UI kit (`v2/ui` keeps only job-card pieces);
+- prompt 2, charts drawn by the app, with `fl_chart` gone;
+- prompt 3, job cards in the ➕ New sheet, on Home, from checklists and
+  planned maintenance, in the daily report, from chat, and with SOPs;
+- prompt 4, job cards are the Jobs tab and the board code is retired.
+
+**Done by Tafara's branch `feat/job-cards-finish`:**
+- **Offline:** job card comments, work-log entries and files go through the
+  outbox (prompt 3).
+- **Old jobs:** migration `0024` copies the jobs board's jobs into job cards,
+  with photos, comments and closures, so their history shows again
+  (prompt 4).
+- **Dead code:** a search widget nothing used is gone (prompt 5).
+- **Browser tests:** they follow job cards into the Jobs tab, using the real
+  addresses plus a check that old links still lead to job cards.
+
+**Still open:**
+1. **"All sites" was lost.** Job cards can still list and chart all of a
+   person's sites (`siteFilterProvider` in `v2/site_filter.dart`), but
+   nothing sets `allSitesProvider` since the old job cards picker went.
+   Decide whether the shared site picker gets an "All sites" choice.
+2. **Prompt 5, lean code, continues.** The jobs-board actions on the outbox
+   allow-list stay only so that items queued on phones before the switch
+   still send; remove them after a release.
+3. **Browser tests coverage.** They run on `feat/**` branches and PRs,
+   never on `main`. Run them on a branch (or a PR) before merging job card
+   changes.
+4. **Housekeeping, when you both agree:**
+   - close PR #19;
+   - close the branches `feat/cmms-phase-1`, `feat/push-notifications` and
+     `feat/cmms-phase-2`.
+
 ## Where it stands
 
 - Job cards (the CMMS, "Version 2") are live on `main`: app code in
