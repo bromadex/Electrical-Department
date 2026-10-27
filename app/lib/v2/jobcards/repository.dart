@@ -267,9 +267,10 @@ final sitePeopleProvider = FutureProvider.autoDispose
       ];
     });
 
-/// Every change a user can make to job cards. Each call goes straight to
-/// its database function (status and time changes are never queued offline,
-/// so the server's timestamps stay true) and reloads what is on screen.
+/// Every change a user can make to job cards. Status and time changes go
+/// straight to their database function, so the server's timestamps stay
+/// true; notes, work-log entries and files are queued in the outbox and sent
+/// when there is signal. Each reloads what is on screen.
 final jobCardActionsProvider = Provider<JobCardActions>(JobCardActions.new);
 
 class JobCardActions {
@@ -291,6 +292,21 @@ class JobCardActions {
     } catch (e) {
       throw AppError.from(e);
     }
+  }
+
+  /// Queues [fn] in the outbox and sends it now if there is signal. The
+  /// server ignores a repeat of the same `p_client_ref`, so a retry never
+  /// adds it twice.
+  Future<void> _queue(String fn, Map<String, dynamic> params) async {
+    final outbox = _ref.read(outboxProvider);
+    await outbox.enqueue(
+      fn,
+      params,
+      clientRef: params['p_client_ref'] as String?,
+      flushNow: false,
+    );
+    await outbox.flush();
+    _ref.read(jobCardsLiveProvider.notifier).bumpNow();
   }
 
   static String? _text(String? s) =>
@@ -491,7 +507,7 @@ class JobCardActions {
     required String kind,
     String? body,
     List<Map<String, dynamic>> readings = const [],
-  }) => _call('fn_add_work_record', {
+  }) => _queue('fn_add_work_record', {
     'p_client_ref': _uuid.v4(),
     'p_job': id,
     'p_kind': kind,
@@ -602,7 +618,7 @@ class JobCardActions {
     String kind = 'comment',
     String visibility = 'internal',
     List<String> mentions = const [],
-  }) => _call('fn_comment_job_card', {
+  }) => _queue('fn_comment_job_card', {
     'p_client_ref': _uuid.v4(),
     'p_job': jobId,
     'p_body': body.trim(),
@@ -611,38 +627,43 @@ class JobCardActions {
     'p_mentions': mentions,
   });
 
-  /// Uploads files to `<site>/jobcard/<job>/` and records each one.
+  /// Queues each file for `<site>/jobcard/<job>/` and the call that
+  /// records it; the outbox uploads the files first, then records them.
   Future<void> addFiles({
     required String jobId,
     required String siteId,
     required List<PickedFile> files,
   }) async {
+    final outbox = _ref.read(outboxProvider);
     for (final f in files) {
       final ref = _uuid.v4();
       final safe = f.name.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
       final path = '$siteId/jobcard/$jobId/$ref-$safe';
-      try {
-        await _client.storage
-            .from('job-files')
-            .uploadBinary(
-              path,
-              f.bytes,
-              fileOptions: FileOptions(contentType: f.contentType),
-            );
-      } catch (e) {
-        throw AppError.from(e);
-      }
-      await _call('fn_add_job_attachment', {
-        'p_client_ref': ref,
-        'p_job': jobId,
-        'p_kind': f.kind,
-        'p_path': path,
-        'p_file_name': f.name,
-        'p_content_type': f.contentType,
-        'p_size': f.bytes.length,
-        'p_caption': null,
-      });
+      await outbox.enqueueUpload(
+        id: ref,
+        bucket: 'job-files',
+        path: path,
+        bytes: f.bytes,
+        contentType: f.contentType,
+      );
+      await outbox.enqueue(
+        'fn_add_job_attachment',
+        clientRef: ref,
+        flushNow: false,
+        {
+          'p_client_ref': ref,
+          'p_job': jobId,
+          'p_kind': f.kind,
+          'p_path': path,
+          'p_file_name': f.name,
+          'p_content_type': f.contentType,
+          'p_size': f.bytes.length,
+          'p_caption': null,
+        },
+      );
     }
+    await outbox.flush();
+    _ref.read(jobCardsLiveProvider.notifier).bumpNow();
   }
 }
 

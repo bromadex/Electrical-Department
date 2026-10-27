@@ -38,7 +38,7 @@ test('Test 3: active work, waiting and elapsed time are measured separately', as
   expect(j.status).toBe('assigned');
 
   const tech = await signIn(browser, people.electrician);
-  await open(tech, `/v2/job-cards/${j.number}`);
+  await open(tech, `/jobs/${j.number}`);
   await tap(tech, 'Start work', true);
   await expectShown(tech, /You are working on this job/);
   await tech.waitForTimeout(4000);
@@ -78,7 +78,7 @@ test('Test 6: returned once, then approved, with the whole history kept', async 
   expect(j.status).toBe('awaiting_review');
 
   const engineer = await signIn(browser, people.engineer);
-  await open(engineer, `/v2/job-cards/${j.number}`);
+  await open(engineer, `/jobs/${j.number}`);
   await tap(engineer, 'Verify work', true);
   await expect(engineer.getByRole('checkbox', { name: 'Approve closure' })).toBeVisible();
   await tap(engineer, 'Return for more work', true);
@@ -88,14 +88,14 @@ test('Test 6: returned once, then approved, with the whole history kept', async 
   await expectShown(engineer, /Returned to the technician/);
 
   const tech = await signIn(browser, people.electrician);
-  await open(tech, `/v2/job-cards/${j.number}`);
+  await open(tech, `/jobs/${j.number}`);
   await expectShown(tech, /Returned by the engineer/);
   await tap(tech, 'Start work', true);
   await expectShown(tech, /Work started/);
   await submit(tech, 'Replaced the MCB; insulation test 500 MOhm.');
 
-  await open(engineer, '/v2/dashboard');
-  await open(engineer, `/v2/job-cards/${j.number}`);
+  await open(engineer, '/job-stats');
+  await open(engineer, `/jobs/${j.number}`);
   await tap(engineer, 'Verify work', true);
   await expectShown(engineer, /insulation test 500 MOhm/);
   await engineer.getByRole('button', { name: 'Approve and close', exact: true }).click();
@@ -124,7 +124,7 @@ test('Settings and audit log: a rule change is saved and shows in the audit trai
   const RULE = 'Waiting for engineering review';
   const api = await Api.as(people.admin);
   const admin = await signIn(browser, people.admin);
-  await open(admin, '/v2/settings');
+  await open(admin, '/admin/job-settings');
   await expectShown(admin, /P1 not acknowledged within its response target/);
   await expectShown(admin, /Hazards identified/);
   // Rules are listed in their sort order: the P1 rule first.
@@ -142,7 +142,7 @@ test('Settings and audit log: a rule change is saved and shows in the audit trai
     .toBe(720);
   await expectShown(admin, /Waiting for review longer than 12 h/);
 
-  await open(admin, '/v2/audit');
+  await open(admin, '/admin/audit');
   await expectShown(admin, /Every change: who, what and when/);
   await fill(admin, /Search number, person or value/, RULE);
   await admin.keyboard.press('Enter');
@@ -156,7 +156,7 @@ test('Settings and audit log: a rule change is saved and shows in the audit trai
   });
   expect(rows).toHaveLength(0);
   const tech = await signIn(browser, people.electrician);
-  await open(tech, '/v2/audit');
+  await open(tech, '/admin/audit');
   await expectShown(tech, /Audit log access needed/);
 });
 
@@ -165,16 +165,16 @@ test('Both themes: light and dark', async ({ browser }) => {
   const [running] = await api.select(`v_job_cards?select=number&title=eq.${q('Conveyor 3 VFD fault F0002')}`);
   for (const scheme of ['light', 'dark'] as const) {
     const engineer = await signIn(browser, people.engineer, { width: 1440, height: 1000 }, scheme);
-    await open(engineer, '/v2/dashboard');
+    await open(engineer, '/job-stats');
     await expectShown(engineer, /Needs you/);
     await shot(engineer, `theme-${scheme}-dashboard`);
-    await open(engineer, `/v2/job-cards/${running.number}`);
+    await open(engineer, `/jobs/${running.number}`);
     await expectShown(engineer, /Work time|You are working/);
     await shot(engineer, `theme-${scheme}-job-card`);
 
     const tech = await signIn(browser, people.electrician, { width: 390, height: 844 }, scheme);
-    await open(tech, '/v2/my-jobs');
-    await expectShown(tech, /Work assigned to you/);
+    await open(tech, '/jobs/mine');
+    await expectShown(tech, /My jobs/);
     await shot(tech, `theme-${scheme}-phone-my-jobs`);
   }
   const login = await (await browser.newContext({ colorScheme: 'dark', reducedMotion: 'reduce', viewport: { width: 1440, height: 900 } })).newPage();
@@ -183,47 +183,43 @@ test('Both themes: light and dark', async ({ browser }) => {
   await shot(login, 'theme-dark-login');
 });
 
-test('Version 1 still works beside Version 2', async ({ browser }) => {
+test('Old links lead to the job cards', async ({ browser }) => {
   const tech = await signIn(browser, people.electrician);
-  await open(tech, '/jobs');
-  await expectShown(tech, /Replace isolator on MCC panel 3/);
-  await shot(tech, 'v1-board');
-  await open(tech, '/menu');
-  await tap(tech, /Job cards/);
-  await expectShown(tech, /Back to main app/);
-  await shot(tech, 'v1-to-v2');
-  await tap(tech, /Back to main app/);
-  await expect.poll(() => new URL(tech.url()).hash).toContain('/home');
+  for (const old of ['/board', '/v2', '/v2/my-jobs']) {
+    await open(tech, old);
+    await expect.poll(() => new URL(tech.url()).hash).toContain('/jobs');
+    await expectShown(tech, /My jobs/);
+  }
+  await shot(tech, 'jobs-tab');
 });
 
-// docs/tasks/v2-layout.md: one title per page, the "Needs you" list and four
-// numbers on a phone without scrolling, filters in two rows, and a table that
-// fits 1280 px. Saves the screenshots the task asks for.
+// The layout Clement asked for (docs/tasks/v2-layout.md, done 26 Oct): the
+// "Needs you" list and four numbers on a phone without scrolling, filters in
+// two rows, and a table that fits 1280 px. Screenshots go in the artifact.
 test('Layout: dashboard, filters and table fit desk and phone', async ({ browser }) => {
   mkdirSync('screenshots/v2-layout', { recursive: true });
   const jpeg = (page: Page, name: string) =>
     page.screenshot({ path: `screenshots/v2-layout/${name}.jpg`, type: 'jpeg', quality: 80 });
 
   const desk = await signIn(browser, people.engineer, { width: 1440, height: 900 });
-  await open(desk, '/v2/dashboard');
+  await open(desk, '/job-stats');
   await expectShown(desk, /Needs you/);
   await jpeg(desk, 'desk-dashboard');
-  await open(desk, '/v2/job-cards');
+  await open(desk, '/jobs');
   await expect(shown(desk, 'Received', true).first()).toBeInViewport();
   await jpeg(desk, 'desk-job-cards');
 
   const narrow = await signIn(browser, people.engineer, { width: 1280, height: 800 });
-  await open(narrow, '/v2/job-cards');
+  await open(narrow, '/jobs');
   await expect(shown(narrow, 'Received', true).first()).toBeInViewport();
   await expect(shown(narrow, 'Priority', true).first()).toBeInViewport();
 
   const phone = await signIn(browser, people.engineer, { width: 390, height: 844 });
-  await open(phone, '/v2/dashboard');
+  await open(phone, '/job-stats');
   await expect(shown(phone, /Needs you/).first()).toBeInViewport();
   await expect(shown(phone, /Closed today/).first()).toBeInViewport();
-  await expect(phone.getByRole('button', { name: 'Back to main app' })).toBeVisible();
   await jpeg(phone, 'phone-dashboard');
-  await open(phone, '/v2/job-cards');
+  await open(phone, '/jobs');
   await expect(phone.getByRole('button', { name: /^Filter/ })).toBeVisible();
   await jpeg(phone, 'phone-job-cards');
   await expect(shown(phone, /Version 2/)).toHaveCount(0);

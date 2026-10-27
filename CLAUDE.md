@@ -5,8 +5,8 @@ Vercel. What changed recently is in `CHANGELOG.md`; the API and data rules are
 in `API.md`.
 
 ## Open tasks
-- **Handover from Tafara (job cards).** Read `docs/tasks/handover-from-tafara.md`:
-  what is left, his direction, and prompts 1–5 to run in order.
+- **Handover from Tafara (job cards).** Prompts 1–4 are done; see "Status on 27
+  October" in `docs/tasks/handover-from-tafara.md` for what is still open.
 
 ## Working rules
 - Main app tabs: Home `/home`, Jobs `/jobs`, Chat `/chat`, Menu `/menu`. The
