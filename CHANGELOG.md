@@ -27,6 +27,10 @@
 - **Repairs**: a tool that comes back Damaged or Needs repair gets a
   **repair job card** straight away, so it queues with the rest of the work
   and shows on the tool's Jobs tab.
+- **First official form recorded**: Tinashe Mademe's Tool Issue Form of 27
+  October (Manhattan, 15 tools) is in the app at Harare as TI-0001, with its
+  15 tools added to the Harare register (migration 0027; the signatures are
+  on the paper form).
 - **Who has what** (people icon on the tools side): everyone holding tools
   right now, also outside contractors with their company, with overdue
   tools first. What to check before someone goes on leave or leaves.
