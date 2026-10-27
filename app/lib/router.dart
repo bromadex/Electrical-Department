@@ -23,6 +23,8 @@ import 'screens/settings_screen.dart';
 import 'screens/notifications_screen.dart';
 import 'reports/daily_report_screen.dart';
 import 'services/core_providers.dart';
+import 'tools/issue_form_detail_screen.dart';
+import 'tools/issue_form_screen.dart';
 import 'tools/tool_detail_screen.dart';
 import 'tools/tools_screen.dart';
 import 'v2/jobs_tab.dart';
@@ -144,6 +146,25 @@ GoRouter buildRouter(WidgetRef ref) {
         builder: (_, s) => DocumentDetailScreen(id: s.pathParameters['id']!),
       ),
       GoRoute(path: '/tools/count', builder: (_, _) => const ToolCountScreen()),
+      // Tool issue forms: /tools/forms/new?tools=<id>,<id>&job=<job card id>
+      GoRoute(
+        path: '/tools/forms',
+        builder: (_, _) => const IssueFormsScreen(),
+      ),
+      GoRoute(
+        path: '/tools/forms/new',
+        builder: (_, s) => IssueFormScreen(
+          toolIds: [
+            for (final id in (s.uri.queryParameters['tools'] ?? '').split(','))
+              if (id.isNotEmpty) id,
+          ],
+          jobCardId: s.uri.queryParameters['job'],
+        ),
+      ),
+      GoRoute(
+        path: '/tools/forms/:id',
+        builder: (_, s) => IssueFormDetailScreen(id: s.pathParameters['id']!),
+      ),
       GoRoute(
         path: '/tools/:id',
         builder: (_, s) => ToolDetailScreen(id: s.pathParameters['id']!),

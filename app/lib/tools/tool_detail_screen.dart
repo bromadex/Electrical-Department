@@ -18,12 +18,13 @@ import '../ui/signature_pad.dart';
 import '../ui/charts.dart' show GlassSegmented;
 import '../ui/record_hero.dart';
 import '../ui/surfaces.dart';
+import 'issue_forms_repository.dart';
 import 'tools_repository.dart';
 import 'tools_screen.dart';
 import '../widgets/app_back_button.dart';
 
 /// One tool: the shared record header, quick actions (lend or take back),
-/// then History · Details.
+/// then Who had it · Jobs · Details.
 class ToolDetailScreen extends ConsumerStatefulWidget {
   const ToolDetailScreen({super.key, required this.id});
 
@@ -33,7 +34,7 @@ class ToolDetailScreen extends ConsumerStatefulWidget {
   ConsumerState<ToolDetailScreen> createState() => _ToolDetailScreenState();
 }
 
-enum _Tab { history, details }
+enum _Tab { history, jobs, details }
 
 class _ToolDetailScreenState extends ConsumerState<ToolDetailScreen> {
   _Tab _tab = _Tab.history;
@@ -91,12 +92,13 @@ class _ToolDetailScreenState extends ConsumerState<ToolDetailScreen> {
                           const SizedBox(height: Space.sm),
                           QuickActions(
                             actions: [
-                              if (tool.holderId == null)
+                              if (!toolOut(tool))
                                 (
                                   icon: CupertinoIcons.arrow_right_circle_fill,
                                   label: 'Lend',
                                   onTap:
                                       canIssue &&
+                                          !calibrationExpired(tool) &&
                                           !{
                                             'damaged',
                                             'lost',
@@ -141,6 +143,7 @@ class _ToolDetailScreenState extends ConsumerState<ToolDetailScreen> {
                             value: _tab,
                             segments: const {
                               _Tab.history: 'Who had it',
+                              _Tab.jobs: 'Jobs',
                               _Tab.details: 'Details',
                             },
                             onChanged: (t) => setState(() => _tab = t),
@@ -148,6 +151,8 @@ class _ToolDetailScreenState extends ConsumerState<ToolDetailScreen> {
                           const SizedBox(height: Space.md),
                           if (_tab == _Tab.history)
                             _history(context, people, dates, theme)
+                          else if (_tab == _Tab.jobs)
+                            _jobs(context, theme)
                           else
                             RecordDetails(
                               rows: [
@@ -196,7 +201,10 @@ class _ToolDetailScreenState extends ConsumerState<ToolDetailScreen> {
   ) {
     final condition = ToolCondition.parse(tool.condition);
     final overdue = toolOverdue(tool);
-    final holder = tool.holderId == me ? 'you' : people[tool.holderId];
+    final holder = tool.holderId != null && tool.holderId == me
+        ? 'you'
+        : toolHolder(tool, people);
+    final formId = tool.formId;
     return RecordHero(
       icon: CupertinoIcons.wrench_fill,
       code: tool.code,
@@ -208,6 +216,15 @@ class _ToolDetailScreenState extends ConsumerState<ToolDetailScreen> {
           dense: true,
         ),
         if (tool.kind != null) Pill(label: tool.kind!, dense: true),
+        if (formId != null)
+          GestureDetector(
+            onTap: () => context.push('/tools/forms/$formId'),
+            child: const Pill(
+              label: 'On an issue form',
+              icon: CupertinoIcons.doc_text,
+              dense: true,
+            ),
+          ),
         if (tool.pending)
           const Pill(
             label: 'Waiting to sync',
@@ -217,10 +234,10 @@ class _ToolDetailScreenState extends ConsumerState<ToolDetailScreen> {
       ],
       facts: [
         (
-          icon: tool.holderId == null
+          icon: !toolOut(tool)
               ? CupertinoIcons.cube_box
               : CupertinoIcons.person_fill,
-          text: tool.holderId == null
+          text: !toolOut(tool)
               ? 'In store'
               : 'With ${holder ?? 'someone'} since '
                     '${relativeTime(tool.issuedAt ?? DateTime.now())}',
@@ -237,9 +254,17 @@ class _ToolDetailScreenState extends ConsumerState<ToolDetailScreen> {
         if (tool.calibrationDue != null)
           (
             icon: CupertinoIcons.gauge,
-            text:
-                'Calibration due ${dates.formatMediumDate(tool.calibrationDue!)}',
-            color: calibrationDue(tool) ? Colors.orange : null,
+            text: calibrationExpired(tool)
+                ? 'Calibration expired '
+                      '${dates.formatMediumDate(tool.calibrationDue!)}: '
+                      'it cannot go out'
+                : 'Calibration due '
+                      '${dates.formatMediumDate(tool.calibrationDue!)}',
+            color: calibrationExpired(tool)
+                ? Colors.red
+                : calibrationDue(tool)
+                ? Colors.orange
+                : null,
           ),
       ],
     );
@@ -275,13 +300,24 @@ class _ToolDetailScreenState extends ConsumerState<ToolDetailScreen> {
                     children: [
                       for (final r in rows)
                         ListTile(
+                          onTap: r.formId == null
+                              ? null
+                              : () => context.push('/tools/forms/${r.formId}'),
                           leading: AppAvatar(
-                            name: people[r.issuedTo] ?? '?',
+                            name: people[r.issuedTo] ?? r.recipientName ?? '?',
                             size: 36,
                           ),
-                          title: Text(people[r.issuedTo] ?? 'Someone'),
+                          title: Text(
+                            [
+                              people[r.issuedTo] ??
+                                  r.recipientName ??
+                                  'Someone',
+                              ?r.company,
+                            ].join(' · '),
+                          ),
                           subtitle: Text(
                             [
+                              ?r.formCode,
                               'Out ${dates.formatShortMonthDay(r.issuedAt)}',
                               if (r.returnedAt != null)
                                 'back ${dates.formatShortMonthDay(r.returnedAt!)} · ${ToolCondition.parse(r.returnCondition ?? 'good').label.toLowerCase()}'
@@ -298,6 +334,43 @@ class _ToolDetailScreenState extends ConsumerState<ToolDetailScreen> {
                                   onPressed: () =>
                                       _showSignature(context, r.signaturePath!),
                                 ),
+                        ),
+                    ],
+                  ),
+                ),
+        );
+  }
+
+  Widget _jobs(BuildContext context, ThemeData theme) {
+    return ref
+        .watch(toolJobCardsProvider(widget.id))
+        .when(
+          loading: () => const LinearProgressIndicator(),
+          error: (e, _) => Text(
+            AppError.from(e).isRetryable
+                ? 'Jobs load when you are online.'
+                : AppError.from(e).message,
+            style: theme.textTheme.bodySmall,
+          ),
+          data: (rows) => rows.isEmpty
+              ? const EmptyState(
+                  icon: CupertinoIcons.hammer,
+                  title: 'Not on any job card yet',
+                  message:
+                      'Add it under Tools on a job card, or issue it on a '
+                      'form for a job card.',
+                )
+              : SurfaceCard(
+                  padding: const EdgeInsets.symmetric(vertical: Space.xs),
+                  child: Column(
+                    children: [
+                      for (final j in rows)
+                        ListTile(
+                          leading: const Icon(CupertinoIcons.hammer),
+                          title: Text('${j.number} · ${j.title}'),
+                          subtitle: Text(j.status.replaceAll('_', ' ')),
+                          trailing: const Icon(CupertinoIcons.chevron_right),
+                          onTap: () => context.push('/jobs/${j.number}'),
                         ),
                     ],
                   ),

@@ -100,6 +100,12 @@ class LocalTools extends Table {
   TextColumn get notes => text().nullable()();
   TextColumn get photoPath => text().nullable()();
   TextColumn get holderId => text().nullable()();
+
+  /// Who has it, also someone outside the app (an issue form).
+  TextColumn get holderName => text().nullable()();
+
+  /// The issue form it went out on.
+  TextColumn get formId => text().nullable()();
   DateTimeColumn get issuedAt => dateTime().nullable()();
   DateTimeColumn get dueBack => dateTime().nullable()();
   DateTimeColumn get lastCountedAt => dateTime().nullable()();
@@ -162,7 +168,7 @@ class LocalDb extends _$LocalDb {
       );
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -180,6 +186,10 @@ class LocalDb extends _$LocalDb {
         // The retired jobs board's copy (versions 1–5).
         await customStatement('drop table if exists local_jobs');
         await m.createTable(cachedJson);
+      }
+      if (from >= 4 && from < 7) {
+        await m.addColumn(localTools, localTools.holderName);
+        await m.addColumn(localTools, localTools.formId);
       }
     },
   );

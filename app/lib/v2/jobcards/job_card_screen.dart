@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../documents/job_documents_panel.dart';
+import '../../tools/job_tools_panel.dart';
 
 import '../../services/core_providers.dart';
 import '../../services/session_controller.dart';
@@ -469,7 +470,23 @@ class _JobCardViewState extends ConsumerState<_JobCardView>
     final content = switch (_tabs[_tab.index]) {
       'overview' => _Overview(job: job),
       'assessment' => _Assessment(job: job),
-      'assignment' => _AssignmentTab(job: job, extras: x),
+      'assignment' => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _AssignmentTab(job: job, extras: x),
+          const SizedBox(height: Space.md),
+          JobToolsPanel(
+            jobCardId: job.id,
+            siteId: job.siteId,
+            closed: !job.status.isOpen,
+            canChange:
+                onTeam ||
+                job.registeredBy == me ||
+                session.can('jc.assign', siteId: job.siteId) ||
+                session.can('jc.assess', siteId: job.siteId),
+          ),
+        ],
+      ),
       'files' => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

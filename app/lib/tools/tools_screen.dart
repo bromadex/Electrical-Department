@@ -36,7 +36,7 @@ bool toolMatches(LocalTool t, String q, Map<String, String> people) =>
     (t.code?.toLowerCase().contains(q) ?? false) ||
     (t.kind?.toLowerCase().contains(q) ?? false) ||
     (t.serialNo?.toLowerCase().contains(q) ?? false) ||
-    (people[t.holderId]?.toLowerCase().contains(q) ?? false);
+    (toolHolder(t, people)?.toLowerCase().contains(q) ?? false);
 
 Color conditionColor(ToolCondition c) => switch (c) {
   ToolCondition.good => BrandColors.success,
@@ -95,8 +95,8 @@ class ToolList extends ConsumerWidget {
       for (final t in tools)
         if (switch (filter) {
               ToolFilter.all => true,
-              ToolFilter.store => t.holderId == null,
-              ToolFilter.out => t.holderId != null,
+              ToolFilter.store => !toolOut(t),
+              ToolFilter.out => toolOut(t),
               ToolFilter.mine => t.holderId == me,
               ToolFilter.overdue => toolOverdue(t),
               ToolFilter.calibration => calibrationDue(t),
@@ -130,7 +130,7 @@ class ToolList extends ConsumerWidget {
         for (final (i, t) in shown.indexed)
           ToolTile(
             tool: t,
-            holderName: people[t.holderId],
+            holderName: toolHolder(t, people),
             isMine: t.holderId == me,
           ).entrance(context, index: i.clamp(0, 8)),
       ],
@@ -156,7 +156,7 @@ class ToolTile extends StatelessWidget {
     final scheme = theme.colorScheme;
     final condition = ToolCondition.parse(tool.condition);
     final overdue = toolOverdue(tool);
-    final where = tool.holderId == null
+    final where = !toolOut(tool)
         ? 'In store'
         : isMine
         ? 'With you'
@@ -276,7 +276,7 @@ class _ToolFormState extends ConsumerState<ToolForm> {
       setState(() => _error = 'Name the tool');
       return;
     }
-    if (archive && widget.tool?.holderId != null) {
+    if (archive && widget.tool != null && toolOut(widget.tool!)) {
       setState(() => _error = 'Take it back before removing it');
       return;
     }
@@ -382,7 +382,7 @@ class _ToolFormState extends ConsumerState<ToolForm> {
                 ),
             ],
           ),
-          if (widget.tool != null && widget.tool!.holderId == null) ...[
+          if (widget.tool != null && !toolOut(widget.tool!)) ...[
             label('Condition'),
             ConditionPicker(
               value: _condition,
@@ -507,9 +507,9 @@ class _ToolCountScreenState extends ConsumerState<ToolCountScreen> {
                           title: Text('${t.code ?? 'New'} · ${t.name}'),
                           subtitle: Text(
                             [
-                              t.holderId == null
+                              !toolOut(t)
                                   ? 'In store'
-                                  : 'With ${people[t.holderId] ?? 'someone'}',
+                                  : 'With ${toolHolder(t, people) ?? 'someone'}',
                               if (t.lastCountedAt != null)
                                 'last counted ${MaterialLocalizations.of(context).formatShortMonthDay(t.lastCountedAt!)}',
                             ].join(' · '),
