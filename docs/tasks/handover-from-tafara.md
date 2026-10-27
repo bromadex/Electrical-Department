@@ -25,21 +25,25 @@ stands, what is left, and ready-to-paste prompts that carry his instructions.
 - **Browser tests:** they follow job cards into the Jobs tab, using the real
   addresses plus a check that old links still lead to job cards.
 
+**Done since (branch `feat/job-cards-polish`):**
+- **"All my sites" is back:** a chip on the job card list, job statistics and
+  incoming requests, shown to people with more than one site.
+  - It lives on those screens, not in the shared site picker, because the
+    rest of the app works with one site.
+- **Outbox cleanup:** with v0.1.0 released, the eight jobs-board actions are
+  off the outbox allow-list.
+- **Nightly browser tests:** they now also run every night on `main`
+  (03:30 Harare), as well as on `feat/**` branches and PRs.
+
 **Still open:**
-1. **"All sites" was lost.** Job cards can still list and chart all of a
-   person's sites (`siteFilterProvider` in `v2/site_filter.dart`), but
-   nothing sets `allSitesProvider` since the old job cards picker went.
-   Decide whether the shared site picker gets an "All sites" choice.
-2. **Prompt 5, lean code, continues.** The jobs-board actions on the outbox
-   allow-list stay only so that items queued on phones before the switch
-   still send; remove them after a release.
-3. **Browser tests coverage.** They run on `feat/**` branches and PRs,
-   never on `main`. Run them on a branch (or a PR) before merging job card
-   changes.
-4. **Housekeeping, when you both agree:**
+1. **Housekeeping, when you both agree:**
    - close PR #19;
    - close the branches `feat/cmms-phase-1`, `feat/push-notifications` and
      `feat/cmms-phase-2`.
+2. **Firebase App Distribution:** release v0.1.0 is on GitHub, but its upload
+   to the `electrical-team` testers failed with HTTP 403. Give the
+   `FIREBASE_SERVICE_ACCOUNT` account the "Firebase App Distribution Admin"
+   role, then send the next release (or re-run that step).
 
 ## Where it stands
 

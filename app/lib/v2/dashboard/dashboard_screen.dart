@@ -32,6 +32,7 @@ class DashboardScreen extends ConsumerWidget {
       title: 'Dashboard',
       subtitle: site == null ? 'All your sites' : siteName,
       actions: [
+        const AllSitesChip(),
         IconButton(
           tooltip: 'Refresh',
           onPressed: () => ref.read(jobCardsLiveProvider.notifier).bumpNow(),

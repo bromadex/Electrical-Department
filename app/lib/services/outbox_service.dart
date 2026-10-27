@@ -31,16 +31,6 @@ class OutboxService {
   static const actions = <String, bool>{
     'fn_mark_read': false,
     'fn_register_device': false,
-    // The retired jobs board: kept so items queued on phones before the
-    // switch to job cards still send. Remove after a release.
-    'fn_create_job': false,
-    'fn_edit_job': false,
-    'fn_take_job': false,
-    'fn_assign_job': false,
-    'fn_set_job_status': false,
-    'fn_close_job': false,
-    'fn_add_job_photo': false,
-    'fn_comment_job': false,
     'fn_save_recurrence': false,
     'fn_save_asset': false,
     'fn_save_tool': false,

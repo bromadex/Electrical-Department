@@ -11,6 +11,9 @@ on:
     paths: ["app/**", "supabase/**", "e2e/**", ".github/workflows/acceptance.yml"]
   pull_request:
     paths: ["app/**", "supabase/**", "e2e/**", ".github/workflows/acceptance.yml"]
+  # Every night on main, so changes merged straight to main are tested too.
+  schedule:
+    - cron: "30 1 * * *" # 03:30 in Harare
   workflow_dispatch:
 
 permissions:
