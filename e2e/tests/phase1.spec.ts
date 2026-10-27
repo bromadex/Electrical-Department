@@ -218,7 +218,9 @@ test('Request flow: a request reaches the queue and becomes a job card', async (
   await expectShown(engineer, title);
   await shot(engineer, '07-incoming-requests');
   await tap(engineer, title);
-  await engineer.waitForURL(/#\/(v2\/)?requests\/[0-9a-f-]{36}/);
+  // The request opens on top of the list (pushed), so the address does not
+  // change; wait for the request screen itself.
+  await expect(engineer.getByRole('button', { name: 'Register job card', exact: true })).toBeVisible();
   await expectShown(engineer, title);
   await tap(engineer, 'Register job card', true);
   await expectShown(engineer, /Register EL-SR-/);
@@ -231,7 +233,6 @@ test('Request flow: a request reaches the queue and becomes a job card', async (
 
   await open(requester, '/my-requests');
   await tap(requester, title);
-  await requester.waitForURL(/#\/(v2\/)?requests\/[0-9a-f-]{36}/);
   await expectShown(requester, number);
   await shot(requester, '07-requester-tracking');
 });
