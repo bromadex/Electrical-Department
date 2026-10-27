@@ -55,6 +55,11 @@ class OutboxService {
     'fn_record_safety_check': false,
     'fn_create_request': false,
     'fn_send_message': false,
+    // Job cards: notes, work-log entries and files (status and time
+    // changes are never queued, so the server's timestamps stay true).
+    'fn_comment_job_card': false,
+    'fn_add_work_record': false,
+    'fn_add_job_attachment': false,
     'fn_react': false,
     'fn_unsend_message': false,
     'fn_mark_conversation_read': false,
