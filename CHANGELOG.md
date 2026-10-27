@@ -1,5 +1,22 @@
 # What's new
 
+## 27 October 2026 (on `main`)
+
+### Calls on Android phones
+- **Ringing calls.** A direct call rings the other phone with a full-screen
+  incoming call and ringtone (Answer / Decline), even when the app is closed
+  or the phone is locked. It stops after 45 seconds and becomes a missed
+  call. The server sends call pushes to Android as high-priority data
+  messages (`push-send`, type `call`, migration 0025).
+- **Calls keep going when minimised.** While in a call the phone shows a
+  "Call in progress" notification (tap to return, or hang up from it), so
+  the microphone and sound keep working with the app in the background.
+- **Speaker button** in the call to switch between earpiece and loudspeaker
+  (video calls start on the loudspeaker).
+- Samsung phones: if calls do not ring with the app closed, set the app's
+  battery use to **Unrestricted** (Settings → Apps → Bravura Electrical →
+  Battery).
+
 ## 26 October 2026 (on `main`)
 
 ### New layout and names

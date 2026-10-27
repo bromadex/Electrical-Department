@@ -37,7 +37,7 @@ dependencies:
   cross_file: ^0.3.5+5
   flutter_webrtc: ^1.6.3
   wakelock_plus: ^1.8.0
-
+  flutter_callkit_incoming: ^3.1.6
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -2,7 +2,8 @@ name: App
 
 # Checks the Flutter app on every push and PR, deploys the web build to
 # Vercel (production from main, a preview per PR) and builds the Android APK
-# on version tags (v1.2.3).
+# on version tags (v1.2.3). Pushes to main also build the APK, without
+# releasing it, so Android build errors show up before tagging.
 #
 # Repository variables (Settings → Secrets and variables → Actions → Variables):
 #   SUPABASE_URL, SUPABASE_ANON_KEY   project URL and publishable key
@@ -123,7 +124,9 @@ jobs:
   apk:
     name: Build Android APK
     needs: check
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: >-
+      startsWith(github.ref, 'refs/tags/v') ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -139,6 +142,7 @@ jobs:
           cache: true
 
       - name: Signing key
+        if: startsWith(github.ref, 'refs/tags/v')
         env:
           KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -163,8 +167,10 @@ jobs:
           SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
         run: |
           flutter pub get
+          name="${GITHUB_REF_NAME#v}"
+          case "$GITHUB_REF" in refs/tags/v*) ;; *) name=0.0.0 ;; esac
           flutter build apk --release --flavor prod \
-            --build-name="${GITHUB_REF_NAME#v}" \
+            --build-name="$name" \
             --build-number="$GITHUB_RUN_NUMBER" \
             --dart-define=FLAVOR=prod \
             --dart-define=SUPABASE_URL="$SUPABASE_URL" \
@@ -173,10 +179,12 @@ jobs:
              "build/bravura-electrical-${GITHUB_REF_NAME}.apk"
 
       - uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/v')
         with:
           files: app/build/bravura-electrical-${{ github.ref_name }}.apk
 
       - name: Firebase App Distribution
+        if: startsWith(github.ref, 'refs/tags/v')
         env:
           FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}

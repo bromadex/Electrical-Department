@@ -23,7 +23,7 @@ type Job = {
 
 type ServiceAccount = { project_id: string; client_email: string; private_key: string };
 
-const URGENT = new Set(["critical", "overdue", "assigned", "reassigned"]);
+const URGENT = new Set(["critical", "overdue", "assigned", "reassigned", "call"]);
 
 function projectKey(legacy: string, current: string): string {
   const v = Deno.env.get(legacy);
@@ -52,7 +52,7 @@ function appPath(link: string | null): string | null {
   if (kind === "servicerequest") return `/requests/${id}`;
   if (kind === "asset") return `/assets/${id}`;
   if (kind === "chat") return `/chat/${id}`;
-  if (kind === "call") return `/chat/${id}/call`;
+  if (kind === "call") return `/chat/${id}/call?join=1`;
   if (kind === "meeting") return `/meetings/${id}`;
   if (kind === "tool") return `/tools/${id}`;
   if (kind === "doc") return `/documents/${id}`;
@@ -111,10 +111,28 @@ async function accessToken(sa: ServiceAccount): Promise<string> {
   return cachedToken.value;
 }
 
-function message(job: Job, token: string, appUrl: string | null) {
+function message(job: Job, token: string, platform: string, appUrl: string | null) {
   const path = appPath(job.link);
   const urgent = URGENT.has(job.type);
   const webLink = appUrl ? `${appUrl.replace(/\/$/, "")}/${path ? `#${path}` : ""}` : undefined;
+  // A ringing call on Android: data only, so the app (even when closed)
+  // shows its full-screen incoming call; it is useless after 45 seconds.
+  if (job.type === "call" && platform === "android") {
+    return {
+      message: {
+        token,
+        data: {
+          kind: "call",
+          link: job.link ?? "",
+          type: job.type,
+          notification_id: job.id,
+          caller: job.title,
+          body: job.body ?? "",
+        },
+        android: { priority: "HIGH", ttl: "45s" },
+      },
+    };
+  }
   return {
     message: {
       token,
@@ -172,11 +190,11 @@ Deno.serve(async (req) => {
     const appUrl = Deno.env.get("APP_URL") ?? null;
     const dead: string[] = [];
     let sent = 0;
-    await Promise.all(job.tokens.map(async ({ token }) => {
+    await Promise.all(job.tokens.map(async ({ token, platform }) => {
       const res = await fetch(`https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`, {
         method: "POST",
         headers: { Authorization: `Bearer ${bearer}`, "Content-Type": "application/json" },
-        body: JSON.stringify(message(job, token, appUrl)),
+        body: JSON.stringify(message(job, token, platform, appUrl)),
       });
       if (res.ok) {
         sent++;
