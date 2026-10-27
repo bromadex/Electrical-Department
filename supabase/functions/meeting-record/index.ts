@@ -89,6 +89,25 @@ Deno.serve(async (req) => {
     access_key: (Deno.env.get("MEETING_S3_ACCESS_KEY") ?? "").trim(),
     secret: (Deno.env.get("MEETING_S3_SECRET_KEY") ?? "").trim(),
   };
+  // { "check": true }: which settings are present, and whether LiveKit
+  // accepts a recording pass. Shows nothing secret.
+  const peek = await req.clone().json().catch(() => ({})) as Record<string, unknown>;
+  if (peek.check === true) {
+    let livekit = "not tried";
+    try {
+      await egress("ListEgress", {});
+      livekit = "ok";
+    } catch (e) {
+      livekit = String((e as Error).message).slice(0, 200);
+    }
+    return reply(200, {
+      endpoint: s3.endpoint || null,
+      region: s3.region || null,
+      access_key_length: s3.access_key.length,
+      secret_key_length: s3.secret.length,
+      livekit_egress: livekit,
+    });
+  }
   if (!Deno.env.get("LIVEKIT_URL") || !s3.endpoint || !s3.access_key || !s3.secret) {
     return reply(503, { error: "UNAVAILABLE: Recording is not set up yet" });
   }

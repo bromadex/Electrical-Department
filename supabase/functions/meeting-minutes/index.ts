@@ -130,6 +130,34 @@ async function draft(
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return reply(405, { error: "INVALID: Use POST" });
+  // { "check": true }: whether the Claude and transcription keys are
+  // accepted (lists models; costs nothing). Shows nothing secret.
+  const peek = await req.clone().json().catch(() => ({})) as Record<string, unknown>;
+  if (peek.check === true) {
+    const probe = async (url: string, headers: Record<string, string>) => {
+      try {
+        const res = await fetch(url, { headers });
+        return res.ok ? "ok" : `${res.status}`;
+      } catch (e) {
+        return String(e).slice(0, 120);
+      }
+    };
+    const anthropic = Deno.env.get("ANTHROPIC_API_KEY");
+    const transcribe = Deno.env.get("TRANSCRIBE_API_KEY");
+    const base = (Deno.env.get("TRANSCRIBE_URL") ?? "https://api.groq.com/openai/v1/audio/transcriptions")
+      .replace(/\/audio\/transcriptions$/, "");
+    return reply(200, {
+      anthropic: anthropic
+        ? await probe("https://api.anthropic.com/v1/models", {
+          "x-api-key": anthropic,
+          "anthropic-version": "2023-06-01",
+        })
+        : "missing",
+      transcribe: transcribe
+        ? await probe(`${base}/models`, { Authorization: `Bearer ${transcribe}` })
+        : "missing",
+    });
+  }
   if (!Deno.env.get("ANTHROPIC_API_KEY")) {
     return reply(503, { error: "UNAVAILABLE: AI minutes are not set up yet" });
   }
