@@ -223,7 +223,8 @@ test('Request flow: a request reaches the queue and becomes a job card', async (
   await expect(engineer.getByRole('button', { name: 'Register job card', exact: true })).toBeVisible();
   await expectShown(engineer, title);
   await tap(engineer, 'Register job card', true);
-  await expectShown(engineer, /Register EL-SR-/);
+  // The frame's title bar reads "New job card"; the request shows below it.
+  await expectShown(engineer, /Submitted by/);
   await tap(engineer, 'P3 Medium', true);
   await shot(engineer, '07-register-from-request');
   await tap(engineer, 'Register job card', true);
