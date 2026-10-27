@@ -220,7 +220,8 @@ test('Request flow: a request reaches the queue and becomes a job card', async (
   await tap(engineer, title);
   // The request opens on top of the list (pushed), so the address does not
   // change; wait for the request screen itself.
-  await expect(engineer.getByRole('button', { name: 'Register job card', exact: true })).toBeVisible();
+  // The list row behind it has a Register button too; the screen is on top.
+  await expect(engineer.getByRole('button', { name: 'Register job card', exact: true }).last()).toBeVisible();
   await expectShown(engineer, title);
   await tap(engineer, 'Register job card', true);
   // The frame's title bar reads "New job card"; the request shows below it.
