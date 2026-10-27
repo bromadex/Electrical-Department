@@ -369,6 +369,43 @@ A call nobody else answered is missed and the others get "Missed call from <name
 (live | missed | ended) and `in_call`. A direct call that rings 45 seconds with no answer
 hangs up in the app. `conversation_calls` (0017) is no longer written.
 
+## 16c. Meetings (migration 0022)
+
+Meetings live inside group chats. Someone with `meetings.manage` schedules one from a chat
+(⋮ → Schedule a meeting); everyone in the chat is invited and joins with the chat's call.
+
+- Table `meetings` (members of the chat read it): `code` (M-), `title`, `agenda`,
+  `starts_at`, `duration_min`, `chair_id`, `status` (scheduled | cancelled),
+  `recording_status` (none | recording | processing | ready | failed), `egress_id`,
+  `audio_path`, `transcript`, `minutes` (`{summary, decisions[], actions[{text, owner_id,
+  owner_name, due}]}`), `minutes_status` (none | draft | approved).
+- `fn_create_meeting(p_client_ref, p_conversation, p_site, p_title, p_agenda, p_starts_at,
+  p_duration_min)`: group chats only; posts the meeting card (system message,
+  `record_link meeting:<id>`) and tells the chat. `fn_update_meeting(p_meeting, p_title,
+  p_agenda, p_starts_at, p_duration_min, p_cancel)`: chair or `meetings.manage`.
+- `fn_meeting_reminders()`: pg_cron every 5 minutes; one "Starting soon" notification 15
+  minutes before. `fn_meeting_attendance(p_meeting)`: who joined the chat's call from 30
+  minutes before until 90 minutes after the planned end.
+- Chair only: `fn_meeting_recording(p_meeting, p_status, p_egress, p_audio_path, p_error)`,
+  `fn_save_minutes(p_meeting, p_transcript, p_minutes)` (a draft; approved minutes are
+  final), `fn_approve_minutes(p_meeting)` (posts "Minutes: …" to the chat and tells each
+  action owner). Links `meeting:<id>` open `/meetings/<id>`.
+- Edge function `meeting-record` `{meeting_id, action: start|stop}`: LiveKit Egress records
+  the chat's call (audio only, OGG) into the private `meeting-audio` bucket through
+  Supabase Storage's S3 endpoint. Secrets: the three `LIVEKIT_*` plus `MEETING_S3_ENDPOINT`
+  (`https://<project ref>.storage.supabase.co/storage/v1/s3`), `MEETING_S3_REGION` (the
+  project's region, e.g. `eu-central-1`), `MEETING_S3_ACCESS_KEY`, `MEETING_S3_SECRET_KEY`
+  (Supabase → Storage → S3 connection → New access key). LiveKit Cloud must have egress
+  available on the plan.
+- Edge function `meeting-minutes` `{meeting_id, notes?}`: transcribes the recording with an
+  OpenAI-compatible Whisper endpoint (`TRANSCRIBE_API_KEY`; `TRANSCRIBE_URL` defaults to
+  Groq, `TRANSCRIBE_MODEL` to `whisper-large-v3`), or uses typed notes, then Claude
+  (`ANTHROPIC_API_KEY`, model `claude-opus-5-5`, JSON output, server-side refusal
+  fallback) drafts the minutes; owners are matched to the chat's members by name. Without
+  the keys both functions answer 503 `UNAVAILABLE` and the chair can still write minutes
+  by hand.
+- Not yet: attendees from outside the chat, and deleting audio after 30 days.
+
 ## 17. Job Cards Version 2 (migrations 0012–0014)
 
 The job card & maintenance management system from Tafara's PR #19 and its phase 2.

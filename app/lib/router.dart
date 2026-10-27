@@ -17,6 +17,7 @@ import 'documents/documents_screen.dart';
 import 'maintenance/planned_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
+import 'meetings/meeting_screen.dart';
 import 'screens/more_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/notifications_screen.dart';
@@ -103,6 +104,10 @@ GoRouter buildRouter(WidgetRef ref) {
       GoRoute(path: '/admin/users', builder: (_, _) => const UsersScreen()),
       GoRoute(path: '/admin/sites', builder: (_, _) => const SitesScreen()),
       GoRoute(path: '/settings', builder: (_, _) => const SettingsScreen()),
+      GoRoute(
+        path: '/meetings/:id',
+        builder: (_, s) => MeetingScreen(id: s.pathParameters['id']!),
+      ),
       GoRoute(path: '/reports', builder: (_, _) => const DailyReportScreen()),
       GoRoute(
         path: '/admin/activity',

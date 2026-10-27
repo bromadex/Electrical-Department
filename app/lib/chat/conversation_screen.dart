@@ -22,6 +22,7 @@ import 'chat_list_screen.dart';
 import 'chat_repository.dart';
 import 'composer.dart';
 import 'voice.dart';
+import '../meetings/meeting_screen.dart';
 import 'presence.dart';
 import '../widgets/app_back_button.dart';
 
@@ -378,6 +379,12 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
               tooltip: 'More',
               icon: const Icon(CupertinoIcons.ellipsis_vertical),
               onSelected: (v) {
+                if (v == 'meeting') {
+                  showFormSheet(
+                    context,
+                    ScheduleMeetingSheet(conversationId: chat.id),
+                  );
+                }
                 if (v == 'pin') {
                   unawaited(
                     ref.read(chatActionsProvider).pin(chat.id, !chat.pinned),
@@ -385,6 +392,22 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                 }
               },
               itemBuilder: (_) => [
+                if (!chat.isDirect &&
+                    ref
+                        .read(sessionProvider)
+                        .can(
+                          'meetings.manage',
+                          siteId:
+                              chat.siteId ?? ref.read(currentSiteProvider)?.id,
+                        ))
+                  const PopupMenuItem(
+                    value: 'meeting',
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(CupertinoIcons.calendar_badge_plus),
+                      title: Text('Schedule a meeting'),
+                    ),
+                  ),
                 PopupMenuItem(
                   value: 'pin',
                   child: ListTile(
@@ -637,6 +660,9 @@ class _SystemRow extends StatelessWidget {
     final m = message;
     final k = call;
     final isCall = m.recordLink?.startsWith('call:') ?? false;
+    if (m.recordLink?.startsWith('meeting:') ?? false) {
+      return _MeetingRow(message: m);
+    }
     final chatId = isCall ? m.recordLink!.substring(5) : null;
     String hm(DateTime t) =>
         '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
@@ -727,6 +753,56 @@ class _SystemRow extends StatelessWidget {
                       ),
               ],
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A meeting's card in the chat: scheduled, recording, minutes, cancelled.
+class _MeetingRow extends StatelessWidget {
+  const _MeetingRow({required this.message});
+
+  final ChatMessage message;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final m = message;
+    final body = m.body ?? 'Meeting';
+    final (icon, color) = body.startsWith('Minutes')
+        ? (CupertinoIcons.doc_text_fill, BrandColors.success)
+        : body.startsWith('Recording')
+        ? (CupertinoIcons.circle_fill, Colors.red)
+        : body.contains('cancelled')
+        ? (CupertinoIcons.calendar_badge_minus, Colors.grey)
+        : (CupertinoIcons.calendar, BrandColors.info);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: Space.sm),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 440),
+          child: SurfaceCard(
+            padding: const EdgeInsets.all(Space.sm),
+            onTap: () =>
+                context.push('/meetings/${m.recordLink!.substring(8)}'),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(Radii.md),
+                  ),
+                  child: Icon(icon, color: color, size: 20),
+                ),
+                const SizedBox(width: Space.sm),
+                Expanded(child: Text(body, style: theme.textTheme.titleSmall)),
+                const Icon(CupertinoIcons.chevron_right, size: 16),
+              ],
+            ),
           ),
         ),
       ),
