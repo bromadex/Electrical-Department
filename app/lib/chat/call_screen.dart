@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
@@ -58,6 +60,11 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   bool _front = true;
   bool _chatOpen = true;
 
+  /// Reaction bar open, and the emoji floating up the screen.
+  bool _reactOpen = false;
+  final _floating = <_Floating>[];
+  EventsListener<RoomEvent>? _events;
+
   /// This call's record on our server, kept alive by [_beat].
   String? _callId;
   Timer? _beat;
@@ -85,6 +92,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
     final room = _room;
     if (room != null) {
       room.removeListener(_changed);
+      unawaited(_events?.dispose());
       unawaited(room.disconnect().then((_) => room.dispose()));
     }
     super.dispose();
@@ -178,6 +186,14 @@ class _CallScreenState extends ConsumerState<CallScreen> {
       return;
     }
     room.addListener(_changed);
+    _events = room.createListener()
+      ..on<DataReceivedEvent>((e) {
+        if (e.topic != 'reaction') return;
+        try {
+          final m = jsonDecode(utf8.decode(e.data)) as Map;
+          _float('${m['e']}', e.participant?.name);
+        } catch (_) {}
+      });
     _waiting = data['new_call'] == true;
     _clock = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
     _beat = Timer.periodic(const Duration(seconds: 30), (_) {
@@ -271,10 +287,50 @@ class _CallScreenState extends ConsumerState<CallScreen> {
     _changed();
   }
 
-  /// Who fills the stage: the pinned person, else whoever is talking, else
-  /// the first other person, else you.
+  /// Shows an emoji floating up the screen for a few seconds.
+  void _float(String emoji, String? from) {
+    if (!mounted) return;
+    final f = _Floating(
+      emoji,
+      from,
+      0.15 + math.Random().nextDouble() * 0.7,
+      DateTime.now().microsecondsSinceEpoch,
+    );
+    setState(() => _floating.add(f));
+    Timer(const Duration(milliseconds: 2600), () {
+      if (mounted) setState(() => _floating.remove(f));
+    });
+  }
+
+  /// Sends a reaction to everyone in the call (nothing is stored).
+  Future<void> _react(String emoji) async {
+    HapticFeedback.selectionClick();
+    _float(emoji, null);
+    try {
+      await _room?.localParticipant?.publishData(
+        utf8.encode(jsonEncode({'e': emoji})),
+        reliable: true,
+        topic: 'reaction',
+      );
+    } catch (_) {}
+  }
+
+  Future<void> _toggleShare() async {
+    final local = _room?.localParticipant;
+    if (local == null) return;
+    try {
+      await local.setScreenShareEnabled(!local.isScreenShareEnabled());
+    } catch (_) {
+      _snack('Could not share your screen.');
+    }
+    _changed();
+  }
+
+  /// Who fills the stage: the pinned person, else someone sharing their
+  /// screen, else whoever is talking, else the first other person, else you.
   Participant? _focus(Room room) {
     final others = room.remoteParticipants.values.toList();
+    final sharing = others.where((p) => p.isScreenShareEnabled()).firstOrNull;
     if (_pinned != null) {
       final p = <Participant>[
         ...others,
@@ -282,6 +338,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
       ].where((p) => p.identity == _pinned).firstOrNull;
       if (p != null) return p;
     }
+    if (sharing != null) return sharing;
     final speaking = room.activeSpeakers
         .whereType<RemoteParticipant>()
         .firstOrNull;
@@ -344,6 +401,14 @@ class _CallScreenState extends ConsumerState<CallScreen> {
               ),
             ),
           ),
+          IgnorePointer(
+            child: Stack(
+              children: [
+                for (final f in _floating)
+                  _FloatingEmoji(key: ValueKey(f.id), floating: f),
+              ],
+            ),
+          ),
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(Space.md),
@@ -399,9 +464,48 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                     ),
                   ],
                   const SizedBox(height: Space.md),
+                  if (_reactOpen)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: Space.sm),
+                      child: _Frost(
+                        radius: 99,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            for (final e in const [
+                              '👍',
+                              '👏',
+                              '😂',
+                              '❤️',
+                              '🔥',
+                              '✋',
+                            ])
+                              InkWell(
+                                customBorder: const CircleBorder(),
+                                onTap: () => _react(e),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(6),
+                                  child: Text(
+                                    e,
+                                    style: const TextStyle(fontSize: 26),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
                   _Dock(
                     local: local,
                     canFlip: !kIsWeb && (local?.isCameraEnabled() ?? false),
+                    canShare: kIsWeb && wide,
+                    reactOpen: _reactOpen,
+                    onShare: _toggleShare,
+                    onReact: () => setState(() => _reactOpen = !_reactOpen),
                     chatOpen: wide && _chatOpen,
                     onMic: _toggleMic,
                     onCamera: _toggleCamera,
@@ -757,16 +861,28 @@ class _Face extends StatelessWidget {
       builder: (context, _) {
         final p = participant;
         VideoTrack? video;
+        VideoTrack? screen;
         for (final pub in p.videoTrackPublications) {
           final t = pub.track;
-          if (t is VideoTrack && !pub.muted) video = t;
+          if (t is! VideoTrack || pub.muted) continue;
+          if (pub.source == TrackSource.screenShareVideo) {
+            screen = t;
+          } else {
+            video = t;
+          }
         }
+        // On the stage a shared screen wins, shown whole.
+        final showScreen = large && screen != null;
+        if (showScreen) video = screen;
         final name = p.name.isNotEmpty ? p.name : (you ? 'You' : 'Someone');
         final speaking = p.isSpeaking;
         final muted = !p.isMicrophoneEnabled();
 
         final picture = video != null
-            ? VideoTrackRenderer(video, fit: VideoViewFit.cover)
+            ? VideoTrackRenderer(
+                video,
+                fit: showScreen ? VideoViewFit.contain : VideoViewFit.cover,
+              )
             : DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -980,6 +1096,10 @@ class _Dock extends StatelessWidget {
   const _Dock({
     required this.local,
     required this.canFlip,
+    required this.canShare,
+    required this.reactOpen,
+    required this.onShare,
+    required this.onReact,
     required this.chatOpen,
     required this.onMic,
     required this.onCamera,
@@ -990,6 +1110,12 @@ class _Dock extends StatelessWidget {
 
   final LocalParticipant? local;
   final bool canFlip;
+
+  /// Screen sharing: computers (browser) only.
+  final bool canShare;
+  final bool reactOpen;
+  final VoidCallback onShare;
+  final VoidCallback onReact;
   final bool chatOpen;
   final VoidCallback onMic;
   final VoidCallback onCamera;
@@ -1054,6 +1180,24 @@ class _Dock extends StatelessWidget {
               ),
               const SizedBox(width: 10),
             ],
+            if (canShare) ...[
+              _GlassButton(
+                icon: CupertinoIcons.rectangle_on_rectangle_angled,
+                tooltip: (local?.isScreenShareEnabled() ?? false)
+                    ? 'Stop sharing'
+                    : 'Share your screen',
+                off: local?.isScreenShareEnabled() ?? false,
+                onTap: onShare,
+              ),
+              const SizedBox(width: 10),
+            ],
+            _GlassButton(
+              icon: CupertinoIcons.smiley,
+              tooltip: 'React',
+              off: reactOpen,
+              onTap: onReact,
+            ),
+            const SizedBox(width: 10),
             _GlassButton(
               icon: chatOpen
                   ? CupertinoIcons.chat_bubble_2_fill
@@ -1384,6 +1528,58 @@ class _CallSideState extends ConsumerState<_CallSide> {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _Floating {
+  _Floating(this.emoji, this.from, this.x, this.id);
+
+  final String emoji;
+  final String? from;
+
+  /// Where across the screen it rises, 0–1.
+  final double x;
+  final int id;
+}
+
+/// One reaction drifting up and fading out.
+class _FloatingEmoji extends StatelessWidget {
+  const _FloatingEmoji({super.key, required this.floating});
+
+  final _Floating floating;
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 2500),
+      curve: Curves.easeOut,
+      builder: (context, t, child) => Positioned(
+        left: size.width * floating.x - 24,
+        bottom: 120 + t * size.height * 0.55,
+        child: Opacity(
+          opacity: t < 0.7 ? 1 : (1 - t) / 0.3,
+          child: Transform.scale(scale: 0.8 + t * 0.6, child: child),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(floating.emoji, style: const TextStyle(fontSize: 40)),
+          if (floating.from != null)
+            Text(
+              floating.from!.split(' ').first,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                shadows: [Shadow(blurRadius: 6)],
+              ),
+            ),
+        ],
       ),
     );
   }
