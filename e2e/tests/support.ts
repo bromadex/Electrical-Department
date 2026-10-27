@@ -94,12 +94,19 @@ export async function signIn(
   return page;
 }
 
-/** On failure: a screenshot and the visible texts of every open window. */
+/**
+ * On failure: a screenshot and the visible texts of every open window. Then
+ * closes the test's windows: each one runs the whole app, and windows left
+ * open slow later tests down until their sign-in pages time out.
+ */
 export async function reportFailure(testInfo: TestInfo) {
-  if (testInfo.status === testInfo.expectedStatus) {
-    pages.length = 0;
-    return;
+  if (testInfo.status !== testInfo.expectedStatus) await describeWindows(testInfo);
+  for (const page of pages.splice(0)) {
+    await page.context().close().catch(() => {});
   }
+}
+
+async function describeWindows(testInfo: TestInfo) {
   for (const [i, page] of pages.entries()) {
     if (page.isClosed()) continue;
     await testInfo.attach(`window-${i}.png`, { body: await page.screenshot(), contentType: 'image/png' });
@@ -117,7 +124,6 @@ export async function reportFailure(testInfo: TestInfo) {
     await testInfo.attach(`window-${i}.txt`, { body: texts, contentType: 'text/plain' });
     console.log(`--- window ${i} ---\n${texts}`);
   }
-  pages.length = 0;
 }
 
 /** Direct calls to the local Supabase as a seeded user, for setup and checks. */
