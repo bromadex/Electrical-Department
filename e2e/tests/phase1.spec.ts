@@ -123,7 +123,7 @@ test('Test 5: a P1 job updates the critical dashboard and sends notifications', 
   await open(manager, '/jobs');
   await tap(manager, 'Harare', true);
   // A site row reads its code, name and areas together.
-  await tap(manager, /Kamativi[sS]*area/);
+  await tap(manager, /Kamativi[\s\S]*area/);
   await open(manager, '/job-stats');
   await tap(manager, /critical job cards?/);
   await expectShown(manager, number);
