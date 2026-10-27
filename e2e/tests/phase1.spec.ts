@@ -122,7 +122,8 @@ test('Test 5: a P1 job updates the critical dashboard and sends notifications', 
   // The manager's home site is Harare; the P1 job is at Kamativi.
   await open(manager, '/jobs');
   await tap(manager, 'Harare', true);
-  await tap(manager, 'Kamativi', true);
+  // A site row reads its code, name and areas together.
+  await tap(manager, /Kamativi[sS]*area/);
   await open(manager, '/job-stats');
   await tap(manager, /critical job cards?/);
   await expectShown(manager, number);
