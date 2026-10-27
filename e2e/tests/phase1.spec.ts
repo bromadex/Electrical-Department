@@ -228,9 +228,19 @@ test('Request flow: a request reaches the queue and becomes a job card', async (
   await expectShown(engineer, /Submitted by/);
   await tap(engineer, 'P3 Medium', true);
   await shot(engineer, '07-register-from-request');
-  await tap(engineer, 'Register job card', true);
-  await engineer.waitForURL(JOB_NUMBER);
-  const number = engineer.url().match(JOB_NUMBER)![0];
+  // The form's own button is the last one; the screens below have theirs.
+  await engineer.getByRole('button', { name: 'Register job card', exact: true }).last().click();
+  // The job card replaces the form on top of the stack, which the address
+  // bar does not always show, so read its number from the server.
+  const api = await Api.as(people.engineer);
+  let number = '';
+  await expect
+    .poll(async () => {
+      number = (await jobByTitle(api, title).catch(() => null))?.number ?? '';
+      return number;
+    })
+    .toMatch(JOB_NUMBER);
+  await expectShown(engineer, number);
   await shot(engineer, '07-job-card-from-request');
 
   await open(requester, '/my-requests');
