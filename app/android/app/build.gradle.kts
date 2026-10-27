@@ -30,6 +30,12 @@ android {
         versionName = flutter.versionName
     }
 
+    // The flavours set the app name with resValue, which AGP 9 turns off
+    // by default.
+    buildFeatures {
+        resValues = true
+    }
+
     // dev and prod install side by side; dev points at a test Supabase.
     flavorDimensions += "env"
     productFlavors {

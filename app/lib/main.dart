@@ -14,6 +14,7 @@ import 'data/local_db.dart';
 import 'router.dart';
 import 'screens/setup_required_screen.dart';
 import 'services/core_providers.dart';
+import 'services/incoming_calls.dart';
 import 'services/push_service.dart';
 import 'theme/app_theme.dart';
 import 'theme/theme_mode.dart';
@@ -39,6 +40,9 @@ Future<void> main() async {
     SharedPreferences.getInstance(),
     PushSupport.init(),
   ).wait;
+  if (PushSupport.ready && IncomingCalls.supported) {
+    FirebaseMessaging.onBackgroundMessage(firebaseBackgroundMessage);
+  }
   runApp(
     ProviderScope(
       overrides: [
@@ -63,6 +67,8 @@ class _ElectricalDepartmentAppState
     extends ConsumerState<ElectricalDepartmentApp> {
   late final GoRouter _router = buildRouter(ref);
   StreamSubscription<RemoteMessage>? _opened;
+  StreamSubscription<RemoteMessage>? _foreground;
+  StreamSubscription<Object?>? _answered;
 
   @override
   void initState() {
@@ -74,12 +80,22 @@ class _ElectricalDepartmentAppState
       FirebaseMessaging.instance.getInitialMessage().then((m) {
         if (m != null) _open(m);
       });
+      if (IncomingCalls.supported) {
+        // A call while the app is open rings the same way.
+        _foreground = FirebaseMessaging.onMessage.listen((m) {
+          if (m.data['kind'] == 'call') IncomingCalls.ring(m.data);
+        });
+        _answered = IncomingCalls.listen(_router.push);
+        IncomingCalls.askPermissions();
+      }
     }
   }
 
   @override
   void dispose() {
     _opened?.cancel();
+    _foreground?.cancel();
+    _answered?.cancel();
     super.dispose();
   }
 

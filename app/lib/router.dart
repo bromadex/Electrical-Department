@@ -95,6 +95,7 @@ GoRouter buildRouter(WidgetRef ref) {
           conversationId: s.pathParameters['id']!,
           join: s.uri.queryParameters['join'] == '1',
           video: s.uri.queryParameters['video'] == '1',
+          ringId: s.uri.queryParameters['ring'],
         ),
       ),
       GoRoute(

@@ -15,6 +15,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../data/site_data.dart';
 import '../services/core_providers.dart';
+import '../services/incoming_calls.dart';
 import '../theme/tokens.dart';
 import '../ui/bits.dart';
 import '../meetings/captions.dart';
@@ -40,11 +41,16 @@ class CallScreen extends ConsumerStatefulWidget {
     required this.conversationId,
     this.join = false,
     this.video = false,
+    this.ringId,
   });
 
   final String conversationId;
   final bool join;
   final bool video;
+
+  /// The answered incoming call (Android), whose notification this call
+  /// takes over.
+  final String? ringId;
 
   @override
   ConsumerState<CallScreen> createState() => _CallScreenState();
@@ -81,6 +87,14 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   /// Kept from the start: leaving runs in dispose, when ref is gone.
   late final SupabaseClient _db;
 
+  /// Android's "call in progress" notification, which keeps the call going
+  /// when the app is minimised; hanging up there leaves the call.
+  String? _ongoing;
+  StreamSubscription<String>? _hungUp;
+
+  /// Loudspeaker (true) or earpiece; null in the browser.
+  bool? _speaker;
+
   /// Live captions while a meeting is on in this chat (see captions.dart).
   CaptionSender? _captions;
   bool _captionsOff = false;
@@ -97,6 +111,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
     _clock?.cancel();
     _endCall();
     _stopCaptions();
+    _hungUp?.cancel();
     final room = _room;
     if (room != null) {
       room.removeListener(_changed);
@@ -143,6 +158,9 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   /// Tells our server you left; the last one out ends the call.
   void _endCall() {
     _beat?.cancel();
+    final ongoing = _ongoing;
+    _ongoing = null;
+    if (ongoing != null) unawaited(IncomingCalls.end(ongoing));
     final id = _callId;
     _callId = null;
     if (id == null) return;
@@ -244,6 +262,8 @@ class _CallScreenState extends ConsumerState<CallScreen> {
       );
     });
     HapticFeedback.mediumImpact();
+    unawaited(_startOngoing(data['title'] as String?, video));
+    if (!kIsWeb) unawaited(_setSpeaker(video));
     setState(() {
       _room = room;
       _title = data['title'] as String?;
@@ -263,6 +283,36 @@ class _CallScreenState extends ConsumerState<CallScreen> {
       );
     }
     _changed();
+  }
+
+  Future<void> _startOngoing(String? title, bool video) async {
+    if (!IncomingCalls.supported) return;
+    final ring = widget.ringId;
+    if (ring != null) {
+      _ongoing = ring;
+      await IncomingCalls.connected(ring);
+    } else {
+      _ongoing = await IncomingCalls.startOngoing(
+        id: _callId ?? 'chat-${widget.conversationId}',
+        title: title ?? 'Call',
+        video: video,
+      );
+    }
+    _hungUp ??= IncomingCalls.hungUp.listen((id) {
+      if (id == _ongoing && _stage == _Stage.inCall) {
+        _ongoing = null;
+        unawaited(_leave());
+      }
+    });
+  }
+
+  Future<void> _setSpeaker(bool on) async {
+    try {
+      await AudioManager.instance.setSpeakerOutputPreferred(on);
+      if (mounted) setState(() => _speaker = on);
+    } catch (_) {
+      _snack('Could not switch the speaker.');
+    }
   }
 
   void _fail(String message) {
@@ -560,6 +610,8 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                     onShare: _toggleShare,
                     onReact: () => setState(() => _reactOpen = !_reactOpen),
                     chatOpen: wide && _chatOpen,
+                    speaker: _speaker,
+                    onSpeaker: () => _setSpeaker(!(_speaker ?? false)),
                     onMic: _toggleMic,
                     onCamera: _toggleCamera,
                     onFlip: _flip,
@@ -1156,6 +1208,8 @@ class _Dock extends StatelessWidget {
     required this.captions,
     required this.onCaptions,
     required this.chatOpen,
+    required this.speaker,
+    required this.onSpeaker,
     required this.onMic,
     required this.onCamera,
     required this.onFlip,
@@ -1176,6 +1230,10 @@ class _Dock extends StatelessWidget {
   final bool? captions;
   final VoidCallback onCaptions;
   final bool chatOpen;
+
+  /// null in the browser; otherwise whether the loudspeaker is on.
+  final bool? speaker;
+  final VoidCallback onSpeaker;
   final VoidCallback onMic;
   final VoidCallback onCamera;
   final VoidCallback onFlip;
@@ -1202,6 +1260,17 @@ class _Dock extends StatelessWidget {
               onTap: onMic,
             ),
             const SizedBox(width: 10),
+            if (speaker != null) ...[
+              _GlassButton(
+                icon: speaker!
+                    ? CupertinoIcons.speaker_3_fill
+                    : CupertinoIcons.speaker_1_fill,
+                tooltip: speaker! ? 'Speaker on' : 'Speaker off',
+                off: speaker!,
+                onTap: onSpeaker,
+              ),
+              const SizedBox(width: 10),
+            ],
             _GlassButton(
               icon: cam
                   ? CupertinoIcons.video_camera_solid
