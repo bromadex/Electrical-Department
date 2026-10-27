@@ -31,22 +31,28 @@ class Space {
   static const xxl = 48.0;
 }
 
+/// Liquid glass radii (issue #26): 28 · 22 · 16 · 12, pills 999.
 class Radii {
-  static const sm = 10.0;
-  static const md = 14.0;
-  static const lg = 20.0;
+  static const sm = 12.0;
+  static const md = 16.0;
+  static const lg = 22.0;
   static const xl = 28.0;
   static const pill = 999.0;
 }
 
 /// Durations and curves shared by every animation, so motion feels consistent.
 class Motion {
+  /// Hovers and presses.
+  static const hover = Duration(milliseconds: 140);
   static const fast = Duration(milliseconds: 150);
   static const medium = Duration(milliseconds: 280);
   static const slow = Duration(milliseconds: 450);
   static const stagger = Duration(milliseconds: 45);
 
   static const emphasized = Cubic(0.2, 0, 0, 1);
+
+  /// The glass easing: quick out, soft landing.
+  static const glass = Cubic(0.22, 0.8, 0.3, 1);
   static const decelerate = Cubic(0.05, 0.7, 0.1, 1);
   static const spring = Curves.easeOutBack;
 
@@ -81,6 +87,11 @@ class AppColors {
   /// Chrome: the side menu in both themes, tooltips, snack bars.
   static const black = Color(0xFF161113);
   static const blackRaised = Color(0xFF241B1F);
+
+  /// The dark glass backdrop (issue #26): a very deep burgundy, and the
+  /// slightly lighter shade its gradient starts from.
+  static const night = Color(0xFF1E0A0E);
+  static const nightLift = Color(0xFF2C1016);
 
   static const canvas = Color(0xFFFAF7F8);
   static const canvasDark = Color(0xFF0F0B0D);

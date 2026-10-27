@@ -120,6 +120,7 @@ class AppShell extends ConsumerWidget {
                 Expanded(
                   child: GlassSurface(
                     radius: 34,
+                    saturate: 1.3,
                     child: Column(
                       children: [
                         _WindowHeader(title: title),
@@ -739,7 +740,10 @@ class _NavButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final color = selected ? scheme.primary : scheme.onSurfaceVariant;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final color = selected
+        ? (dark ? scheme.onSurface : scheme.primary)
+        : scheme.onSurfaceVariant;
     final glyph = Icon(icon, color: color, size: 24);
     return Semantics(
       selected: selected,
@@ -756,9 +760,37 @@ class _NavButton extends StatelessWidget {
           height: 58,
           margin: const EdgeInsets.symmetric(horizontal: 1, vertical: 1),
           decoration: BoxDecoration(
-            color: selected
+            // Dark glass: the open tab is a brighter pane with a top
+            // highlight and a soft burgundy glow underneath.
+            color: selected && !dark
                 ? scheme.primary.withValues(alpha: 0.16)
                 : Colors.transparent,
+            gradient: selected && dark
+                ? LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.white.withValues(alpha: 0.20),
+                      Colors.white.withValues(alpha: 0.07),
+                    ],
+                  )
+                : null,
+            border: selected && dark
+                ? Border(
+                    top: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.40),
+                    ),
+                  )
+                : null,
+            boxShadow: selected && dark
+                ? [
+                    BoxShadow(
+                      color: BrandColors.maroon.withValues(alpha: 0.55),
+                      blurRadius: 18,
+                      offset: const Offset(0, 6),
+                    ),
+                  ]
+                : null,
             borderRadius: BorderRadius.circular(22),
           ),
           child: Column(

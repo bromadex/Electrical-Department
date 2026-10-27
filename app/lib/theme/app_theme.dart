@@ -20,26 +20,32 @@ class AppTheme {
         ).copyWith(
           primary: dark ? BrandColors.blush : BrandColors.maroon,
           onPrimary: dark ? BrandColors.maroonDeep : Colors.white,
-          secondary: BrandColors.info,
+          secondary: dark ? AppColors.blueLight : BrandColors.info,
           tertiary: BrandColors.coral,
-          // Secondary text stays readable on glass, outdoors too.
+          // Dark glass (issue #26): near-white text with two muted levels
+          // (onSurfaceVariant, outline), all white over the burgundy night.
+          onSurface: dark ? const Color(0xFFFBF4F6) : null,
           onSurfaceVariant: dark
-              ? const Color(0xFFD6D0DA)
+              ? const Color(0xFFD9C9CE)
               : const Color(0xFF3E3944),
+          outline: dark ? const Color(0xFFA9969B) : null,
           outlineVariant: dark
-              ? const Color(0xFF3A3742)
+              ? const Color(0xFF55383F)
               : const Color(0xFFD9D6DF),
-          surface: dark ? const Color(0xFF111116) : const Color(0xFFFAFAFC),
-          surfaceContainerLowest: dark ? const Color(0xFF0C0C10) : Colors.white,
+          surface: dark ? AppColors.night : const Color(0xFFFAFAFC),
+          surfaceContainerLowest: dark ? const Color(0xFF16070A) : Colors.white,
           surfaceContainerLow: dark
-              ? const Color(0xFF17171D)
+              ? const Color(0xFF2A1318)
               : const Color(0xFFF6F6F9),
           surfaceContainer: dark
-              ? const Color(0xFF1D1D24)
+              ? const Color(0xFF33191F)
               : const Color(0xFFF1F1F5),
           surfaceContainerHigh: dark
-              ? const Color(0xFF24242C)
+              ? const Color(0xFF3D2228)
               : const Color(0xFFEAEAF0),
+          surfaceContainerHighest: dark ? const Color(0xFF482A31) : null,
+          inverseSurface: dark ? const Color(0xFFFBF4F6) : null,
+          onInverseSurface: dark ? AppColors.night : null,
         );
 
     final base = ThemeData(
@@ -73,11 +79,25 @@ class AppTheme {
         fontWeight: FontWeight.w600,
       ),
     );
-    final outline = scheme.outlineVariant.withValues(alpha: dark ? 0.35 : 0.6);
+    final outline = dark
+        ? Colors.white.withValues(alpha: 0.17)
+        : scheme.outlineVariant.withValues(alpha: 0.6);
+    // Modals, sheets and menus: the most solid glass, a burgundy tint.
+    final modal = dark
+        ? BrandColors.maroonDeep.withValues(alpha: 0.94)
+        : scheme.surfaceContainerLowest;
+    final modalSide = dark
+        ? BorderSide(color: Colors.white.withValues(alpha: 0.32))
+        : BorderSide.none;
 
     return base.copyWith(
       textTheme: text,
       scaffoldBackgroundColor: scheme.surface,
+      // Visible focus rings for keyboard users.
+      focusColor: dark
+          ? Colors.white.withValues(alpha: 0.22)
+          : BrandColors.maroon.withValues(alpha: 0.12),
+      hoverColor: dark ? Colors.white.withValues(alpha: 0.08) : null,
       splashFactory: InkSparkle.splashFactory,
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
@@ -107,7 +127,9 @@ class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: scheme.surfaceContainerLow,
+        fillColor: dark
+            ? Colors.black.withValues(alpha: 0.30)
+            : scheme.surfaceContainerLow,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: Space.md,
           vertical: Space.md,
@@ -157,7 +179,10 @@ class AppTheme {
       chipTheme: base.chipTheme.copyWith(
         shape: const StadiumBorder(),
         side: BorderSide(color: outline),
-        backgroundColor: scheme.surfaceContainerLow,
+        backgroundColor: dark
+            ? Colors.white.withValues(alpha: 0.13)
+            : scheme.surfaceContainerLow,
+        selectedColor: dark ? Colors.white.withValues(alpha: 0.24) : null,
         labelStyle: text.labelMedium,
       ),
       listTileTheme: ListTileThemeData(
@@ -170,7 +195,7 @@ class AppTheme {
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         elevation: 0,
-        backgroundColor: dark ? scheme.surfaceContainerHigh : scheme.onSurface,
+        backgroundColor: dark ? const Color(0xFF4A1A23) : scheme.onSurface,
         contentTextStyle: text.bodyMedium?.copyWith(
           color: dark ? scheme.onSurface : scheme.surface,
         ),
@@ -179,23 +204,31 @@ class AppTheme {
         ),
       ),
       bottomSheetTheme: BottomSheetThemeData(
-        backgroundColor: scheme.surfaceContainerLowest,
+        backgroundColor: modal,
+        surfaceTintColor: Colors.transparent,
         showDragHandle: true,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(Radii.xl)),
+        dragHandleColor: dark ? Colors.white.withValues(alpha: 0.45) : null,
+        shape: RoundedRectangleBorder(
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(Radii.xl),
+          ),
+          side: modalSide,
         ),
       ),
       dialogTheme: DialogThemeData(
+        backgroundColor: modal,
+        surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(Radii.xl),
+          side: modalSide,
         ),
       ),
       popupMenuTheme: PopupMenuThemeData(
-        color: scheme.surfaceContainerLowest,
+        color: modal,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(Radii.md),
-          side: BorderSide(color: outline),
+          side: dark ? modalSide : BorderSide(color: outline),
         ),
       ),
       segmentedButtonTheme: SegmentedButtonThemeData(

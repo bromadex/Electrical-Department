@@ -203,39 +203,42 @@ class ToolList extends ConsumerWidget {
 
 /// What a tool looks like in lists: an icon and colour by what it is.
 ({IconData icon, Color color}) toolLook(LocalTool t) {
+  // Brand colours only (issue #26): blue, rose, blush and burgundy.
   final k = '${t.name} ${t.kind ?? ''}'.toLowerCase();
   bool has(List<String> words) => words.any(k.contains);
+  const blue = AppColors.blue, rose = BrandColors.coral;
+  const blush = BrandColors.blush, wine = BrandColors.maroon;
   if (has(['meter', 'megger', 'tester', 'clamp', 'detector', 'gauge'])) {
-    return (icon: Icons.speed_rounded, color: BrandColors.info);
+    return (icon: Icons.speed_rounded, color: blue);
   }
   if (has(['toolbox', 'tool box', 'bag', 'case'])) {
-    return (icon: Icons.home_repair_service_rounded, color: BrandColors.maroon);
+    return (icon: Icons.home_repair_service_rounded, color: wine);
   }
   if (has(['padlock', 'lock', 'loto', 'hasp'])) {
-    return (icon: Icons.lock_rounded, color: const Color(0xFFC0392B));
+    return (icon: Icons.lock_rounded, color: rose);
   }
   if (has(['hammer', 'mallet'])) {
-    return (icon: Icons.hardware_rounded, color: const Color(0xFF8D5A3B));
+    return (icon: Icons.hardware_rounded, color: wine);
   }
   if (has(['saw', 'blade'])) {
-    return (icon: Icons.carpenter_rounded, color: const Color(0xFFD9572B));
+    return (icon: Icons.carpenter_rounded, color: rose);
   }
   if (has(['tape', 'measure', 'ruler', 'level'])) {
-    return (icon: Icons.straighten_rounded, color: const Color(0xFF0F9D9A));
+    return (icon: Icons.straighten_rounded, color: blue);
   }
   if (has(['crimp', 'stripper', 'cutter', 'plier', 'snip'])) {
-    return (icon: Icons.content_cut_rounded, color: BrandColors.warning);
+    return (icon: Icons.content_cut_rounded, color: blush);
   }
   if (has(['screwdriver', 'bits', 'hex', 'allen', 'spanner', 'wrench'])) {
-    return (icon: Icons.handyman_rounded, color: const Color(0xFF7B4FD6));
+    return (icon: Icons.handyman_rounded, color: rose);
   }
   if (has(['drill', 'grinder', 'driver'])) {
-    return (icon: Icons.construction_rounded, color: BrandColors.coral);
+    return (icon: Icons.construction_rounded, color: blue);
   }
   if (has(['ladder'])) {
-    return (icon: Icons.stairs_rounded, color: const Color(0xFF5B6B7F));
+    return (icon: Icons.stairs_rounded, color: blush);
   }
-  return (icon: CupertinoIcons.wrench_fill, color: BrandColors.maroon);
+  return (icon: CupertinoIcons.wrench_fill, color: wine);
 }
 
 class _SectionLabel extends StatelessWidget {
@@ -400,7 +403,11 @@ class ToolTile extends StatelessWidget {
     final condition = ToolCondition.parse(tool.condition);
     final overdue = toolOverdue(tool);
     final out = toolOut(tool);
-    final look = toolLook(tool);
+    final raw = toolLook(tool);
+    final look = (
+      icon: raw.icon,
+      color: AppColors.adapt(raw.color, theme.brightness),
+    );
     final dates = MaterialLocalizations.of(context);
     final status =
         returnStatus(tool) ??
