@@ -60,6 +60,9 @@ class ChatMessage {
     this.attachmentPath,
     this.replyTo,
     this.recordLink,
+    this.attachmentName,
+    this.attachmentSize,
+    this.durationMs,
     this.archived = false,
     this.pending = false,
     this.bytes,
@@ -74,6 +77,9 @@ class ChatMessage {
       attachmentPath = j['attachment_path'] as String?,
       replyTo = j['reply_to'] as String?,
       recordLink = j['record_link'] as String?,
+      attachmentName = j['attachment_name'] as String?,
+      attachmentSize = (j['attachment_size'] as num?)?.toInt(),
+      durationMs = (j['duration_ms'] as num?)?.toInt(),
       archived = j['is_archived'] as bool? ?? false,
       createdAt = DateTime.parse(j['created_at'] as String).toLocal(),
       pending = false,
@@ -87,6 +93,11 @@ class ChatMessage {
   final String? attachmentPath;
   final String? replyTo;
   final String? recordLink;
+  final String? attachmentName;
+  final int? attachmentSize;
+
+  /// Length of a voice note.
+  final int? durationMs;
   final bool archived;
   final DateTime createdAt;
 
@@ -96,6 +107,35 @@ class ChatMessage {
   /// The photo's bytes while it waits to upload.
   final Uint8List? bytes;
 }
+
+/// A voice note or file to send.
+class ChatAttachment {
+  const ChatAttachment({
+    required this.bytes,
+    required this.name,
+    required this.type,
+    this.durationMs,
+  });
+
+  final Uint8List bytes;
+  final String name;
+
+  /// MIME type, e.g. audio/webm or application/pdf.
+  final String type;
+  final int? durationMs;
+}
+
+/// The people in a chat, for the @ picker.
+final chatMembersProvider = FutureProvider.autoDispose
+    .family<List<String>, String>((ref, conversationId) async {
+      final rows = await ref
+          .watch(supabaseProvider)
+          .from('conversation_members')
+          .select('user_id')
+          .eq('conversation_id', conversationId)
+          .eq('is_archived', false);
+      return [for (final r in rows) r['user_id'] as String];
+    });
 
 /// The caller's chats, newest first, refreshed when a message arrives in
 /// any of them.
@@ -342,7 +382,7 @@ class ChatThreadNotifier extends Notifier<ChatThread> {
   Future<void> _signPhotos(List<ChatMessage> list) async {
     final paths = [
       for (final m in list)
-        if (m.kind == 'photo' &&
+        if ({'photo', 'voice', 'file'}.contains(m.kind) &&
             m.attachmentPath != null &&
             !state.photoUrls.containsKey(m.attachmentPath))
           m.attachmentPath!,
@@ -560,32 +600,46 @@ class ChatActions {
   final Ref _ref;
   static const _uuid = Uuid();
 
-  /// Text, photo or #record message. Queued, so it sends when back online.
+  /// Text, photo, voice note, file or #record message. Queued, so it
+  /// sends when back online. [mentions] are people tagged with @.
   Future<void> send(
     String conversationId, {
     String? text,
     Uint8List? photo,
+    ChatAttachment? voice,
+    ChatAttachment? file,
     String? recordLink,
     String? replyTo,
+    List<String> mentions = const [],
   }) async {
     final outbox = _ref.read(outboxProvider);
     final me = _ref.read(authUserIdProvider);
     final id = _uuid.v4();
+    final ChatAttachment? attachment = photo != null
+        ? ChatAttachment(bytes: photo, name: 'photo.jpg', type: 'image/jpeg')
+        : voice ?? file;
     String? path;
-    if (photo != null) {
-      path = '$conversationId/$id/photo.jpg';
+    if (attachment != null) {
+      final safe = attachment.name.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
+      path = '$conversationId/$id/$safe';
       await outbox.enqueueUpload(
         id: id,
         bucket: 'chat-files',
         path: path,
-        bytes: photo,
+        bytes: attachment.bytes,
+        contentType: attachment.type,
       );
     }
     final kind = photo != null
         ? 'photo'
+        : voice != null
+        ? 'voice'
+        : file != null
+        ? 'file'
         : recordLink != null
         ? 'record'
         : 'text';
+    final body = text?.trim().isEmpty ?? true ? null : text!.trim();
     _ref
         .read(chatThreadProvider(conversationId).notifier)
         .addPending(
@@ -594,27 +648,30 @@ class ChatActions {
             conversationId: conversationId,
             authorId: me,
             kind: kind,
-            body: text?.trim().isEmpty ?? true ? null : text!.trim(),
+            body: body,
             attachmentPath: path,
+            attachmentName: attachment?.name,
+            attachmentSize: attachment?.bytes.length,
+            durationMs: voice?.durationMs,
             replyTo: replyTo,
             recordLink: recordLink,
             createdAt: DateTime.now(),
             pending: true,
-            bytes: photo,
+            bytes: attachment?.bytes,
           ),
         );
     await outbox.enqueue('fn_send_message', {
       'p_client_ref': id,
       'p_conversation': conversationId,
       'p_kind': kind,
-      'p_body': text?.trim(),
+      'p_body': body,
       'p_attachment_path': path,
-      'p_attachment_name': photo != null ? 'photo.jpg' : null,
-      'p_attachment_size': photo?.length,
-      'p_duration_ms': null,
+      'p_attachment_name': attachment?.name,
+      'p_attachment_size': attachment?.bytes.length,
+      'p_duration_ms': voice?.durationMs,
       'p_reply_to': replyTo,
       'p_record_link': recordLink,
-      'p_mentions': null,
+      'p_mentions': mentions.isEmpty ? null : mentions,
     }, clientRef: id);
   }
 

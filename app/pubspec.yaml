@@ -31,6 +31,10 @@ dependencies:
   intl: ^0.20.3
   timezone: ^0.11.2
   livekit_client: ^2.13.2
+  record: ^7.1.2
+  audioplayers: ^6.8.1
+  path_provider: ^2.1.6
+  cross_file: ^0.3.5+5
 
 dev_dependencies:
   flutter_test:

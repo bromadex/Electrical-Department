@@ -1324,6 +1324,15 @@ class _CallSideState extends ConsumerState<_CallSide> {
                                             ),
                                     ),
                                   ),
+                                if (m.kind == 'voice' || m.kind == 'file')
+                                  Text(
+                                    m.kind == 'voice'
+                                        ? '🎤 Voice note'
+                                        : '📎 ${m.attachmentName ?? 'File'}',
+                                    style: TextStyle(
+                                      color: mine ? Colors.white : null,
+                                    ),
+                                  ),
                                 if (m.body != null)
                                   Padding(
                                     padding: EdgeInsets.only(

@@ -1,10 +1,12 @@
 import 'dart:async';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../data/app_error.dart';
 import '../ui/form_sheet.dart';
@@ -18,6 +20,8 @@ import '../ui/bits.dart';
 import '../ui/surfaces.dart';
 import 'chat_list_screen.dart';
 import 'chat_repository.dart';
+import 'composer.dart';
+import 'voice.dart';
 import 'presence.dart';
 import '../widgets/app_back_button.dart';
 
@@ -83,8 +87,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     });
   }
 
-  Future<void> _send() async {
-    final text = _text.text.trim();
+  Future<void> _send(String text, List<String> mentions) async {
     if (text.isEmpty) return;
     HapticFeedback.lightImpact();
     _text.clear();
@@ -93,7 +96,44 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     _focus.requestFocus();
     await ref
         .read(chatActionsProvider)
-        .send(widget.id, text: text, replyTo: reply);
+        .send(widget.id, text: text, replyTo: reply, mentions: mentions);
+  }
+
+  Future<void> _sendVoice(ChatAttachment voice) async {
+    final reply = _replyTo?.id;
+    setState(() => _replyTo = null);
+    await ref
+        .read(chatActionsProvider)
+        .send(widget.id, voice: voice, replyTo: reply);
+  }
+
+  Future<void> _sendFile() async {
+    final f = await FilePicker.pickFile();
+    if (f == null) return;
+    final bytes = await f.xFile.readAsBytes();
+    if (bytes.length > 25 * 1024 * 1024) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('That file is over 25 MB')));
+      return;
+    }
+    final name = f.xFile.name;
+    final reply = _replyTo?.id;
+    setState(() => _replyTo = null);
+    await ref
+        .read(chatActionsProvider)
+        .send(
+          widget.id,
+          file: ChatAttachment(
+            bytes: bytes,
+            name: name,
+            type: f.xFile.mimeType ?? _mime(name),
+          ),
+          text: _text.text.trim().isEmpty ? null : _text.text.trim(),
+          replyTo: reply,
+        );
+    _text.clear();
   }
 
   Future<void> _sendPhoto() async {
@@ -468,6 +508,10 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                             onLongPress: () => _actions(m, mine, author),
                             onReact: (e) =>
                                 ref.read(chatActionsProvider).react(m.id, e),
+                            onReply: () {
+                              setState(() => _replyTo = m);
+                              _focus.requestFocus();
+                            },
                           );
                           return Column(
                             children: [
@@ -497,7 +541,8 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                       ),
                     ),
             ),
-            _Composer(
+            ChatComposer(
+              conversationId: widget.id,
               controller: _text,
               focus: _focus,
               replyTo: _replyTo,
@@ -509,7 +554,9 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
               onCancelReply: () => setState(() => _replyTo = null),
               onSend: _send,
               onPhoto: _sendPhoto,
+              onFile: _sendFile,
               onTag: _tagRecord,
+              onVoice: _sendVoice,
             ),
           ],
         ),
@@ -693,6 +740,61 @@ String _callLength(Duration d) {
   return '${d.inHours} h ${d.inMinutes % 60} min';
 }
 
+/// Drag a message to the right to reply to it, like WhatsApp.
+class _SwipeToReply extends StatefulWidget {
+  const _SwipeToReply({required this.child, required this.onReply});
+
+  final Widget child;
+  final VoidCallback onReply;
+
+  @override
+  State<_SwipeToReply> createState() => _SwipeToReplyState();
+}
+
+class _SwipeToReplyState extends State<_SwipeToReply> {
+  double _dx = 0;
+  bool _armed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onHorizontalDragUpdate: (d) {
+        final next = (_dx + d.delta.dx).clamp(0.0, 72.0);
+        if (!_armed && next >= 56) HapticFeedback.selectionClick();
+        setState(() {
+          _dx = next;
+          _armed = next >= 56;
+        });
+      },
+      onHorizontalDragEnd: (_) {
+        if (_armed) widget.onReply();
+        setState(() {
+          _dx = 0;
+          _armed = false;
+        });
+      },
+      child: Stack(
+        alignment: Alignment.centerLeft,
+        children: [
+          Opacity(
+            opacity: (_dx / 56).clamp(0.0, 1.0),
+            child: const Padding(
+              padding: EdgeInsets.only(left: 4),
+              child: Icon(CupertinoIcons.reply, color: BrandColors.maroon),
+            ),
+          ),
+          AnimatedContainer(
+            duration: Duration(milliseconds: _dx == 0 ? 180 : 0),
+            transform: Matrix4.translationValues(_dx, 0, 0),
+            child: widget.child,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Where the unread messages start.
 class _NewMessagesLine extends StatelessWidget {
   const _NewMessagesLine();
@@ -759,6 +861,7 @@ class _Bubble extends StatelessWidget {
     required this.tight,
     required this.onLongPress,
     required this.onReact,
+    required this.onReply,
   });
 
   final ChatMessage message;
@@ -772,6 +875,7 @@ class _Bubble extends StatelessWidget {
   final bool tight;
   final VoidCallback onLongPress;
   final void Function(String emoji) onReact;
+  final VoidCallback onReply;
 
   @override
   Widget build(BuildContext context) {
@@ -829,7 +933,12 @@ class _Bubble extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  reply!.kind == 'photo' ? '📷 Photo' : reply!.body ?? '',
+                  switch (reply!.kind) {
+                    'photo' => '📷 Photo',
+                    'voice' => '🎤 Voice note',
+                    'file' => '📎 ${reply!.attachmentName ?? 'File'}',
+                    _ => reply!.body ?? '',
+                  },
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodySmall?.copyWith(color: sub),
@@ -863,6 +972,72 @@ class _Bubble extends StatelessWidget {
                         color: g.fill,
                         child: const Center(child: Icon(CupertinoIcons.photo)),
                       ),
+              ),
+            ),
+          ),
+        if (m.kind == 'voice')
+          VoiceNotePlayer(
+            id: m.id,
+            url: photoUrl,
+            bytes: m.bytes,
+            durationMs: m.durationMs ?? 0,
+            mine: mine,
+          ),
+        if (m.kind == 'file')
+          InkWell(
+            borderRadius: BorderRadius.circular(Radii.md),
+            onTap: photoUrl == null
+                ? null
+                : () => launchUrl(
+                    Uri.parse(photoUrl!),
+                    mode: LaunchMode.externalApplication,
+                  ),
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: (mine ? Colors.white : BrandColors.info).withValues(
+                  alpha: 0.14,
+                ),
+                borderRadius: BorderRadius.circular(Radii.md),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    CupertinoIcons.doc_fill,
+                    size: 28,
+                    color: mine ? Colors.white : BrandColors.info,
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          m.attachmentName ?? 'File',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            color: fg,
+                          ),
+                        ),
+                        Text(
+                          [
+                            if (m.attachmentSize != null)
+                              _fileSize(m.attachmentSize!),
+                            if (m.pending)
+                              'uploading'
+                            else if (photoUrl != null)
+                              'tap to open',
+                          ].join(' · '),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: sub,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -947,34 +1122,40 @@ class _Bubble extends StatelessWidget {
               ? CrossAxisAlignment.end
               : CrossAxisAlignment.start,
           children: [
-            GestureDetector(
-              onLongPress: () {
-                HapticFeedback.mediumImpact();
-                onLongPress();
-              },
-              onSecondaryTap: onLongPress,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: maxW),
-                child: Container(
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
-                  decoration: BoxDecoration(
-                    gradient: mine
-                        ? const LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [BrandColors.maroon, BrandColors.coral],
-                          )
-                        : null,
-                    color: mine ? null : g.fillStrong,
-                    borderRadius: BorderRadius.only(
-                      topLeft: const Radius.circular(18),
-                      topRight: const Radius.circular(18),
-                      bottomLeft: Radius.circular(mine ? 18 : 6),
-                      bottomRight: Radius.circular(mine ? 6 : 18),
+            _SwipeToReply(
+              onReply: onReply,
+              child: GestureDetector(
+                onLongPress: () {
+                  HapticFeedback.mediumImpact();
+                  onLongPress();
+                },
+                onSecondaryTap: onLongPress,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: maxW),
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
+                    decoration: BoxDecoration(
+                      gradient: mine
+                          ? const LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [BrandColors.maroon, BrandColors.coral],
+                            )
+                          : null,
+                      color: mine ? null : g.fillStrong,
+                      borderRadius: BorderRadius.only(
+                        topLeft: const Radius.circular(18),
+                        topRight: const Radius.circular(18),
+                        bottomLeft: Radius.circular(mine ? 18 : 6),
+                        bottomRight: Radius.circular(mine ? 6 : 18),
+                      ),
+                      boxShadow: g.shadow,
                     ),
-                    boxShadow: g.shadow,
+                    child: Opacity(
+                      opacity: m.pending ? 0.75 : 1,
+                      child: content,
+                    ),
                   ),
-                  child: Opacity(opacity: m.pending ? 0.75 : 1, child: content),
                 ),
               ),
             ),
@@ -1015,112 +1196,21 @@ class _Bubble extends StatelessWidget {
   }
 }
 
-class _Composer extends StatelessWidget {
-  const _Composer({
-    required this.controller,
-    required this.focus,
-    required this.replyTo,
-    required this.replyAuthor,
-    required this.onCancelReply,
-    required this.onSend,
-    required this.onPhoto,
-    required this.onTag,
-  });
+String _fileSize(int bytes) => bytes < 1024 * 1024
+    ? '${(bytes / 1024).ceil()} KB'
+    : '${(bytes / 1024 / 1024).toStringAsFixed(1)} MB';
 
-  final TextEditingController controller;
-  final FocusNode focus;
-  final ChatMessage? replyTo;
-  final String? replyAuthor;
-  final VoidCallback onCancelReply;
-  final VoidCallback onSend;
-  final VoidCallback onPhoto;
-  final VoidCallback onTag;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final bottom = MediaQuery.paddingOf(context).bottom;
-    return GlassSurface(
-      radius: 0,
-      strong: true,
-      padding: EdgeInsets.fromLTRB(Space.xs, Space.xs, Space.xs, bottom + 6),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 900),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (replyTo != null)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(Space.sm, 0, 0, 4),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        CupertinoIcons.reply,
-                        size: 16,
-                        color: BrandColors.maroon,
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          'Replying to ${replyAuthor ?? 'message'}: '
-                          '${replyTo!.kind == 'photo' ? 'Photo' : replyTo!.body ?? ''}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.labelMedium,
-                        ),
-                      ),
-                      IconButton(
-                        visualDensity: VisualDensity.compact,
-                        onPressed: onCancelReply,
-                        icon: const Icon(CupertinoIcons.xmark, size: 16),
-                      ),
-                    ],
-                  ),
-                ),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  IconButton(
-                    tooltip: 'Photo',
-                    onPressed: onPhoto,
-                    icon: const Icon(CupertinoIcons.camera),
-                  ),
-                  IconButton(
-                    tooltip: 'Tag a job, asset or tool',
-                    onPressed: onTag,
-                    icon: const Icon(CupertinoIcons.number),
-                  ),
-                  Expanded(
-                    child: TextField(
-                      controller: controller,
-                      focusNode: focus,
-                      minLines: 1,
-                      maxLines: 5,
-                      textCapitalization: TextCapitalization.sentences,
-                      textInputAction: TextInputAction.send,
-                      onSubmitted: (_) => onSend(),
-                      decoration: const InputDecoration(
-                        hintText: 'Message',
-                        isDense: true,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  IconButton.filled(
-                    tooltip: 'Send',
-                    onPressed: onSend,
-                    icon: const Icon(CupertinoIcons.arrow_up),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
+String _mime(String name) => switch (name.split('.').last.toLowerCase()) {
+  'pdf' => 'application/pdf',
+  'png' => 'image/png',
+  'jpg' || 'jpeg' => 'image/jpeg',
+  'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'docx' =>
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'csv' => 'text/csv',
+  'txt' => 'text/plain',
+  _ => 'application/octet-stream',
+};
 
 /// Search jobs, assets and tools to tag in a message.
 class _RecordPicker extends ConsumerStatefulWidget {
