@@ -21,7 +21,15 @@
   needs, who has each one, and issues the ones in store on a form for that
   job. Each tool's page has a **Jobs** tab: the job cards it was used on.
 - **Calibration**: a tool whose calibration has expired can no longer be lent
-  or issued.
+  or issued. Upload the **calibration certificate** (PDF or photo) on the
+  tool's Details tab with the date it is valid until; that becomes the
+  tool's calibration due date.
+- **Repairs**: a tool that comes back Damaged or Needs repair gets a
+  **repair job card** straight away, so it queues with the rest of the work
+  and shows on the tool's Jobs tab.
+- **Who has what** (people icon on the tools side): everyone holding tools
+  right now, also outside contractors with their company, with overdue
+  tools first. What to check before someone goes on leave or leaves.
 
 ## 27 October 2026 (on `main`)
 

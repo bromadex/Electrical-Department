@@ -128,10 +128,49 @@ select pg_temp.check((select status = 'returned' and returned_at is not null and
   'the rest back: returned, and a repeat of a returned tool is ignored');
 select pg_temp.check((select condition = 'damaged' from public.tools where id = 'f6000000-0000-0000-0000-0000000000b2'),
   'condition on return is kept');
+select pg_temp.check((select j.title = 'Repair T-0002 Ingco Claw Hammer' and j.status = 'registered'
+    and j.description like '%Handle cracked%'
+  from public.tools t join public.job_cards j on j.id = t.repair_job_card_id
+  where t.id = 'f6000000-0000-0000-0000-0000000000b2'),
+  'a damaged return opens a repair job card');
+select pg_temp.check(exists (select 1 from public.job_card_tools jt join public.tools t on t.repair_job_card_id = jt.job_card_id
+  where t.id = 'f6000000-0000-0000-0000-0000000000b2' and jt.tool_id = t.id),
+  'and the tool is on it');
 select pg_temp.as_owner();
 select pg_temp.check(exists (select 1 from public.notifications
   where user_id = 'f6000000-0000-0000-0000-000000000003' and title like '% came back damaged'),
   'the supervisor hears about the damaged tool');
+
+select pg_temp.check(exists (select 1 from public.notifications
+  where user_id = 'f6000000-0000-0000-0000-000000000003' and title like 'New job card % repair T-0002'),
+  'the supervisor hears about the repair job card');
+
+-- Calibration certificates.
+select pg_temp.act_as('f6000000-0000-0000-0000-000000000002');
+select pg_temp.fails($$select public.fn_add_tool_certificate('f6000000-0000-0000-0000-0000000000d1',
+  'f6000000-0000-0000-0000-0000000000b1', 'f6000000-0000-0000-0000-0000000000a1/tool/f6000000-0000-0000-0000-0000000000b1/cert.pdf',
+  'cert.pdf', current_date, current_date + 365)$$, 'NOT_ALLOWED', 'technicians cannot add certificates');
+select pg_temp.as_owner();
+select pg_temp.act_as('f6000000-0000-0000-0000-000000000001');
+select pg_temp.fails($$select public.fn_add_tool_certificate('f6000000-0000-0000-0000-0000000000d1',
+  'f6000000-0000-0000-0000-0000000000b1', 'elsewhere/cert.pdf', 'cert.pdf', current_date, current_date + 365)$$,
+  'INVALID', 'the file must be in the tool''s folder');
+select public.fn_add_tool_certificate('f6000000-0000-0000-0000-0000000000d1',
+  'f6000000-0000-0000-0000-0000000000b1', 'f6000000-0000-0000-0000-0000000000a1/tool/f6000000-0000-0000-0000-0000000000b1/cert.pdf',
+  'Fluke cal cert.pdf', current_date - 1, current_date + 365);
+select pg_temp.check((select calibration_due = current_date + 365 from public.tools
+  where id = 'f6000000-0000-0000-0000-0000000000b1'), 'a certificate sets the calibration due date');
+select public.fn_add_tool_certificate('f6000000-0000-0000-0000-0000000000d2',
+  'f6000000-0000-0000-0000-0000000000b1', 'f6000000-0000-0000-0000-0000000000a1/tool/f6000000-0000-0000-0000-0000000000b1/old.pdf',
+  'Old cert.pdf', current_date - 400, current_date + 10);
+select pg_temp.check((select calibration_due = current_date + 365 from public.tools
+  where id = 'f6000000-0000-0000-0000-0000000000b1'), 'an older certificate does not shorten it');
+select pg_temp.as_owner();
+select pg_temp.act_as('f6000000-0000-0000-0000-000000000002');
+select pg_temp.check((select count(*) = 2 from public.tool_certificates
+  where tool_id = 'f6000000-0000-0000-0000-0000000000b1'), 'people at the site see the certificates');
+select pg_temp.as_owner();
+update public.tools set calibration_due = null where id = 'f6000000-0000-0000-0000-0000000000b1';
 
 -- Single-tool lending still works, and fn_return_tool closes a form too.
 select pg_temp.act_as('f6000000-0000-0000-0000-000000000001');
