@@ -364,7 +364,7 @@ class _Shortcuts extends ConsumerWidget {
                 onTap: () => context.push('/reports'),
               ),
               ShortcutTile(
-                icon: Icons.precision_manufacturing_outlined,
+                icon: Icons.electrical_services_outlined,
                 title: 'Equipment',
                 subtitle: 'Plant and history',
                 colors: const [BrandColors.maroonDeep, BrandColors.maroon],

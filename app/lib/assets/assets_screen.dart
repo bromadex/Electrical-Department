@@ -31,7 +31,7 @@ IconData assetIcon(String? kind) {
   final k = kind?.toLowerCase() ?? '';
   bool has(List<String> words) => words.any(k.contains);
   if (has(['motor', 'pump', 'fan', 'conveyor'])) {
-    return CupertinoIcons.gear_alt_fill;
+    return Icons.precision_manufacturing_rounded;
   }
   if (has(['transformer', 'generator', 'substation', 'switchgear'])) {
     return CupertinoIcons.bolt_fill;
@@ -43,7 +43,7 @@ IconData assetIcon(String? kind) {
   if (has(['board', 'panel', 'mcc', 'control'])) {
     return CupertinoIcons.square_grid_2x2_fill;
   }
-  return CupertinoIcons.cube_box_fill;
+  return Icons.electrical_services_rounded;
 }
 
 /// Narrows the equipment side of the Equipment & tools page.
@@ -95,7 +95,7 @@ class AssetList extends ConsumerWidget {
         padding: const EdgeInsets.only(top: Space.xl),
         child: Center(
           child: EmptyState(
-            icon: CupertinoIcons.gear_alt,
+            icon: Icons.electrical_services_outlined,
             title: assets.isEmpty ? 'No equipment yet' : 'Nothing here',
             message: assets.isEmpty
                 ? (canEdit

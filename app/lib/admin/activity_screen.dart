@@ -17,7 +17,7 @@ const _tables = {
   'jobs': ('Jobs', CupertinoIcons.wrench, '/jobs/'),
   'tools': ('Tools', CupertinoIcons.hammer, '/tools/'),
   'documents': ('Documents', CupertinoIcons.doc_text, '/documents/'),
-  'assets': ('Assets', CupertinoIcons.gear_alt, '/assets/'),
+  'assets': ('Assets', Icons.electrical_services_outlined, '/assets/'),
   'checklist_templates': (
     'Checklists',
     CupertinoIcons.list_bullet,

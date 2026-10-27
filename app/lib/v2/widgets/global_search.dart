@@ -31,7 +31,7 @@ class SearchHit {
 
   IconData get icon => switch (kind) {
     'job_card' => Icons.assignment_outlined,
-    'asset' => Icons.precision_manufacturing_outlined,
+    'asset' => Icons.electrical_services_outlined,
     _ => Icons.move_to_inbox_outlined,
   };
 }

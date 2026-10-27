@@ -75,7 +75,7 @@ class _AssetDetailScreenState extends ConsumerState<AssetDetailScreen> {
         child: asset == null
             ? const Center(
                 child: EmptyState(
-                  icon: CupertinoIcons.gear_alt,
+                  icon: Icons.electrical_services_outlined,
                   title: 'Equipment not found',
                   message: 'It may have been removed from the register.',
                 ),

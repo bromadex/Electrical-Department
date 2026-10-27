@@ -825,7 +825,7 @@ class _Overview extends StatelessWidget {
               if (job.assetId != null)
                 TextButton.icon(
                   onPressed: () => context.push('/assets/${job.assetId}'),
-                  icon: const Icon(Icons.precision_manufacturing_outlined),
+                  icon: const Icon(Icons.electrical_services_outlined),
                   label: const Text('Open equipment record'),
                 ),
             ],

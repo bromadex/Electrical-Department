@@ -883,7 +883,7 @@ class _Bubble extends StatelessWidget {
                 children: [
                   Icon(
                     switch (m.recordLink?.split(':').first) {
-                      'asset' => CupertinoIcons.gear_alt_fill,
+                      'asset' => Icons.electrical_services_rounded,
                       'tool' => CupertinoIcons.wrench_fill,
                       _ => CupertinoIcons.tag_fill,
                     },
@@ -1189,7 +1189,7 @@ class _RecordPickerState extends ConsumerState<_RecordPicker> {
                           ListTile(
                             contentPadding: EdgeInsets.zero,
                             leading: Icon(switch (h.link.split(':').first) {
-                              'asset' => CupertinoIcons.gear_alt,
+                              'asset' => Icons.electrical_services_outlined,
                               'tool' => CupertinoIcons.wrench,
                               _ => CupertinoIcons.hammer,
                             }),

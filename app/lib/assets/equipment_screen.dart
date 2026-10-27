@@ -99,7 +99,7 @@ class _EquipmentScreenState extends ConsumerState<EquipmentScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(CupertinoIcons.gear_alt),
+              leading: const Icon(Icons.electrical_services_outlined),
               title: const Text('Equipment'),
               subtitle: const Text('A motor, panel, transformer…'),
               onTap: () {
@@ -317,7 +317,7 @@ class _EquipmentScreenState extends ConsumerState<EquipmentScreen> {
                             child: ActionChip(
                               avatar: Icon(
                                 onTools
-                                    ? CupertinoIcons.gear_alt
+                                    ? Icons.electrical_services_outlined
                                     : CupertinoIcons.wrench,
                                 size: 16,
                               ),

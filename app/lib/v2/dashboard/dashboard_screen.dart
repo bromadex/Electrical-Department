@@ -564,7 +564,7 @@ class _Charts extends ConsumerWidget {
             Panel(
               title: 'By equipment',
               subtitle: 'Most job cards in this period',
-              icon: Icons.precision_manufacturing_outlined,
+              icon: Icons.electrical_services_outlined,
               child: BarList(
                 items: [
                   for (final (label, n) in d.byEquipment) BarItem(label, n),

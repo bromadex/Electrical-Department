@@ -138,7 +138,7 @@ class MoreScreen extends ConsumerWidget {
               onTap: () => context.push('/documents'),
             ),
             ShortcutTile(
-              icon: Icons.precision_manufacturing_outlined,
+              icon: Icons.home_repair_service_outlined,
               title: 'Equipment & tools',
               subtitle: 'Plant, and who has what',
               colors: const [BrandColors.maroonDeep, BrandColors.maroon],

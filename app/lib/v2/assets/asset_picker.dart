@@ -38,7 +38,7 @@ class AssetPickerField extends StatelessWidget {
       child: InputDecorator(
         decoration: InputDecoration(
           labelText: label,
-          prefixIcon: const Icon(Icons.precision_manufacturing_outlined),
+          prefixIcon: const Icon(Icons.electrical_services_outlined),
           suffixIcon: value == null
               ? const Icon(Icons.search_rounded)
               : IconButton(

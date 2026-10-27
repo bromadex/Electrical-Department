@@ -428,7 +428,7 @@ class _NavCapsule extends ConsumerWidget {
   static const _links = [
     ('/checklists', 'Checklists', CupertinoIcons.checkmark_rectangle),
     ('/reports', 'Daily report', CupertinoIcons.doc_chart),
-    ('/equipment', 'Equipment & tools', CupertinoIcons.gear_alt),
+    ('/equipment', 'Equipment & tools', Icons.home_repair_service_outlined),
     ('/documents', 'Documents', CupertinoIcons.book),
   ];
 
