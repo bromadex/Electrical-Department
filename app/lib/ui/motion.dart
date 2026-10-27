@@ -19,18 +19,23 @@ extension EntranceX on Widget {
   }
 }
 
-/// Shrinks slightly while pressed, then springs back.
+/// Grows a little under the mouse pointer, shrinks slightly while pressed,
+/// then springs back.
 class Pressable extends StatefulWidget {
   const Pressable({
     super.key,
     required this.child,
     this.onTap,
     this.scale = 0.97,
+    this.hoverScale = 1.05,
   });
 
   final Widget child;
   final VoidCallback? onTap;
   final double scale;
+
+  /// Size under a mouse pointer; touch screens never hover.
+  final double hoverScale;
 
   @override
   State<Pressable> createState() => _PressableState();
@@ -38,24 +43,41 @@ class Pressable extends StatefulWidget {
 
 class _PressableState extends State<Pressable> {
   bool _down = false;
+  bool _hover = false;
 
   void _set(bool v) {
     if (widget.onTap == null) return;
     setState(() => _down = v);
   }
 
+  void _hovering(bool v) {
+    if (widget.onTap == null || v == _hover) return;
+    setState(() => _hover = v);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => _set(true),
-      onTapUp: (_) => _set(false),
-      onTapCancel: () => _set(false),
-      onTap: widget.onTap,
-      child: AnimatedScale(
-        scale: _down ? widget.scale : 1,
-        duration: Motion.of(context, Motion.fast),
-        curve: _down ? Curves.easeOut : Motion.spring,
-        child: widget.child,
+    return MouseRegion(
+      cursor: widget.onTap == null
+          ? MouseCursor.defer
+          : SystemMouseCursors.click,
+      onEnter: (_) => _hovering(true),
+      onExit: (_) => _hovering(false),
+      child: GestureDetector(
+        onTapDown: (_) => _set(true),
+        onTapUp: (_) => _set(false),
+        onTapCancel: () => _set(false),
+        onTap: widget.onTap,
+        child: AnimatedScale(
+          scale: _down
+              ? widget.scale
+              : _hover
+              ? widget.hoverScale
+              : 1,
+          duration: Motion.of(context, Motion.fast),
+          curve: _down ? Curves.easeOut : Motion.spring,
+          child: widget.child,
+        ),
       ),
     );
   }

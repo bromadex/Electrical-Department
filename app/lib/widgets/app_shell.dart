@@ -97,7 +97,7 @@ class AppShell extends ConsumerWidget {
                 left: Space.md,
                 right: Space.md,
                 bottom: inset.bottom + Space.sm,
-                child: _FloatingTabBar(index: shell.currentIndex, onTap: go),
+                child: _SwipeTabBar(index: shell.currentIndex, onTap: go),
               ),
             ],
           ),
@@ -425,30 +425,15 @@ class _NavCapsule extends ConsumerWidget {
 
   static const _item = 52.0;
 
-  static const _links = [
-    ('/checklists', 'Checklists', CupertinoIcons.checkmark_rectangle),
-    ('/reports', 'Daily report', CupertinoIcons.doc_chart),
-    ('/equipment', 'Equipment & tools', Icons.home_repair_service_outlined),
-    ('/documents', 'Documents', CupertinoIcons.book),
-  ];
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     final labels = MediaQuery.sizeOf(context).width >= 1100;
     final width = labels ? 188.0 : _item;
-    final session = ref.watch(sessionProvider);
-    final site = ref.watch(currentSiteProvider);
-    final links = [
-      if (session.can('req.triage', siteId: site?.id))
-        ('/requests', 'Requests', CupertinoIcons.tray_arrow_down),
-      if (session.can('req.submit', siteId: site?.id) &&
-          !session.can('jc.view', siteId: site?.id))
-        ('/my-requests', 'My requests', CupertinoIcons.paperplane),
-      for (final l in _links)
-        if (l.$1 != '/documents' || session.can('docs.view', siteId: site?.id))
-          if (session.can('jobs.view', siteId: site?.id)) l,
-    ];
+    final links = shellLinks(
+      ref.watch(sessionProvider),
+      ref.watch(currentSiteProvider)?.id,
+    );
 
     Widget row(IconData icon, String label, Color color, {Widget? badge}) =>
         SizedBox(
@@ -621,18 +606,42 @@ class _NavCapsule extends ConsumerWidget {
   }
 }
 
-/// Phone tab bar: two tabs, the + button, two tabs.
-class _FloatingTabBar extends StatelessWidget {
-  const _FloatingTabBar({required this.index, required this.onTap});
+/// Everyday screens beside the tabs, by permission. The desktop menu and
+/// the phone's navigation list the same ones.
+List<(String, String, IconData)> shellLinks(
+  SessionState session,
+  String? siteId,
+) => [
+  if (session.can('req.triage', siteId: siteId))
+    ('/requests', 'Requests', CupertinoIcons.tray_arrow_down),
+  if (session.can('req.submit', siteId: siteId) &&
+      !session.can('jc.view', siteId: siteId))
+    ('/my-requests', 'My requests', CupertinoIcons.paperplane),
+  if (session.can('jobs.view', siteId: siteId)) ...[
+    ('/checklists', 'Checklists', CupertinoIcons.checkmark_rectangle),
+    ('/reports', 'Daily report', CupertinoIcons.doc_chart),
+    ('/equipment', 'Equipment & tools', Icons.home_repair_service_outlined),
+    if (session.can('docs.view', siteId: siteId))
+      ('/documents', 'Documents', CupertinoIcons.book),
+  ],
+];
+
+/// Phone navigation: every tab and everyday screen in one floating bar that
+/// scrolls sideways (the fade at the end shows there is more), with the +
+/// fixed at its right end.
+class _SwipeTabBar extends ConsumerWidget {
+  const _SwipeTabBar({required this.index, required this.onTap});
 
   final int index;
   final ValueChanged<int> onTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
-    // Slot on screen for each tab: the + takes the middle slot.
-    int slot(int i) => i < 2 ? i : i + 1;
+    final links = shellLinks(
+      ref.watch(sessionProvider),
+      ref.watch(currentSiteProvider)?.id,
+    );
     return DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(34),
@@ -651,44 +660,50 @@ class _FloatingTabBar extends StatelessWidget {
         padding: const EdgeInsets.all(6),
         child: SizedBox(
           height: 60,
-          child: LayoutBuilder(
-            builder: (context, c) {
-              final w = c.maxWidth / (shellTabs.length + 1);
-              return Stack(
-                children: [
-                  AnimatedPositioned(
-                    duration: Motion.of(context, Motion.slow),
-                    curve: Motion.spring,
-                    left: slot(index) * w,
-                    top: 0,
-                    bottom: 0,
-                    width: w,
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 3),
-                      decoration: BoxDecoration(
-                        color: scheme.primary.withValues(alpha: 0.16),
-                        borderRadius: BorderRadius.circular(28),
-                      ),
-                    ),
-                  ),
-                  Row(
+          child: Row(
+            children: [
+              Expanded(
+                child: ShaderMask(
+                  blendMode: BlendMode.dstIn,
+                  shaderCallback: (r) => const LinearGradient(
+                    colors: [Colors.white, Colors.white, Colors.transparent],
+                    stops: [0, 0.86, 1],
+                  ).createShader(r),
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
                     children: [
-                      for (var i = 0; i < shellTabs.length; i++) ...[
-                        if (i == 2)
-                          const Expanded(child: Center(child: _CreateButton())),
-                        Expanded(
-                          child: _TabItem(
-                            tab: shellTabs[i],
-                            selected: i == index,
-                            onTap: () => onTap(i),
-                          ),
+                      for (var i = 0; i < shellTabs.length; i++)
+                        _NavButton(
+                          icon: i == index
+                              ? shellTabs[i].selectedIcon
+                              : shellTabs[i].icon,
+                          label: shellTabs[i].label,
+                          selected: i == index,
+                          tab: shellTabs[i],
+                          onTap: () => onTap(i),
                         ),
-                      ],
+                      if (links.isNotEmpty)
+                        VerticalDivider(
+                          width: 13,
+                          indent: 12,
+                          endIndent: 12,
+                          color: scheme.outlineVariant,
+                        ),
+                      for (final (path, label, icon) in links)
+                        _NavButton(
+                          icon: icon,
+                          label: label,
+                          onTap: () => context.push(path),
+                        ),
+                      const SizedBox(width: Space.lg),
                     ],
                   ),
-                ],
-              );
-            },
+                ),
+              ),
+              const SizedBox(width: 6),
+              const _CreateButton(),
+              const SizedBox(width: 2),
+            ],
           ),
         ),
       ),
@@ -696,7 +711,81 @@ class _FloatingTabBar extends StatelessWidget {
   }
 }
 
-/// The round + in the middle of the phone tab bar.
+/// One tab or screen on the phone's bar: icon over a short name, with a
+/// soft highlight when it is the open tab.
+class _NavButton extends StatelessWidget {
+  const _NavButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.selected = false,
+    this.tab,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool selected;
+
+  /// Set for the main tabs, so Chat shows its unread badge.
+  final ShellTab? tab;
+
+  static String _short(String label) => switch (label) {
+    'Equipment & tools' => 'Equipment',
+    'Daily report' => 'Report',
+    _ => label,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final color = selected ? scheme.primary : scheme.onSurfaceVariant;
+    final glyph = Icon(icon, color: color, size: 24);
+    return Semantics(
+      selected: selected,
+      button: true,
+      label: label,
+      excludeSemantics: true,
+      child: Pressable(
+        onTap: onTap,
+        scale: 0.86,
+        hoverScale: 1.1,
+        child: AnimatedContainer(
+          duration: Motion.of(context, Motion.medium),
+          width: 70,
+          height: 58,
+          margin: const EdgeInsets.symmetric(horizontal: 1, vertical: 1),
+          decoration: BoxDecoration(
+            color: selected
+                ? scheme.primary.withValues(alpha: 0.16)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(22),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              tab == null ? glyph : _TabBadge(tab: tab!, child: glyph),
+              const SizedBox(height: 3),
+              Text(
+                _short(label),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 10.5,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The round + at the end of the phone's bar.
 class _CreateButton extends StatelessWidget {
   const _CreateButton();
 
@@ -723,66 +812,6 @@ class _CreateButton extends StatelessWidget {
             ],
           ),
           child: const Icon(CupertinoIcons.add, color: Colors.white, size: 28),
-        ),
-      ),
-    );
-  }
-}
-
-class _TabItem extends StatelessWidget {
-  const _TabItem({
-    required this.tab,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final ShellTab tab;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final color = selected ? scheme.primary : scheme.onSurfaceVariant;
-    return Semantics(
-      selected: selected,
-      button: true,
-      label: tab.label,
-      child: Pressable(
-        onTap: onTap,
-        scale: 0.86,
-        child: Container(
-          color: Colors.transparent,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              AnimatedSwitcher(
-                duration: Motion.of(context, Motion.medium),
-                transitionBuilder: (child, a) =>
-                    ScaleTransition(scale: a, child: child),
-                child: _TabBadge(
-                  key: ValueKey(selected),
-                  tab: tab,
-                  child: Icon(
-                    selected ? tab.selectedIcon : tab.icon,
-                    color: color,
-                    size: 25,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 3),
-              AnimatedDefaultTextStyle(
-                duration: Motion.of(context, Motion.medium),
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 10.5,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                  color: color,
-                ),
-                child: Text(tab.label),
-              ),
-            ],
-          ),
         ),
       ),
     );
@@ -851,7 +880,7 @@ class _AccountGate extends StatelessWidget {
 
 /// Unread chat messages on the Chat tab.
 class _TabBadge extends ConsumerWidget {
-  const _TabBadge({super.key, required this.tab, required this.child});
+  const _TabBadge({required this.tab, required this.child});
 
   final ShellTab tab;
   final Widget child;
