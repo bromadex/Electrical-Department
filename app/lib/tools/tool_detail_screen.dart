@@ -19,6 +19,7 @@ import '../ui/charts.dart' show GlassSegmented;
 import '../ui/record_hero.dart';
 import '../ui/surfaces.dart';
 import 'issue_forms_repository.dart';
+import 'tool_certificates.dart';
 import 'tools_repository.dart';
 import 'tools_screen.dart';
 import '../widgets/app_back_button.dart';
@@ -153,7 +154,7 @@ class _ToolDetailScreenState extends ConsumerState<ToolDetailScreen> {
                             _history(context, people, dates, theme)
                           else if (_tab == _Tab.jobs)
                             _jobs(context, theme)
-                          else
+                          else ...[
                             RecordDetails(
                               rows: [
                                 ('Code', tool.code),
@@ -168,9 +169,7 @@ class _ToolDetailScreenState extends ConsumerState<ToolDetailScreen> {
                                   'Calibration due',
                                   tool.calibrationDue == null
                                       ? null
-                                      : dates.formatMediumDate(
-                                          tool.calibrationDue!,
-                                        ),
+                                      : dayWithYear(tool.calibrationDue!),
                                 ),
                                 (
                                   'Last counted',
@@ -183,6 +182,9 @@ class _ToolDetailScreenState extends ConsumerState<ToolDetailScreen> {
                                 ('Notes', tool.notes),
                               ],
                             ),
+                            const SizedBox(height: Space.md),
+                            ToolCertificatesPanel(tool: tool),
+                          ],
                         ],
                       ),
                     ),
@@ -256,10 +258,10 @@ class _ToolDetailScreenState extends ConsumerState<ToolDetailScreen> {
             icon: CupertinoIcons.gauge,
             text: calibrationExpired(tool)
                 ? 'Calibration expired '
-                      '${dates.formatMediumDate(tool.calibrationDue!)}: '
+                      '${dayWithYear(tool.calibrationDue!)}: '
                       'it cannot go out'
                 : 'Calibration due '
-                      '${dates.formatMediumDate(tool.calibrationDue!)}',
+                      '${dayWithYear(tool.calibrationDue!)}',
             color: calibrationExpired(tool)
                 ? Colors.red
                 : calibrationDue(tool)
@@ -600,6 +602,15 @@ class _ReturnSheetState extends ConsumerState<_ReturnSheet> {
                   : 'What is wrong with it?',
             ),
           ),
+          if (_condition == ToolCondition.damaged ||
+              _condition == ToolCondition.needsRepair)
+            Padding(
+              padding: const EdgeInsets.only(top: Space.sm),
+              child: Text(
+                'A repair job card is opened for it.',
+                style: theme.textTheme.bodySmall,
+              ),
+            ),
           if (_error != null)
             Padding(
               padding: const EdgeInsets.only(top: Space.sm),

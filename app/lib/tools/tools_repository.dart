@@ -62,6 +62,11 @@ DateTime _today() {
   return DateTime(n.year, n.month, n.day);
 }
 
+/// A date with its year, e.g. "20 Oct 2027", for dates that may be in
+/// another year (calibration, certificates).
+String dayWithYear(DateTime d) =>
+    '${d.day} ${const ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.month - 1]} ${d.year}';
+
 /// Out with someone: an app user, or anyone on an issue form.
 bool toolOut(LocalTool t) => t.holderId != null || t.holderName != null;
 

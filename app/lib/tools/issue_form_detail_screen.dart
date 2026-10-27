@@ -710,7 +710,8 @@ class _TakeBackSheetState extends ConsumerState<_TakeBackSheet> {
           Text('Take back · ${f.code}', style: theme.textTheme.headlineSmall),
           Text(
             'Tick what came back and its condition. Damaged or lost tools '
-            'alert the supervisors.',
+            'alert the supervisors; damaged ones and ones needing repair '
+            'get a repair job card.',
             style: theme.textTheme.bodySmall,
           ),
           const SizedBox(height: Space.md),

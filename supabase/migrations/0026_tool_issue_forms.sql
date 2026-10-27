@@ -9,6 +9,12 @@
 -- holder_name always says who has it. A tool whose calibration has
 -- expired cannot go out.
 --
+-- A tool that comes back damaged or needing repair gets a repair job card
+-- (registered by the system on the store's behalf, since storekeepers
+-- cannot register job cards), so repairs queue with the rest of the work.
+-- Calibration certificates (PDFs) are kept per tool; the newest one sets
+-- the calibration due date.
+--
 -- Job cards list the tools the job needs (job_card_tools), so each tool's
 -- page shows the jobs it was used on. A form issued for a job card links
 -- its tools to that job card too.
@@ -61,7 +67,21 @@ create index tool_issues_form on public.tool_issues (form_id) where form_id is n
 
 alter table public.tools
   add column holder_name text,
-  add column issue_form_id uuid references public.tool_issue_forms (id);
+  add column issue_form_id uuid references public.tool_issue_forms (id),
+  add column repair_job_card_id uuid references public.job_cards (id);
+
+create table public.tool_certificates (
+  id uuid primary key default gen_random_uuid(),
+  tool_id uuid not null references public.tools (id),
+  path text not null,
+  file_name text check (length(file_name) <= 200),
+  issued_on date,
+  valid_until date not null,
+  uploaded_by uuid references public.profiles (id) default auth.uid(),
+  uploaded_at timestamptz not null default now(),
+  is_archived boolean not null default false
+);
+create index tool_certificates_tool on public.tool_certificates (tool_id, valid_until desc);
 
 update public.tools t set holder_name = p.full_name
 from public.profiles p
@@ -113,6 +133,54 @@ begin
 end;
 $$;
 
+-- A repair job card for a tool that came back damaged or needing repair,
+-- unless one is still open. Registered on the store's behalf (P3, minor
+-- impact) and sent to the people who assess job cards.
+create function public._open_tool_repair(p_tool public.tools, p_condition text, p_note text)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v public.job_cards;
+  pl public.priority_levels;
+  v_by text;
+begin
+  if p_tool.repair_job_card_id is not null and exists (
+    select 1 from public.job_cards
+    where id = p_tool.repair_job_card_id and not is_archived and status not in ('closed', 'cancelled')
+  ) then
+    return p_tool.repair_job_card_id;
+  end if;
+  select * into pl from public.priority_levels where code = 'P3';
+  select nullif(trim(full_name), '') into v_by from public.profiles where id = auth.uid();
+  insert into public.job_cards (
+    number, source, site_id, location, received_at, reporter_name, equipment_name,
+    equipment_asset_no, title, description, operational_impact, priority, registered_by,
+    target_response_at, target_completion_at
+  ) values (
+    public._next_doc_no('jobcard', now()), 'direct', p_tool.site_id, 'Tool store', now(),
+    coalesce(v_by, 'Tool store'), left(p_tool.name, 120), p_tool.code,
+    left('Repair ' || p_tool.code || ' ' || p_tool.name, 120),
+    left(p_tool.code || ' ' || p_tool.name || ' came back ' || replace(p_condition, '_', ' ')
+      || coalesce(': ' || nullif(trim(coalesce(p_note, '')), ''), '')
+      || '. Raised by the tool store when it was returned.', 4000),
+    'minor', pl.code, auth.uid(),
+    now() + make_interval(mins => pl.response_minutes),
+    now() + make_interval(mins => pl.completion_minutes)
+  )
+  returning * into v;
+  insert into public.job_card_tools (job_card_id, tool_id) values (v.id, p_tool.id)
+  on conflict do nothing;
+  update public.tools set repair_job_card_id = v.id where id = p_tool.id;
+  perform public._notify_holders(v.site_id, 'jc.assess', 'registered',
+    'New job card ' || v.number || ' (' || v.priority || '): repair ' || p_tool.code,
+    v.title, 'jobcard:' || v.id);
+  return v.id;
+end;
+$$;
+
 -- Takes one tool back (the caller has checked permission).
 create function public._take_tool_back(p_tool public.tools, p_condition text, p_note text)
 returns uuid
@@ -141,6 +209,9 @@ begin
   if p_condition <> 'good' then
     perform public.fn_notify_permission(p_tool.site_id, 'jobs.assign', 'general',
       p_tool.code || ' came back ' || replace(p_condition, '_', ' '), p_note, 'tool:' || p_tool.id);
+  end if;
+  if p_condition in ('damaged', 'needs_repair') then
+    perform public._open_tool_repair(p_tool, p_condition, p_note);
   end if;
   return v_form;
 end;
@@ -188,6 +259,49 @@ begin
   else
     delete from public.job_card_tools where job_card_id = j.id and tool_id = t.id;
   end if;
+end;
+$$;
+
+-- A calibration certificate (PDF or photo, uploaded to tool-files first).
+-- The newest valid-until date becomes the tool's calibration due date.
+create function public.fn_add_tool_certificate(
+  p_client_ref uuid,
+  p_tool uuid,
+  p_path text,
+  p_file_name text,
+  p_issued_on date,
+  p_valid_until date
+)
+returns public.tool_certificates
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  t public.tools;
+  v public.tool_certificates;
+begin
+  select * into v from public.tool_certificates where id = p_client_ref;
+  if found then
+    return v;
+  end if;
+  t := public._tool_for_write(p_tool);
+  if p_path is null or p_path not like t.site_id || '/tool/' || t.id || '/%' then
+    raise exception 'INVALID: The certificate file is not in this tool''s folder';
+  end if;
+  if p_valid_until is null then
+    raise exception 'INVALID: Say until when the calibration is valid';
+  end if;
+  if p_issued_on is not null and p_issued_on > p_valid_until then
+    raise exception 'INVALID: The certificate cannot expire before it was issued';
+  end if;
+  insert into public.tool_certificates (id, tool_id, path, file_name, issued_on, valid_until)
+  values (p_client_ref, t.id, p_path, left(nullif(trim(coalesce(p_file_name, '')), ''), 200),
+    p_issued_on, p_valid_until)
+  returning * into v;
+  update public.tools set calibration_due = p_valid_until, calibration_notified_on = null
+  where id = t.id and (calibration_due is null or calibration_due <= p_valid_until);
+  return v;
 end;
 $$;
 
@@ -582,6 +696,8 @@ revoke execute on function
   public._tool_out(uuid),
   public._refresh_tool_form(uuid),
   public._take_tool_back(public.tools, text, text),
+  public._open_tool_repair(public.tools, text, text),
+  public.fn_add_tool_certificate(uuid, uuid, text, text, date, date),
   public.fn_issue_tools(uuid, uuid, jsonb, uuid, text, text, text, text, text, date, text, jsonb, uuid),
   public.fn_return_tools(uuid, jsonb, jsonb, text),
   public.fn_link_job_card_tool(uuid, uuid, boolean)
@@ -590,7 +706,8 @@ from public, anon, authenticated;
 grant execute on function
   public.fn_issue_tools(uuid, uuid, jsonb, uuid, text, text, text, text, text, date, text, jsonb, uuid),
   public.fn_return_tools(uuid, jsonb, jsonb, text),
-  public.fn_link_job_card_tool(uuid, uuid, boolean)
+  public.fn_link_job_card_tool(uuid, uuid, boolean),
+  public.fn_add_tool_certificate(uuid, uuid, text, text, date, date)
 to authenticated;
 
 -- Read with tools.view at the site; writes go through the functions.
@@ -608,6 +725,15 @@ create policy job_card_tools_select on public.job_card_tools for select to authe
   ));
 revoke all on public.job_card_tools from anon;
 revoke insert, update, delete on public.job_card_tools from authenticated;
+
+alter table public.tool_certificates enable row level security;
+create policy tool_certificates_select on public.tool_certificates for select to authenticated
+  using (exists (
+    select 1 from public.tools t
+    where t.id = tool_certificates.tool_id and public._can('tools.view', t.site_id)
+  ));
+revoke all on public.tool_certificates from anon;
+revoke insert, update, delete on public.tool_certificates from authenticated;
 
 do $$
 begin

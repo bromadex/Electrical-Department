@@ -248,6 +248,12 @@ class _EquipmentScreenState extends ConsumerState<EquipmentScreen> {
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
         actions: [
           if (onTools)
+            IconButton(
+              tooltip: 'Who has what',
+              onPressed: () => context.push('/tools/holders'),
+              icon: const Icon(CupertinoIcons.person_2),
+            ),
+          if (onTools)
             TextButton.icon(
               onPressed: () => context.push('/tools/forms'),
               icon: const Icon(CupertinoIcons.doc_text),
