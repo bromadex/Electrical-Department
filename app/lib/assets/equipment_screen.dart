@@ -88,25 +88,22 @@ class _EquipmentScreenState extends ConsumerState<EquipmentScreen> {
       showFormSheet(context, const AssetForm());
       return;
     }
-    if (canTool && !canAsset) {
-      showFormSheet(context, const ToolForm());
-      return;
-    }
     showModalBottomSheet<void>(
       context: context,
       builder: (sheet) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(
-              leading: const Icon(Icons.electrical_services_outlined),
-              title: const Text('Equipment'),
-              subtitle: const Text('A motor, panel, transformer…'),
-              onTap: () {
-                Navigator.pop(sheet);
-                showFormSheet(context, const AssetForm());
-              },
-            ),
+            if (canAsset)
+              ListTile(
+                leading: const Icon(Icons.electrical_services_outlined),
+                title: const Text('Equipment'),
+                subtitle: const Text('A motor, panel, transformer…'),
+                onTap: () {
+                  Navigator.pop(sheet);
+                  showFormSheet(context, const AssetForm());
+                },
+              ),
             ListTile(
               leading: const Icon(CupertinoIcons.wrench),
               title: const Text('Tool'),
@@ -116,6 +113,18 @@ class _EquipmentScreenState extends ConsumerState<EquipmentScreen> {
                 showFormSheet(context, const ToolForm());
               },
             ),
+            if (canTool)
+              ListTile(
+                leading: const Icon(CupertinoIcons.doc_text),
+                title: const Text('Tool issue form'),
+                subtitle: const Text(
+                  'Several tools to one person, with signatures',
+                ),
+                onTap: () {
+                  Navigator.pop(sheet);
+                  context.push('/tools/forms/new');
+                },
+              ),
           ],
         ),
       ),
@@ -160,14 +169,14 @@ class _EquipmentScreenState extends ConsumerState<EquipmentScreen> {
         ? [
             _StatData(
               'In store',
-              tools.where((t) => t.holderId == null).length,
+              tools.where((t) => !toolOut(t)).length,
               CupertinoIcons.cube_box,
               BrandColors.success,
               ToolFilter.store,
             ),
             _StatData(
               'Out',
-              tools.where((t) => t.holderId != null).length,
+              tools.where(toolOut).length,
               CupertinoIcons.person_crop_circle,
               BrandColors.info,
               ToolFilter.out,
@@ -238,6 +247,12 @@ class _EquipmentScreenState extends ConsumerState<EquipmentScreen> {
         title: Text(seesTools ? 'Equipment & tools' : 'Equipment'),
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
         actions: [
+          if (onTools)
+            TextButton.icon(
+              onPressed: () => context.push('/tools/forms'),
+              icon: const Icon(CupertinoIcons.doc_text),
+              label: const Text('Forms'),
+            ),
           if (onTools && canTool && tools.isNotEmpty)
             TextButton.icon(
               onPressed: () => context.push('/tools/count'),

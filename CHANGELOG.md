@@ -1,5 +1,28 @@
 # What's new
 
+## 27 October 2026, afternoon (not on `main` yet)
+
+### Tool issue forms, and tools on job cards
+- **Tool issue form** (Equipment & tools → Forms → New form): the paper form
+  in the app. Issue several tools at once to one person, also someone from
+  another company who does not use the app (name, trade, company), with the
+  project team lead, the place and the expected return date. Each tool has a
+  quantity and its condition going out. The store, the person receiving and
+  the team lead sign on the screen. Tools not in the register yet are added
+  on the spot with "New tool".
+- **Take back** part or all of a form, with each tool's condition and a note
+  when it is not good; supervisors hear about damaged or lost tools. The form
+  shows Out, "N still out" or Returned.
+- **PDF** of the form, laid out like the company's paper form, with the
+  signatures, to share or print.
+- **Who has it**: tools out on a form show the person's name and company on
+  the register and the tool's page, with a link to the form.
+- **Tools on job cards**: a job card's Assignment tab lists the tools the job
+  needs, who has each one, and issues the ones in store on a form for that
+  job. Each tool's page has a **Jobs** tab: the job cards it was used on.
+- **Calibration**: a tool whose calibration has expired can no longer be lent
+  or issued.
+
 ## 27 October 2026 (on `main`)
 
 ### Calls on Android phones

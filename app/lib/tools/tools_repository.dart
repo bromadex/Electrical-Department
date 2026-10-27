@@ -45,6 +45,8 @@ LocalTool toolFromRow(Map<String, dynamic> r) {
     notes: r['notes'] as String?,
     photoPath: r['photo_path'] as String?,
     holderId: r['holder_id'] as String?,
+    holderName: r['holder_name'] as String?,
+    formId: r['issue_form_id'] as String?,
     issuedAt: t('issued_at'),
     dueBack: t('due_back'),
     lastCountedAt: t('last_counted_at'),
@@ -60,8 +62,19 @@ DateTime _today() {
   return DateTime(n.year, n.month, n.day);
 }
 
+/// Out with someone: an app user, or anyone on an issue form.
+bool toolOut(LocalTool t) => t.holderId != null || t.holderName != null;
+
+/// Who has it: their name in the app, else the name on the issue form.
+String? toolHolder(LocalTool t, Map<String, String> people) =>
+    people[t.holderId] ?? t.holderName;
+
 bool toolOverdue(LocalTool t) =>
-    t.holderId != null && t.dueBack != null && t.dueBack!.isBefore(_today());
+    toolOut(t) && t.dueBack != null && t.dueBack!.isBefore(_today());
+
+/// Calibration has run out: the server will not let it go out.
+bool calibrationExpired(LocalTool t) =>
+    t.calibrationDue != null && t.calibrationDue!.isBefore(_today());
 
 /// Calibration due within a week, or already past.
 bool calibrationDue(LocalTool t) =>
@@ -165,7 +178,12 @@ final toolProvider = StreamProvider.family<LocalTool?, String>((ref, id) {
 /// One time a tool went out (online; for the tool's history).
 class ToolIssue {
   ToolIssue.fromJson(Map<String, dynamic> j)
-    : issuedTo = j['issued_to'] as String,
+    : issuedTo = j['issued_to'] as String?,
+      formId = j['form_id'] as String?,
+      formCode = (j['form'] as Map?)?['code'] as String?,
+      recipientName = (j['form'] as Map?)?['recipient_name'] as String?,
+      company = (j['form'] as Map?)?['company'] as String?,
+      issueCondition = j['issue_condition'] as String?,
       issuedBy = j['issued_by'] as String?,
       issuedAt = DateTime.parse(j['issued_at'] as String).toLocal(),
       dueBack = j['due_back'] == null
@@ -178,7 +196,12 @@ class ToolIssue {
       returnCondition = j['return_condition'] as String?,
       returnNote = j['return_note'] as String?;
 
-  final String issuedTo;
+  final String? issuedTo;
+  final String? formId;
+  final String? formCode;
+  final String? recipientName;
+  final String? company;
+  final String? issueCondition;
   final String? issuedBy;
   final DateTime issuedAt;
   final DateTime? dueBack;
@@ -199,7 +222,7 @@ final toolHistoryProvider = FutureProvider.autoDispose
       final rows = await ref
           .watch(supabaseProvider)
           .from('tool_issues')
-          .select()
+          .select('*, form:tool_issue_forms(code, recipient_name, company)')
           .eq('tool_id', toolId)
           .order('issued_at', ascending: false)
           .limit(50);
@@ -290,6 +313,8 @@ class ToolActions {
               notes: clean(notes),
               photoPath: photoPath ?? tool?.photoPath,
               holderId: tool?.holderId,
+              holderName: tool?.holderName,
+              formId: tool?.formId,
               issuedAt: tool?.issuedAt,
               dueBack: tool?.dueBack,
               lastCountedAt: tool?.lastCountedAt,
@@ -358,6 +383,8 @@ class ToolActions {
       tool.id,
       LocalToolsCompanion(
         holderId: const Value(null),
+        holderName: const Value(null),
+        formId: const Value(null),
         issuedAt: const Value(null),
         dueBack: const Value(null),
         condition: Value(condition.value),
@@ -381,6 +408,16 @@ class ToolActions {
     );
     await _queue('fn_count_tools', {'p_site': siteId, 'p_tools': toolIds});
   }
+
+  Future<void> patch(String id, LocalToolsCompanion change) =>
+      _patch(id, change);
+
+  /// Queues [action] and refreshes the register once it lands.
+  Future<void> queue(
+    String action,
+    Map<String, dynamic> payload, {
+    String? clientRef,
+  }) => _queue(action, payload, clientRef: clientRef);
 
   Future<void> _patch(String id, LocalToolsCompanion change) {
     return (_db.update(_db.localTools)..where((t) => t.id.equals(id))).write(

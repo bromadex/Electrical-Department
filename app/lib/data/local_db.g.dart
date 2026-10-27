@@ -3122,6 +3122,26 @@ class $LocalToolsTable extends LocalTools
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _holderNameMeta = const VerificationMeta(
+    'holderName',
+  );
+  @override
+  late final GeneratedColumn<String> holderName = GeneratedColumn<String>(
+    'holder_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _formIdMeta = const VerificationMeta('formId');
+  @override
+  late final GeneratedColumn<String> formId = GeneratedColumn<String>(
+    'form_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _issuedAtMeta = const VerificationMeta(
     'issuedAt',
   );
@@ -3184,6 +3204,8 @@ class $LocalToolsTable extends LocalTools
     notes,
     photoPath,
     holderId,
+    holderName,
+    formId,
     issuedAt,
     dueBack,
     lastCountedAt,
@@ -3275,6 +3297,18 @@ class $LocalToolsTable extends LocalTools
         holderId.isAcceptableOrUnknown(data['holder_id']!, _holderIdMeta),
       );
     }
+    if (data.containsKey('holder_name')) {
+      context.handle(
+        _holderNameMeta,
+        holderName.isAcceptableOrUnknown(data['holder_name']!, _holderNameMeta),
+      );
+    }
+    if (data.containsKey('form_id')) {
+      context.handle(
+        _formIdMeta,
+        formId.isAcceptableOrUnknown(data['form_id']!, _formIdMeta),
+      );
+    }
     if (data.containsKey('issued_at')) {
       context.handle(
         _issuedAtMeta,
@@ -3355,6 +3389,14 @@ class $LocalToolsTable extends LocalTools
         DriftSqlType.string,
         data['${effectivePrefix}holder_id'],
       ),
+      holderName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}holder_name'],
+      ),
+      formId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}form_id'],
+      ),
       issuedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}issued_at'],
@@ -3392,6 +3434,12 @@ class LocalTool extends DataClass implements Insertable<LocalTool> {
   final String? notes;
   final String? photoPath;
   final String? holderId;
+
+  /// Who has it, also someone outside the app (an issue form).
+  final String? holderName;
+
+  /// The issue form it went out on.
+  final String? formId;
   final DateTime? issuedAt;
   final DateTime? dueBack;
   final DateTime? lastCountedAt;
@@ -3408,6 +3456,8 @@ class LocalTool extends DataClass implements Insertable<LocalTool> {
     this.notes,
     this.photoPath,
     this.holderId,
+    this.holderName,
+    this.formId,
     this.issuedAt,
     this.dueBack,
     this.lastCountedAt,
@@ -3440,6 +3490,12 @@ class LocalTool extends DataClass implements Insertable<LocalTool> {
     }
     if (!nullToAbsent || holderId != null) {
       map['holder_id'] = Variable<String>(holderId);
+    }
+    if (!nullToAbsent || holderName != null) {
+      map['holder_name'] = Variable<String>(holderName);
+    }
+    if (!nullToAbsent || formId != null) {
+      map['form_id'] = Variable<String>(formId);
     }
     if (!nullToAbsent || issuedAt != null) {
       map['issued_at'] = Variable<DateTime>(issuedAt);
@@ -3477,6 +3533,12 @@ class LocalTool extends DataClass implements Insertable<LocalTool> {
       holderId: holderId == null && nullToAbsent
           ? const Value.absent()
           : Value(holderId),
+      holderName: holderName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(holderName),
+      formId: formId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(formId),
       issuedAt: issuedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(issuedAt),
@@ -3507,6 +3569,8 @@ class LocalTool extends DataClass implements Insertable<LocalTool> {
       notes: serializer.fromJson<String?>(json['notes']),
       photoPath: serializer.fromJson<String?>(json['photoPath']),
       holderId: serializer.fromJson<String?>(json['holderId']),
+      holderName: serializer.fromJson<String?>(json['holderName']),
+      formId: serializer.fromJson<String?>(json['formId']),
       issuedAt: serializer.fromJson<DateTime?>(json['issuedAt']),
       dueBack: serializer.fromJson<DateTime?>(json['dueBack']),
       lastCountedAt: serializer.fromJson<DateTime?>(json['lastCountedAt']),
@@ -3528,6 +3592,8 @@ class LocalTool extends DataClass implements Insertable<LocalTool> {
       'notes': serializer.toJson<String?>(notes),
       'photoPath': serializer.toJson<String?>(photoPath),
       'holderId': serializer.toJson<String?>(holderId),
+      'holderName': serializer.toJson<String?>(holderName),
+      'formId': serializer.toJson<String?>(formId),
       'issuedAt': serializer.toJson<DateTime?>(issuedAt),
       'dueBack': serializer.toJson<DateTime?>(dueBack),
       'lastCountedAt': serializer.toJson<DateTime?>(lastCountedAt),
@@ -3547,6 +3613,8 @@ class LocalTool extends DataClass implements Insertable<LocalTool> {
     Value<String?> notes = const Value.absent(),
     Value<String?> photoPath = const Value.absent(),
     Value<String?> holderId = const Value.absent(),
+    Value<String?> holderName = const Value.absent(),
+    Value<String?> formId = const Value.absent(),
     Value<DateTime?> issuedAt = const Value.absent(),
     Value<DateTime?> dueBack = const Value.absent(),
     Value<DateTime?> lastCountedAt = const Value.absent(),
@@ -3565,6 +3633,8 @@ class LocalTool extends DataClass implements Insertable<LocalTool> {
     notes: notes.present ? notes.value : this.notes,
     photoPath: photoPath.present ? photoPath.value : this.photoPath,
     holderId: holderId.present ? holderId.value : this.holderId,
+    holderName: holderName.present ? holderName.value : this.holderName,
+    formId: formId.present ? formId.value : this.formId,
     issuedAt: issuedAt.present ? issuedAt.value : this.issuedAt,
     dueBack: dueBack.present ? dueBack.value : this.dueBack,
     lastCountedAt: lastCountedAt.present
@@ -3587,6 +3657,10 @@ class LocalTool extends DataClass implements Insertable<LocalTool> {
       notes: data.notes.present ? data.notes.value : this.notes,
       photoPath: data.photoPath.present ? data.photoPath.value : this.photoPath,
       holderId: data.holderId.present ? data.holderId.value : this.holderId,
+      holderName: data.holderName.present
+          ? data.holderName.value
+          : this.holderName,
+      formId: data.formId.present ? data.formId.value : this.formId,
       issuedAt: data.issuedAt.present ? data.issuedAt.value : this.issuedAt,
       dueBack: data.dueBack.present ? data.dueBack.value : this.dueBack,
       lastCountedAt: data.lastCountedAt.present
@@ -3610,6 +3684,8 @@ class LocalTool extends DataClass implements Insertable<LocalTool> {
           ..write('notes: $notes, ')
           ..write('photoPath: $photoPath, ')
           ..write('holderId: $holderId, ')
+          ..write('holderName: $holderName, ')
+          ..write('formId: $formId, ')
           ..write('issuedAt: $issuedAt, ')
           ..write('dueBack: $dueBack, ')
           ..write('lastCountedAt: $lastCountedAt, ')
@@ -3631,6 +3707,8 @@ class LocalTool extends DataClass implements Insertable<LocalTool> {
     notes,
     photoPath,
     holderId,
+    holderName,
+    formId,
     issuedAt,
     dueBack,
     lastCountedAt,
@@ -3651,6 +3729,8 @@ class LocalTool extends DataClass implements Insertable<LocalTool> {
           other.notes == this.notes &&
           other.photoPath == this.photoPath &&
           other.holderId == this.holderId &&
+          other.holderName == this.holderName &&
+          other.formId == this.formId &&
           other.issuedAt == this.issuedAt &&
           other.dueBack == this.dueBack &&
           other.lastCountedAt == this.lastCountedAt &&
@@ -3669,6 +3749,8 @@ class LocalToolsCompanion extends UpdateCompanion<LocalTool> {
   final Value<String?> notes;
   final Value<String?> photoPath;
   final Value<String?> holderId;
+  final Value<String?> holderName;
+  final Value<String?> formId;
   final Value<DateTime?> issuedAt;
   final Value<DateTime?> dueBack;
   final Value<DateTime?> lastCountedAt;
@@ -3686,6 +3768,8 @@ class LocalToolsCompanion extends UpdateCompanion<LocalTool> {
     this.notes = const Value.absent(),
     this.photoPath = const Value.absent(),
     this.holderId = const Value.absent(),
+    this.holderName = const Value.absent(),
+    this.formId = const Value.absent(),
     this.issuedAt = const Value.absent(),
     this.dueBack = const Value.absent(),
     this.lastCountedAt = const Value.absent(),
@@ -3704,6 +3788,8 @@ class LocalToolsCompanion extends UpdateCompanion<LocalTool> {
     this.notes = const Value.absent(),
     this.photoPath = const Value.absent(),
     this.holderId = const Value.absent(),
+    this.holderName = const Value.absent(),
+    this.formId = const Value.absent(),
     this.issuedAt = const Value.absent(),
     this.dueBack = const Value.absent(),
     this.lastCountedAt = const Value.absent(),
@@ -3725,6 +3811,8 @@ class LocalToolsCompanion extends UpdateCompanion<LocalTool> {
     Expression<String>? notes,
     Expression<String>? photoPath,
     Expression<String>? holderId,
+    Expression<String>? holderName,
+    Expression<String>? formId,
     Expression<DateTime>? issuedAt,
     Expression<DateTime>? dueBack,
     Expression<DateTime>? lastCountedAt,
@@ -3743,6 +3831,8 @@ class LocalToolsCompanion extends UpdateCompanion<LocalTool> {
       if (notes != null) 'notes': notes,
       if (photoPath != null) 'photo_path': photoPath,
       if (holderId != null) 'holder_id': holderId,
+      if (holderName != null) 'holder_name': holderName,
+      if (formId != null) 'form_id': formId,
       if (issuedAt != null) 'issued_at': issuedAt,
       if (dueBack != null) 'due_back': dueBack,
       if (lastCountedAt != null) 'last_counted_at': lastCountedAt,
@@ -3763,6 +3853,8 @@ class LocalToolsCompanion extends UpdateCompanion<LocalTool> {
     Value<String?>? notes,
     Value<String?>? photoPath,
     Value<String?>? holderId,
+    Value<String?>? holderName,
+    Value<String?>? formId,
     Value<DateTime?>? issuedAt,
     Value<DateTime?>? dueBack,
     Value<DateTime?>? lastCountedAt,
@@ -3781,6 +3873,8 @@ class LocalToolsCompanion extends UpdateCompanion<LocalTool> {
       notes: notes ?? this.notes,
       photoPath: photoPath ?? this.photoPath,
       holderId: holderId ?? this.holderId,
+      holderName: holderName ?? this.holderName,
+      formId: formId ?? this.formId,
       issuedAt: issuedAt ?? this.issuedAt,
       dueBack: dueBack ?? this.dueBack,
       lastCountedAt: lastCountedAt ?? this.lastCountedAt,
@@ -3825,6 +3919,12 @@ class LocalToolsCompanion extends UpdateCompanion<LocalTool> {
     if (holderId.present) {
       map['holder_id'] = Variable<String>(holderId.value);
     }
+    if (holderName.present) {
+      map['holder_name'] = Variable<String>(holderName.value);
+    }
+    if (formId.present) {
+      map['form_id'] = Variable<String>(formId.value);
+    }
     if (issuedAt.present) {
       map['issued_at'] = Variable<DateTime>(issuedAt.value);
     }
@@ -3857,6 +3957,8 @@ class LocalToolsCompanion extends UpdateCompanion<LocalTool> {
           ..write('notes: $notes, ')
           ..write('photoPath: $photoPath, ')
           ..write('holderId: $holderId, ')
+          ..write('holderName: $holderName, ')
+          ..write('formId: $formId, ')
           ..write('issuedAt: $issuedAt, ')
           ..write('dueBack: $dueBack, ')
           ..write('lastCountedAt: $lastCountedAt, ')
@@ -5868,6 +5970,8 @@ typedef $$LocalToolsTableCreateCompanionBuilder = LocalToolsCompanion Function({
   Value<String?> notes,
   Value<String?> photoPath,
   Value<String?> holderId,
+  Value<String?> holderName,
+  Value<String?> formId,
   Value<DateTime?> issuedAt,
   Value<DateTime?> dueBack,
   Value<DateTime?> lastCountedAt,
@@ -5886,6 +5990,8 @@ typedef $$LocalToolsTableUpdateCompanionBuilder = LocalToolsCompanion Function({
   Value<String?> notes,
   Value<String?> photoPath,
   Value<String?> holderId,
+  Value<String?> holderName,
+  Value<String?> formId,
   Value<DateTime?> issuedAt,
   Value<DateTime?> dueBack,
   Value<DateTime?> lastCountedAt,
@@ -5954,6 +6060,16 @@ class $$LocalToolsTableFilterComposer
 
   ColumnFilters<String> get holderId => $composableBuilder(
     column: $table.holderId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get holderName => $composableBuilder(
+    column: $table.holderName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get formId => $composableBuilder(
+    column: $table.formId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6042,6 +6158,16 @@ class $$LocalToolsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get holderName => $composableBuilder(
+    column: $table.holderName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get formId => $composableBuilder(
+    column: $table.formId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get issuedAt => $composableBuilder(
     column: $table.issuedAt,
     builder: (column) => ColumnOrderings(column),
@@ -6107,6 +6233,14 @@ class $$LocalToolsTableAnnotationComposer
   GeneratedColumn<String> get holderId =>
       $composableBuilder(column: $table.holderId, builder: (column) => column);
 
+  GeneratedColumn<String> get holderName => $composableBuilder(
+    column: $table.holderName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get formId =>
+      $composableBuilder(column: $table.formId, builder: (column) => column);
+
   GeneratedColumn<DateTime> get issuedAt =>
       $composableBuilder(column: $table.issuedAt, builder: (column) => column);
 
@@ -6161,6 +6295,8 @@ class $$LocalToolsTableTableManager
                 Value<String?> notes = const Value.absent(),
                 Value<String?> photoPath = const Value.absent(),
                 Value<String?> holderId = const Value.absent(),
+                Value<String?> holderName = const Value.absent(),
+                Value<String?> formId = const Value.absent(),
                 Value<DateTime?> issuedAt = const Value.absent(),
                 Value<DateTime?> dueBack = const Value.absent(),
                 Value<DateTime?> lastCountedAt = const Value.absent(),
@@ -6178,6 +6314,8 @@ class $$LocalToolsTableTableManager
                 notes: notes,
                 photoPath: photoPath,
                 holderId: holderId,
+                holderName: holderName,
+                formId: formId,
                 issuedAt: issuedAt,
                 dueBack: dueBack,
                 lastCountedAt: lastCountedAt,
@@ -6197,6 +6335,8 @@ class $$LocalToolsTableTableManager
                 Value<String?> notes = const Value.absent(),
                 Value<String?> photoPath = const Value.absent(),
                 Value<String?> holderId = const Value.absent(),
+                Value<String?> holderName = const Value.absent(),
+                Value<String?> formId = const Value.absent(),
                 Value<DateTime?> issuedAt = const Value.absent(),
                 Value<DateTime?> dueBack = const Value.absent(),
                 Value<DateTime?> lastCountedAt = const Value.absent(),
@@ -6214,6 +6354,8 @@ class $$LocalToolsTableTableManager
                 notes: notes,
                 photoPath: photoPath,
                 holderId: holderId,
+                holderName: holderName,
+                formId: formId,
                 issuedAt: issuedAt,
                 dueBack: dueBack,
                 lastCountedAt: lastCountedAt,
