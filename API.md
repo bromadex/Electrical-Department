@@ -311,6 +311,36 @@ Adopted in a light form from Tafara's PR #19, on top of the jobs board.
 - Table `priority_targets` (`priority, respond_minutes, close_hours`; defaults urgent 30 min / 24 h, normal 4 h / 72 h, low 24 h / 7 days). A job inserted without `due_at` gets `created_at + close_hours` (trigger `jobs_default_due`). The urgent escalation uses the urgent response time. `fn_set_priority_target(p_priority, p_respond_minutes, p_close_hours)`: `admin.users` at all sites.
 - App: More → Library → Requests (`/requests`: incoming for supervisors, mine for everyone; new request form; accept as a job with priority and assignee, or decline with a reason); More → Admin → Priority targets (`/admin/targets`). "Requests to decide" appears under Needs attention.
 
+## 16. Chat (migration 0011; pins 0018)
+
+Groups and direct chats for people with `chat.use`. Every site has a default group and
+the department has one; members are kept in sync with roles (`fn_sync_default_chats`, and
+triggers on `user_roles` and new sites).
+
+- Tables (members read, nobody writes directly): `conversations` (`kind` group | direct,
+  `title`, `site_id`, `is_default`, `last_message_at`, `last_message_preview`),
+  `conversation_members` (`role`, `last_read_at`, `pinned`), `messages` (`kind` text |
+  photo | voice | file | record | system, `body`, `attachment_path/name/size`,
+  `duration_ms`, `reply_to`, `record_link`, `mentions`), `message_reactions`.
+- `fn_send_message(p_client_ref, p_conversation, p_kind, p_body, p_attachment_path,
+  p_attachment_name, p_attachment_size, p_duration_ms, p_reply_to, p_record_link,
+  p_mentions)`: queued offline (idempotent on `p_client_ref`). Attachments live in the
+  `chat-files` bucket at `<conversation id>/<message id>/<file>` (members only). Record
+  links are `jobcard:`, `asset:`, `tool:` or `doc:` + uuid. Mentioned members get a
+  `mentioned` notification; everyone else one `chat` notification until they open it.
+- `fn_unsend_message(p_message)`, `fn_react(p_message, p_emoji)` (again removes it),
+  `fn_mark_conversation_read(p_conversation)`, `fn_open_direct(p_client_ref, p_user)`,
+  `fn_create_group` / `fn_update_group` (`chat.manage`), `fn_leave_conversation`,
+  `fn_pin_conversation(p_conversation, p_pinned)`.
+- Reads: `fn_my_conversations()` (unread counts, `pinned`, `last_read_at`, `call_live`;
+  pinned first), `fn_search_records(p_query)` for the # picker, `fn_chat_people()`.
+- Realtime: `messages`, `message_reactions`, `conversation_members`, `conversations`. A
+  presence channel `online` (key = user id) shows who has the app open; broadcast
+  `typing` `{c, u}` shows who is typing. Neither is stored.
+- App: `/chat` (two panes from 1000 px), `/chat/<id>`. Voice notes are AAC (phones) or
+  Opus/WebM (browsers). The chat list and the latest 50 messages of each opened chat are
+  kept on the device (`CachedJson`) for reading without signal.
+
 ## 16b. Calls (migration 0017)
 
 Voice and video calls in any chat, on LiveKit Cloud. A chat's call is the room

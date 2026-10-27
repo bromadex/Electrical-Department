@@ -1696,1258 +1696,6 @@ class OutboxCompanion extends UpdateCompanion<OutboxEntry> {
   }
 }
 
-class $LocalJobsTable extends LocalJobs
-    with TableInfo<$LocalJobsTable, LocalJob> {
-  @override
-  final GeneratedDatabase attachedDatabase;
-  final String? _alias;
-  $LocalJobsTable(this.attachedDatabase, [this._alias]);
-  static const VerificationMeta _idMeta = const VerificationMeta('id');
-  @override
-  late final GeneratedColumn<String> id = GeneratedColumn<String>(
-    'id',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _siteIdMeta = const VerificationMeta('siteId');
-  @override
-  late final GeneratedColumn<String> siteId = GeneratedColumn<String>(
-    'site_id',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _areaIdMeta = const VerificationMeta('areaId');
-  @override
-  late final GeneratedColumn<String> areaId = GeneratedColumn<String>(
-    'area_id',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _codeMeta = const VerificationMeta('code');
-  @override
-  late final GeneratedColumn<String> code = GeneratedColumn<String>(
-    'code',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _titleMeta = const VerificationMeta('title');
-  @override
-  late final GeneratedColumn<String> title = GeneratedColumn<String>(
-    'title',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _descriptionMeta = const VerificationMeta(
-    'description',
-  );
-  @override
-  late final GeneratedColumn<String> description = GeneratedColumn<String>(
-    'description',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _priorityMeta = const VerificationMeta(
-    'priority',
-  );
-  @override
-  late final GeneratedColumn<String> priority = GeneratedColumn<String>(
-    'priority',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _statusMeta = const VerificationMeta('status');
-  @override
-  late final GeneratedColumn<String> status = GeneratedColumn<String>(
-    'status',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _waitingReasonMeta = const VerificationMeta(
-    'waitingReason',
-  );
-  @override
-  late final GeneratedColumn<String> waitingReason = GeneratedColumn<String>(
-    'waiting_reason',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _dueAtMeta = const VerificationMeta('dueAt');
-  @override
-  late final GeneratedColumn<DateTime> dueAt = GeneratedColumn<DateTime>(
-    'due_at',
-    aliasedName,
-    true,
-    type: DriftSqlType.dateTime,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _latMeta = const VerificationMeta('lat');
-  @override
-  late final GeneratedColumn<double> lat = GeneratedColumn<double>(
-    'lat',
-    aliasedName,
-    true,
-    type: DriftSqlType.double,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _lngMeta = const VerificationMeta('lng');
-  @override
-  late final GeneratedColumn<double> lng = GeneratedColumn<double>(
-    'lng',
-    aliasedName,
-    true,
-    type: DriftSqlType.double,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _createdByMeta = const VerificationMeta(
-    'createdBy',
-  );
-  @override
-  late final GeneratedColumn<String> createdBy = GeneratedColumn<String>(
-    'created_by',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _assigneeIdMeta = const VerificationMeta(
-    'assigneeId',
-  );
-  @override
-  late final GeneratedColumn<String> assigneeId = GeneratedColumn<String>(
-    'assignee_id',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _closedAtMeta = const VerificationMeta(
-    'closedAt',
-  );
-  @override
-  late final GeneratedColumn<DateTime> closedAt = GeneratedColumn<DateTime>(
-    'closed_at',
-    aliasedName,
-    true,
-    type: DriftSqlType.dateTime,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _closeNoteMeta = const VerificationMeta(
-    'closeNote',
-  );
-  @override
-  late final GeneratedColumn<String> closeNote = GeneratedColumn<String>(
-    'close_note',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _recurrenceIdMeta = const VerificationMeta(
-    'recurrenceId',
-  );
-  @override
-  late final GeneratedColumn<String> recurrenceId = GeneratedColumn<String>(
-    'recurrence_id',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _createdAtMeta = const VerificationMeta(
-    'createdAt',
-  );
-  @override
-  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
-    'created_at',
-    aliasedName,
-    false,
-    type: DriftSqlType.dateTime,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
-    'updatedAt',
-  );
-  @override
-  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
-    'updated_at',
-    aliasedName,
-    false,
-    type: DriftSqlType.dateTime,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _pendingMeta = const VerificationMeta(
-    'pending',
-  );
-  @override
-  late final GeneratedColumn<bool> pending = GeneratedColumn<bool>(
-    'pending',
-    aliasedName,
-    false,
-    type: DriftSqlType.bool,
-    requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'CHECK ("pending" IN (0, 1))',
-    ),
-    defaultValue: const Constant(false),
-  );
-  static const VerificationMeta _assetIdMeta = const VerificationMeta(
-    'assetId',
-  );
-  @override
-  late final GeneratedColumn<String> assetId = GeneratedColumn<String>(
-    'asset_id',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _maintenanceTypeMeta = const VerificationMeta(
-    'maintenanceType',
-  );
-  @override
-  late final GeneratedColumn<String> maintenanceType = GeneratedColumn<String>(
-    'maintenance_type',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-    defaultValue: const Constant('corrective'),
-  );
-  static const VerificationMeta _isolationRequiredMeta = const VerificationMeta(
-    'isolationRequired',
-  );
-  @override
-  late final GeneratedColumn<bool> isolationRequired = GeneratedColumn<bool>(
-    'isolation_required',
-    aliasedName,
-    false,
-    type: DriftSqlType.bool,
-    requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'CHECK ("isolation_required" IN (0, 1))',
-    ),
-    defaultValue: const Constant(false),
-  );
-  @override
-  List<GeneratedColumn> get $columns => [
-    id,
-    siteId,
-    areaId,
-    code,
-    title,
-    description,
-    priority,
-    status,
-    waitingReason,
-    dueAt,
-    lat,
-    lng,
-    createdBy,
-    assigneeId,
-    closedAt,
-    closeNote,
-    recurrenceId,
-    createdAt,
-    updatedAt,
-    pending,
-    assetId,
-    maintenanceType,
-    isolationRequired,
-  ];
-  @override
-  String get aliasedName => _alias ?? actualTableName;
-  @override
-  String get actualTableName => $name;
-  static const String $name = 'local_jobs';
-  @override
-  VerificationContext validateIntegrity(
-    Insertable<LocalJob> instance, {
-    bool isInserting = false,
-  }) {
-    final context = VerificationContext();
-    final data = instance.toColumns(true);
-    if (data.containsKey('id')) {
-      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
-    } else if (isInserting) {
-      context.missing(_idMeta);
-    }
-    if (data.containsKey('site_id')) {
-      context.handle(
-        _siteIdMeta,
-        siteId.isAcceptableOrUnknown(data['site_id']!, _siteIdMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_siteIdMeta);
-    }
-    if (data.containsKey('area_id')) {
-      context.handle(
-        _areaIdMeta,
-        areaId.isAcceptableOrUnknown(data['area_id']!, _areaIdMeta),
-      );
-    }
-    if (data.containsKey('code')) {
-      context.handle(
-        _codeMeta,
-        code.isAcceptableOrUnknown(data['code']!, _codeMeta),
-      );
-    }
-    if (data.containsKey('title')) {
-      context.handle(
-        _titleMeta,
-        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_titleMeta);
-    }
-    if (data.containsKey('description')) {
-      context.handle(
-        _descriptionMeta,
-        description.isAcceptableOrUnknown(
-          data['description']!,
-          _descriptionMeta,
-        ),
-      );
-    }
-    if (data.containsKey('priority')) {
-      context.handle(
-        _priorityMeta,
-        priority.isAcceptableOrUnknown(data['priority']!, _priorityMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_priorityMeta);
-    }
-    if (data.containsKey('status')) {
-      context.handle(
-        _statusMeta,
-        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_statusMeta);
-    }
-    if (data.containsKey('waiting_reason')) {
-      context.handle(
-        _waitingReasonMeta,
-        waitingReason.isAcceptableOrUnknown(
-          data['waiting_reason']!,
-          _waitingReasonMeta,
-        ),
-      );
-    }
-    if (data.containsKey('due_at')) {
-      context.handle(
-        _dueAtMeta,
-        dueAt.isAcceptableOrUnknown(data['due_at']!, _dueAtMeta),
-      );
-    }
-    if (data.containsKey('lat')) {
-      context.handle(
-        _latMeta,
-        lat.isAcceptableOrUnknown(data['lat']!, _latMeta),
-      );
-    }
-    if (data.containsKey('lng')) {
-      context.handle(
-        _lngMeta,
-        lng.isAcceptableOrUnknown(data['lng']!, _lngMeta),
-      );
-    }
-    if (data.containsKey('created_by')) {
-      context.handle(
-        _createdByMeta,
-        createdBy.isAcceptableOrUnknown(data['created_by']!, _createdByMeta),
-      );
-    }
-    if (data.containsKey('assignee_id')) {
-      context.handle(
-        _assigneeIdMeta,
-        assigneeId.isAcceptableOrUnknown(data['assignee_id']!, _assigneeIdMeta),
-      );
-    }
-    if (data.containsKey('closed_at')) {
-      context.handle(
-        _closedAtMeta,
-        closedAt.isAcceptableOrUnknown(data['closed_at']!, _closedAtMeta),
-      );
-    }
-    if (data.containsKey('close_note')) {
-      context.handle(
-        _closeNoteMeta,
-        closeNote.isAcceptableOrUnknown(data['close_note']!, _closeNoteMeta),
-      );
-    }
-    if (data.containsKey('recurrence_id')) {
-      context.handle(
-        _recurrenceIdMeta,
-        recurrenceId.isAcceptableOrUnknown(
-          data['recurrence_id']!,
-          _recurrenceIdMeta,
-        ),
-      );
-    }
-    if (data.containsKey('created_at')) {
-      context.handle(
-        _createdAtMeta,
-        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_createdAtMeta);
-    }
-    if (data.containsKey('updated_at')) {
-      context.handle(
-        _updatedAtMeta,
-        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_updatedAtMeta);
-    }
-    if (data.containsKey('pending')) {
-      context.handle(
-        _pendingMeta,
-        pending.isAcceptableOrUnknown(data['pending']!, _pendingMeta),
-      );
-    }
-    if (data.containsKey('asset_id')) {
-      context.handle(
-        _assetIdMeta,
-        assetId.isAcceptableOrUnknown(data['asset_id']!, _assetIdMeta),
-      );
-    }
-    if (data.containsKey('maintenance_type')) {
-      context.handle(
-        _maintenanceTypeMeta,
-        maintenanceType.isAcceptableOrUnknown(
-          data['maintenance_type']!,
-          _maintenanceTypeMeta,
-        ),
-      );
-    }
-    if (data.containsKey('isolation_required')) {
-      context.handle(
-        _isolationRequiredMeta,
-        isolationRequired.isAcceptableOrUnknown(
-          data['isolation_required']!,
-          _isolationRequiredMeta,
-        ),
-      );
-    }
-    return context;
-  }
-
-  @override
-  Set<GeneratedColumn> get $primaryKey => {id};
-  @override
-  LocalJob map(Map<String, dynamic> data, {String? tablePrefix}) {
-    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return LocalJob(
-      id: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}id'],
-      )!,
-      siteId: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}site_id'],
-      )!,
-      areaId: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}area_id'],
-      ),
-      code: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}code'],
-      ),
-      title: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}title'],
-      )!,
-      description: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}description'],
-      ),
-      priority: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}priority'],
-      )!,
-      status: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}status'],
-      )!,
-      waitingReason: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}waiting_reason'],
-      ),
-      dueAt: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
-        data['${effectivePrefix}due_at'],
-      ),
-      lat: attachedDatabase.typeMapping.read(
-        DriftSqlType.double,
-        data['${effectivePrefix}lat'],
-      ),
-      lng: attachedDatabase.typeMapping.read(
-        DriftSqlType.double,
-        data['${effectivePrefix}lng'],
-      ),
-      createdBy: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}created_by'],
-      ),
-      assigneeId: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}assignee_id'],
-      ),
-      closedAt: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
-        data['${effectivePrefix}closed_at'],
-      ),
-      closeNote: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}close_note'],
-      ),
-      recurrenceId: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}recurrence_id'],
-      ),
-      createdAt: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
-        data['${effectivePrefix}created_at'],
-      )!,
-      updatedAt: attachedDatabase.typeMapping.read(
-        DriftSqlType.dateTime,
-        data['${effectivePrefix}updated_at'],
-      )!,
-      pending: attachedDatabase.typeMapping.read(
-        DriftSqlType.bool,
-        data['${effectivePrefix}pending'],
-      )!,
-      assetId: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}asset_id'],
-      ),
-      maintenanceType: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}maintenance_type'],
-      )!,
-      isolationRequired: attachedDatabase.typeMapping.read(
-        DriftSqlType.bool,
-        data['${effectivePrefix}isolation_required'],
-      )!,
-    );
-  }
-
-  @override
-  $LocalJobsTable createAlias(String alias) {
-    return $LocalJobsTable(attachedDatabase, alias);
-  }
-}
-
-class LocalJob extends DataClass implements Insertable<LocalJob> {
-  final String id;
-  final String siteId;
-  final String? areaId;
-  final String? code;
-  final String title;
-  final String? description;
-  final String priority;
-  final String status;
-  final String? waitingReason;
-  final DateTime? dueAt;
-  final double? lat;
-  final double? lng;
-  final String? createdBy;
-  final String? assigneeId;
-  final DateTime? closedAt;
-  final String? closeNote;
-  final String? recurrenceId;
-  final DateTime createdAt;
-  final DateTime updatedAt;
-  final bool pending;
-  final String? assetId;
-  final String maintenanceType;
-  final bool isolationRequired;
-  const LocalJob({
-    required this.id,
-    required this.siteId,
-    this.areaId,
-    this.code,
-    required this.title,
-    this.description,
-    required this.priority,
-    required this.status,
-    this.waitingReason,
-    this.dueAt,
-    this.lat,
-    this.lng,
-    this.createdBy,
-    this.assigneeId,
-    this.closedAt,
-    this.closeNote,
-    this.recurrenceId,
-    required this.createdAt,
-    required this.updatedAt,
-    required this.pending,
-    this.assetId,
-    required this.maintenanceType,
-    required this.isolationRequired,
-  });
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    map['id'] = Variable<String>(id);
-    map['site_id'] = Variable<String>(siteId);
-    if (!nullToAbsent || areaId != null) {
-      map['area_id'] = Variable<String>(areaId);
-    }
-    if (!nullToAbsent || code != null) {
-      map['code'] = Variable<String>(code);
-    }
-    map['title'] = Variable<String>(title);
-    if (!nullToAbsent || description != null) {
-      map['description'] = Variable<String>(description);
-    }
-    map['priority'] = Variable<String>(priority);
-    map['status'] = Variable<String>(status);
-    if (!nullToAbsent || waitingReason != null) {
-      map['waiting_reason'] = Variable<String>(waitingReason);
-    }
-    if (!nullToAbsent || dueAt != null) {
-      map['due_at'] = Variable<DateTime>(dueAt);
-    }
-    if (!nullToAbsent || lat != null) {
-      map['lat'] = Variable<double>(lat);
-    }
-    if (!nullToAbsent || lng != null) {
-      map['lng'] = Variable<double>(lng);
-    }
-    if (!nullToAbsent || createdBy != null) {
-      map['created_by'] = Variable<String>(createdBy);
-    }
-    if (!nullToAbsent || assigneeId != null) {
-      map['assignee_id'] = Variable<String>(assigneeId);
-    }
-    if (!nullToAbsent || closedAt != null) {
-      map['closed_at'] = Variable<DateTime>(closedAt);
-    }
-    if (!nullToAbsent || closeNote != null) {
-      map['close_note'] = Variable<String>(closeNote);
-    }
-    if (!nullToAbsent || recurrenceId != null) {
-      map['recurrence_id'] = Variable<String>(recurrenceId);
-    }
-    map['created_at'] = Variable<DateTime>(createdAt);
-    map['updated_at'] = Variable<DateTime>(updatedAt);
-    map['pending'] = Variable<bool>(pending);
-    if (!nullToAbsent || assetId != null) {
-      map['asset_id'] = Variable<String>(assetId);
-    }
-    map['maintenance_type'] = Variable<String>(maintenanceType);
-    map['isolation_required'] = Variable<bool>(isolationRequired);
-    return map;
-  }
-
-  LocalJobsCompanion toCompanion(bool nullToAbsent) {
-    return LocalJobsCompanion(
-      id: Value(id),
-      siteId: Value(siteId),
-      areaId: areaId == null && nullToAbsent
-          ? const Value.absent()
-          : Value(areaId),
-      code: code == null && nullToAbsent ? const Value.absent() : Value(code),
-      title: Value(title),
-      description: description == null && nullToAbsent
-          ? const Value.absent()
-          : Value(description),
-      priority: Value(priority),
-      status: Value(status),
-      waitingReason: waitingReason == null && nullToAbsent
-          ? const Value.absent()
-          : Value(waitingReason),
-      dueAt: dueAt == null && nullToAbsent
-          ? const Value.absent()
-          : Value(dueAt),
-      lat: lat == null && nullToAbsent ? const Value.absent() : Value(lat),
-      lng: lng == null && nullToAbsent ? const Value.absent() : Value(lng),
-      createdBy: createdBy == null && nullToAbsent
-          ? const Value.absent()
-          : Value(createdBy),
-      assigneeId: assigneeId == null && nullToAbsent
-          ? const Value.absent()
-          : Value(assigneeId),
-      closedAt: closedAt == null && nullToAbsent
-          ? const Value.absent()
-          : Value(closedAt),
-      closeNote: closeNote == null && nullToAbsent
-          ? const Value.absent()
-          : Value(closeNote),
-      recurrenceId: recurrenceId == null && nullToAbsent
-          ? const Value.absent()
-          : Value(recurrenceId),
-      createdAt: Value(createdAt),
-      updatedAt: Value(updatedAt),
-      pending: Value(pending),
-      assetId: assetId == null && nullToAbsent
-          ? const Value.absent()
-          : Value(assetId),
-      maintenanceType: Value(maintenanceType),
-      isolationRequired: Value(isolationRequired),
-    );
-  }
-
-  factory LocalJob.fromJson(
-    Map<String, dynamic> json, {
-    ValueSerializer? serializer,
-  }) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return LocalJob(
-      id: serializer.fromJson<String>(json['id']),
-      siteId: serializer.fromJson<String>(json['siteId']),
-      areaId: serializer.fromJson<String?>(json['areaId']),
-      code: serializer.fromJson<String?>(json['code']),
-      title: serializer.fromJson<String>(json['title']),
-      description: serializer.fromJson<String?>(json['description']),
-      priority: serializer.fromJson<String>(json['priority']),
-      status: serializer.fromJson<String>(json['status']),
-      waitingReason: serializer.fromJson<String?>(json['waitingReason']),
-      dueAt: serializer.fromJson<DateTime?>(json['dueAt']),
-      lat: serializer.fromJson<double?>(json['lat']),
-      lng: serializer.fromJson<double?>(json['lng']),
-      createdBy: serializer.fromJson<String?>(json['createdBy']),
-      assigneeId: serializer.fromJson<String?>(json['assigneeId']),
-      closedAt: serializer.fromJson<DateTime?>(json['closedAt']),
-      closeNote: serializer.fromJson<String?>(json['closeNote']),
-      recurrenceId: serializer.fromJson<String?>(json['recurrenceId']),
-      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
-      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
-      pending: serializer.fromJson<bool>(json['pending']),
-      assetId: serializer.fromJson<String?>(json['assetId']),
-      maintenanceType: serializer.fromJson<String>(json['maintenanceType']),
-      isolationRequired: serializer.fromJson<bool>(json['isolationRequired']),
-    );
-  }
-  @override
-  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return <String, dynamic>{
-      'id': serializer.toJson<String>(id),
-      'siteId': serializer.toJson<String>(siteId),
-      'areaId': serializer.toJson<String?>(areaId),
-      'code': serializer.toJson<String?>(code),
-      'title': serializer.toJson<String>(title),
-      'description': serializer.toJson<String?>(description),
-      'priority': serializer.toJson<String>(priority),
-      'status': serializer.toJson<String>(status),
-      'waitingReason': serializer.toJson<String?>(waitingReason),
-      'dueAt': serializer.toJson<DateTime?>(dueAt),
-      'lat': serializer.toJson<double?>(lat),
-      'lng': serializer.toJson<double?>(lng),
-      'createdBy': serializer.toJson<String?>(createdBy),
-      'assigneeId': serializer.toJson<String?>(assigneeId),
-      'closedAt': serializer.toJson<DateTime?>(closedAt),
-      'closeNote': serializer.toJson<String?>(closeNote),
-      'recurrenceId': serializer.toJson<String?>(recurrenceId),
-      'createdAt': serializer.toJson<DateTime>(createdAt),
-      'updatedAt': serializer.toJson<DateTime>(updatedAt),
-      'pending': serializer.toJson<bool>(pending),
-      'assetId': serializer.toJson<String?>(assetId),
-      'maintenanceType': serializer.toJson<String>(maintenanceType),
-      'isolationRequired': serializer.toJson<bool>(isolationRequired),
-    };
-  }
-
-  LocalJob copyWith({
-    String? id,
-    String? siteId,
-    Value<String?> areaId = const Value.absent(),
-    Value<String?> code = const Value.absent(),
-    String? title,
-    Value<String?> description = const Value.absent(),
-    String? priority,
-    String? status,
-    Value<String?> waitingReason = const Value.absent(),
-    Value<DateTime?> dueAt = const Value.absent(),
-    Value<double?> lat = const Value.absent(),
-    Value<double?> lng = const Value.absent(),
-    Value<String?> createdBy = const Value.absent(),
-    Value<String?> assigneeId = const Value.absent(),
-    Value<DateTime?> closedAt = const Value.absent(),
-    Value<String?> closeNote = const Value.absent(),
-    Value<String?> recurrenceId = const Value.absent(),
-    DateTime? createdAt,
-    DateTime? updatedAt,
-    bool? pending,
-    Value<String?> assetId = const Value.absent(),
-    String? maintenanceType,
-    bool? isolationRequired,
-  }) => LocalJob(
-    id: id ?? this.id,
-    siteId: siteId ?? this.siteId,
-    areaId: areaId.present ? areaId.value : this.areaId,
-    code: code.present ? code.value : this.code,
-    title: title ?? this.title,
-    description: description.present ? description.value : this.description,
-    priority: priority ?? this.priority,
-    status: status ?? this.status,
-    waitingReason: waitingReason.present
-        ? waitingReason.value
-        : this.waitingReason,
-    dueAt: dueAt.present ? dueAt.value : this.dueAt,
-    lat: lat.present ? lat.value : this.lat,
-    lng: lng.present ? lng.value : this.lng,
-    createdBy: createdBy.present ? createdBy.value : this.createdBy,
-    assigneeId: assigneeId.present ? assigneeId.value : this.assigneeId,
-    closedAt: closedAt.present ? closedAt.value : this.closedAt,
-    closeNote: closeNote.present ? closeNote.value : this.closeNote,
-    recurrenceId: recurrenceId.present ? recurrenceId.value : this.recurrenceId,
-    createdAt: createdAt ?? this.createdAt,
-    updatedAt: updatedAt ?? this.updatedAt,
-    pending: pending ?? this.pending,
-    assetId: assetId.present ? assetId.value : this.assetId,
-    maintenanceType: maintenanceType ?? this.maintenanceType,
-    isolationRequired: isolationRequired ?? this.isolationRequired,
-  );
-  LocalJob copyWithCompanion(LocalJobsCompanion data) {
-    return LocalJob(
-      id: data.id.present ? data.id.value : this.id,
-      siteId: data.siteId.present ? data.siteId.value : this.siteId,
-      areaId: data.areaId.present ? data.areaId.value : this.areaId,
-      code: data.code.present ? data.code.value : this.code,
-      title: data.title.present ? data.title.value : this.title,
-      description: data.description.present
-          ? data.description.value
-          : this.description,
-      priority: data.priority.present ? data.priority.value : this.priority,
-      status: data.status.present ? data.status.value : this.status,
-      waitingReason: data.waitingReason.present
-          ? data.waitingReason.value
-          : this.waitingReason,
-      dueAt: data.dueAt.present ? data.dueAt.value : this.dueAt,
-      lat: data.lat.present ? data.lat.value : this.lat,
-      lng: data.lng.present ? data.lng.value : this.lng,
-      createdBy: data.createdBy.present ? data.createdBy.value : this.createdBy,
-      assigneeId: data.assigneeId.present
-          ? data.assigneeId.value
-          : this.assigneeId,
-      closedAt: data.closedAt.present ? data.closedAt.value : this.closedAt,
-      closeNote: data.closeNote.present ? data.closeNote.value : this.closeNote,
-      recurrenceId: data.recurrenceId.present
-          ? data.recurrenceId.value
-          : this.recurrenceId,
-      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
-      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
-      pending: data.pending.present ? data.pending.value : this.pending,
-      assetId: data.assetId.present ? data.assetId.value : this.assetId,
-      maintenanceType: data.maintenanceType.present
-          ? data.maintenanceType.value
-          : this.maintenanceType,
-      isolationRequired: data.isolationRequired.present
-          ? data.isolationRequired.value
-          : this.isolationRequired,
-    );
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('LocalJob(')
-          ..write('id: $id, ')
-          ..write('siteId: $siteId, ')
-          ..write('areaId: $areaId, ')
-          ..write('code: $code, ')
-          ..write('title: $title, ')
-          ..write('description: $description, ')
-          ..write('priority: $priority, ')
-          ..write('status: $status, ')
-          ..write('waitingReason: $waitingReason, ')
-          ..write('dueAt: $dueAt, ')
-          ..write('lat: $lat, ')
-          ..write('lng: $lng, ')
-          ..write('createdBy: $createdBy, ')
-          ..write('assigneeId: $assigneeId, ')
-          ..write('closedAt: $closedAt, ')
-          ..write('closeNote: $closeNote, ')
-          ..write('recurrenceId: $recurrenceId, ')
-          ..write('createdAt: $createdAt, ')
-          ..write('updatedAt: $updatedAt, ')
-          ..write('pending: $pending, ')
-          ..write('assetId: $assetId, ')
-          ..write('maintenanceType: $maintenanceType, ')
-          ..write('isolationRequired: $isolationRequired')
-          ..write(')'))
-        .toString();
-  }
-
-  @override
-  int get hashCode => Object.hashAll([
-    id,
-    siteId,
-    areaId,
-    code,
-    title,
-    description,
-    priority,
-    status,
-    waitingReason,
-    dueAt,
-    lat,
-    lng,
-    createdBy,
-    assigneeId,
-    closedAt,
-    closeNote,
-    recurrenceId,
-    createdAt,
-    updatedAt,
-    pending,
-    assetId,
-    maintenanceType,
-    isolationRequired,
-  ]);
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      (other is LocalJob &&
-          other.id == this.id &&
-          other.siteId == this.siteId &&
-          other.areaId == this.areaId &&
-          other.code == this.code &&
-          other.title == this.title &&
-          other.description == this.description &&
-          other.priority == this.priority &&
-          other.status == this.status &&
-          other.waitingReason == this.waitingReason &&
-          other.dueAt == this.dueAt &&
-          other.lat == this.lat &&
-          other.lng == this.lng &&
-          other.createdBy == this.createdBy &&
-          other.assigneeId == this.assigneeId &&
-          other.closedAt == this.closedAt &&
-          other.closeNote == this.closeNote &&
-          other.recurrenceId == this.recurrenceId &&
-          other.createdAt == this.createdAt &&
-          other.updatedAt == this.updatedAt &&
-          other.pending == this.pending &&
-          other.assetId == this.assetId &&
-          other.maintenanceType == this.maintenanceType &&
-          other.isolationRequired == this.isolationRequired);
-}
-
-class LocalJobsCompanion extends UpdateCompanion<LocalJob> {
-  final Value<String> id;
-  final Value<String> siteId;
-  final Value<String?> areaId;
-  final Value<String?> code;
-  final Value<String> title;
-  final Value<String?> description;
-  final Value<String> priority;
-  final Value<String> status;
-  final Value<String?> waitingReason;
-  final Value<DateTime?> dueAt;
-  final Value<double?> lat;
-  final Value<double?> lng;
-  final Value<String?> createdBy;
-  final Value<String?> assigneeId;
-  final Value<DateTime?> closedAt;
-  final Value<String?> closeNote;
-  final Value<String?> recurrenceId;
-  final Value<DateTime> createdAt;
-  final Value<DateTime> updatedAt;
-  final Value<bool> pending;
-  final Value<String?> assetId;
-  final Value<String> maintenanceType;
-  final Value<bool> isolationRequired;
-  final Value<int> rowid;
-  const LocalJobsCompanion({
-    this.id = const Value.absent(),
-    this.siteId = const Value.absent(),
-    this.areaId = const Value.absent(),
-    this.code = const Value.absent(),
-    this.title = const Value.absent(),
-    this.description = const Value.absent(),
-    this.priority = const Value.absent(),
-    this.status = const Value.absent(),
-    this.waitingReason = const Value.absent(),
-    this.dueAt = const Value.absent(),
-    this.lat = const Value.absent(),
-    this.lng = const Value.absent(),
-    this.createdBy = const Value.absent(),
-    this.assigneeId = const Value.absent(),
-    this.closedAt = const Value.absent(),
-    this.closeNote = const Value.absent(),
-    this.recurrenceId = const Value.absent(),
-    this.createdAt = const Value.absent(),
-    this.updatedAt = const Value.absent(),
-    this.pending = const Value.absent(),
-    this.assetId = const Value.absent(),
-    this.maintenanceType = const Value.absent(),
-    this.isolationRequired = const Value.absent(),
-    this.rowid = const Value.absent(),
-  });
-  LocalJobsCompanion.insert({
-    required String id,
-    required String siteId,
-    this.areaId = const Value.absent(),
-    this.code = const Value.absent(),
-    required String title,
-    this.description = const Value.absent(),
-    required String priority,
-    required String status,
-    this.waitingReason = const Value.absent(),
-    this.dueAt = const Value.absent(),
-    this.lat = const Value.absent(),
-    this.lng = const Value.absent(),
-    this.createdBy = const Value.absent(),
-    this.assigneeId = const Value.absent(),
-    this.closedAt = const Value.absent(),
-    this.closeNote = const Value.absent(),
-    this.recurrenceId = const Value.absent(),
-    required DateTime createdAt,
-    required DateTime updatedAt,
-    this.pending = const Value.absent(),
-    this.assetId = const Value.absent(),
-    this.maintenanceType = const Value.absent(),
-    this.isolationRequired = const Value.absent(),
-    this.rowid = const Value.absent(),
-  }) : id = Value(id),
-       siteId = Value(siteId),
-       title = Value(title),
-       priority = Value(priority),
-       status = Value(status),
-       createdAt = Value(createdAt),
-       updatedAt = Value(updatedAt);
-  static Insertable<LocalJob> custom({
-    Expression<String>? id,
-    Expression<String>? siteId,
-    Expression<String>? areaId,
-    Expression<String>? code,
-    Expression<String>? title,
-    Expression<String>? description,
-    Expression<String>? priority,
-    Expression<String>? status,
-    Expression<String>? waitingReason,
-    Expression<DateTime>? dueAt,
-    Expression<double>? lat,
-    Expression<double>? lng,
-    Expression<String>? createdBy,
-    Expression<String>? assigneeId,
-    Expression<DateTime>? closedAt,
-    Expression<String>? closeNote,
-    Expression<String>? recurrenceId,
-    Expression<DateTime>? createdAt,
-    Expression<DateTime>? updatedAt,
-    Expression<bool>? pending,
-    Expression<String>? assetId,
-    Expression<String>? maintenanceType,
-    Expression<bool>? isolationRequired,
-    Expression<int>? rowid,
-  }) {
-    return RawValuesInsertable({
-      if (id != null) 'id': id,
-      if (siteId != null) 'site_id': siteId,
-      if (areaId != null) 'area_id': areaId,
-      if (code != null) 'code': code,
-      if (title != null) 'title': title,
-      if (description != null) 'description': description,
-      if (priority != null) 'priority': priority,
-      if (status != null) 'status': status,
-      if (waitingReason != null) 'waiting_reason': waitingReason,
-      if (dueAt != null) 'due_at': dueAt,
-      if (lat != null) 'lat': lat,
-      if (lng != null) 'lng': lng,
-      if (createdBy != null) 'created_by': createdBy,
-      if (assigneeId != null) 'assignee_id': assigneeId,
-      if (closedAt != null) 'closed_at': closedAt,
-      if (closeNote != null) 'close_note': closeNote,
-      if (recurrenceId != null) 'recurrence_id': recurrenceId,
-      if (createdAt != null) 'created_at': createdAt,
-      if (updatedAt != null) 'updated_at': updatedAt,
-      if (pending != null) 'pending': pending,
-      if (assetId != null) 'asset_id': assetId,
-      if (maintenanceType != null) 'maintenance_type': maintenanceType,
-      if (isolationRequired != null) 'isolation_required': isolationRequired,
-      if (rowid != null) 'rowid': rowid,
-    });
-  }
-
-  LocalJobsCompanion copyWith({
-    Value<String>? id,
-    Value<String>? siteId,
-    Value<String?>? areaId,
-    Value<String?>? code,
-    Value<String>? title,
-    Value<String?>? description,
-    Value<String>? priority,
-    Value<String>? status,
-    Value<String?>? waitingReason,
-    Value<DateTime?>? dueAt,
-    Value<double?>? lat,
-    Value<double?>? lng,
-    Value<String?>? createdBy,
-    Value<String?>? assigneeId,
-    Value<DateTime?>? closedAt,
-    Value<String?>? closeNote,
-    Value<String?>? recurrenceId,
-    Value<DateTime>? createdAt,
-    Value<DateTime>? updatedAt,
-    Value<bool>? pending,
-    Value<String?>? assetId,
-    Value<String>? maintenanceType,
-    Value<bool>? isolationRequired,
-    Value<int>? rowid,
-  }) {
-    return LocalJobsCompanion(
-      id: id ?? this.id,
-      siteId: siteId ?? this.siteId,
-      areaId: areaId ?? this.areaId,
-      code: code ?? this.code,
-      title: title ?? this.title,
-      description: description ?? this.description,
-      priority: priority ?? this.priority,
-      status: status ?? this.status,
-      waitingReason: waitingReason ?? this.waitingReason,
-      dueAt: dueAt ?? this.dueAt,
-      lat: lat ?? this.lat,
-      lng: lng ?? this.lng,
-      createdBy: createdBy ?? this.createdBy,
-      assigneeId: assigneeId ?? this.assigneeId,
-      closedAt: closedAt ?? this.closedAt,
-      closeNote: closeNote ?? this.closeNote,
-      recurrenceId: recurrenceId ?? this.recurrenceId,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
-      pending: pending ?? this.pending,
-      assetId: assetId ?? this.assetId,
-      maintenanceType: maintenanceType ?? this.maintenanceType,
-      isolationRequired: isolationRequired ?? this.isolationRequired,
-      rowid: rowid ?? this.rowid,
-    );
-  }
-
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    if (id.present) {
-      map['id'] = Variable<String>(id.value);
-    }
-    if (siteId.present) {
-      map['site_id'] = Variable<String>(siteId.value);
-    }
-    if (areaId.present) {
-      map['area_id'] = Variable<String>(areaId.value);
-    }
-    if (code.present) {
-      map['code'] = Variable<String>(code.value);
-    }
-    if (title.present) {
-      map['title'] = Variable<String>(title.value);
-    }
-    if (description.present) {
-      map['description'] = Variable<String>(description.value);
-    }
-    if (priority.present) {
-      map['priority'] = Variable<String>(priority.value);
-    }
-    if (status.present) {
-      map['status'] = Variable<String>(status.value);
-    }
-    if (waitingReason.present) {
-      map['waiting_reason'] = Variable<String>(waitingReason.value);
-    }
-    if (dueAt.present) {
-      map['due_at'] = Variable<DateTime>(dueAt.value);
-    }
-    if (lat.present) {
-      map['lat'] = Variable<double>(lat.value);
-    }
-    if (lng.present) {
-      map['lng'] = Variable<double>(lng.value);
-    }
-    if (createdBy.present) {
-      map['created_by'] = Variable<String>(createdBy.value);
-    }
-    if (assigneeId.present) {
-      map['assignee_id'] = Variable<String>(assigneeId.value);
-    }
-    if (closedAt.present) {
-      map['closed_at'] = Variable<DateTime>(closedAt.value);
-    }
-    if (closeNote.present) {
-      map['close_note'] = Variable<String>(closeNote.value);
-    }
-    if (recurrenceId.present) {
-      map['recurrence_id'] = Variable<String>(recurrenceId.value);
-    }
-    if (createdAt.present) {
-      map['created_at'] = Variable<DateTime>(createdAt.value);
-    }
-    if (updatedAt.present) {
-      map['updated_at'] = Variable<DateTime>(updatedAt.value);
-    }
-    if (pending.present) {
-      map['pending'] = Variable<bool>(pending.value);
-    }
-    if (assetId.present) {
-      map['asset_id'] = Variable<String>(assetId.value);
-    }
-    if (maintenanceType.present) {
-      map['maintenance_type'] = Variable<String>(maintenanceType.value);
-    }
-    if (isolationRequired.present) {
-      map['isolation_required'] = Variable<bool>(isolationRequired.value);
-    }
-    if (rowid.present) {
-      map['rowid'] = Variable<int>(rowid.value);
-    }
-    return map;
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('LocalJobsCompanion(')
-          ..write('id: $id, ')
-          ..write('siteId: $siteId, ')
-          ..write('areaId: $areaId, ')
-          ..write('code: $code, ')
-          ..write('title: $title, ')
-          ..write('description: $description, ')
-          ..write('priority: $priority, ')
-          ..write('status: $status, ')
-          ..write('waitingReason: $waitingReason, ')
-          ..write('dueAt: $dueAt, ')
-          ..write('lat: $lat, ')
-          ..write('lng: $lng, ')
-          ..write('createdBy: $createdBy, ')
-          ..write('assigneeId: $assigneeId, ')
-          ..write('closedAt: $closedAt, ')
-          ..write('closeNote: $closeNote, ')
-          ..write('recurrenceId: $recurrenceId, ')
-          ..write('createdAt: $createdAt, ')
-          ..write('updatedAt: $updatedAt, ')
-          ..write('pending: $pending, ')
-          ..write('assetId: $assetId, ')
-          ..write('maintenanceType: $maintenanceType, ')
-          ..write('isolationRequired: $isolationRequired, ')
-          ..write('rowid: $rowid')
-          ..write(')'))
-        .toString();
-  }
-}
-
 class $LocalPeopleTable extends LocalPeople
     with TableInfo<$LocalPeopleTable, LocalPeopleData> {
   @override
@@ -5119,6 +3867,268 @@ class LocalToolsCompanion extends UpdateCompanion<LocalTool> {
   }
 }
 
+class $CachedJsonTable extends CachedJson
+    with TableInfo<$CachedJsonTable, CachedJsonData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CachedJsonTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _keyMeta = const VerificationMeta('key');
+  @override
+  late final GeneratedColumn<String> key = GeneratedColumn<String>(
+    'key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _jsonMeta = const VerificationMeta('json');
+  @override
+  late final GeneratedColumn<String> json = GeneratedColumn<String>(
+    'json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _savedAtMeta = const VerificationMeta(
+    'savedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> savedAt = GeneratedColumn<DateTime>(
+    'saved_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [key, json, savedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'cached_json';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CachedJsonData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('key')) {
+      context.handle(
+        _keyMeta,
+        key.isAcceptableOrUnknown(data['key']!, _keyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_keyMeta);
+    }
+    if (data.containsKey('json')) {
+      context.handle(
+        _jsonMeta,
+        json.isAcceptableOrUnknown(data['json']!, _jsonMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_jsonMeta);
+    }
+    if (data.containsKey('saved_at')) {
+      context.handle(
+        _savedAtMeta,
+        savedAt.isAcceptableOrUnknown(data['saved_at']!, _savedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_savedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {key};
+  @override
+  CachedJsonData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CachedJsonData(
+      key: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}key'],
+      )!,
+      json: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}json'],
+      )!,
+      savedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}saved_at'],
+      )!,
+    );
+  }
+
+  @override
+  $CachedJsonTable createAlias(String alias) {
+    return $CachedJsonTable(attachedDatabase, alias);
+  }
+}
+
+class CachedJsonData extends DataClass implements Insertable<CachedJsonData> {
+  final String key;
+  final String json;
+  final DateTime savedAt;
+  const CachedJsonData({
+    required this.key,
+    required this.json,
+    required this.savedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['key'] = Variable<String>(key);
+    map['json'] = Variable<String>(json);
+    map['saved_at'] = Variable<DateTime>(savedAt);
+    return map;
+  }
+
+  CachedJsonCompanion toCompanion(bool nullToAbsent) {
+    return CachedJsonCompanion(
+      key: Value(key),
+      json: Value(json),
+      savedAt: Value(savedAt),
+    );
+  }
+
+  factory CachedJsonData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CachedJsonData(
+      key: serializer.fromJson<String>(json['key']),
+      json: serializer.fromJson<String>(json['json']),
+      savedAt: serializer.fromJson<DateTime>(json['savedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'key': serializer.toJson<String>(key),
+      'json': serializer.toJson<String>(json),
+      'savedAt': serializer.toJson<DateTime>(savedAt),
+    };
+  }
+
+  CachedJsonData copyWith({String? key, String? json, DateTime? savedAt}) =>
+      CachedJsonData(
+        key: key ?? this.key,
+        json: json ?? this.json,
+        savedAt: savedAt ?? this.savedAt,
+      );
+  CachedJsonData copyWithCompanion(CachedJsonCompanion data) {
+    return CachedJsonData(
+      key: data.key.present ? data.key.value : this.key,
+      json: data.json.present ? data.json.value : this.json,
+      savedAt: data.savedAt.present ? data.savedAt.value : this.savedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CachedJsonData(')
+          ..write('key: $key, ')
+          ..write('json: $json, ')
+          ..write('savedAt: $savedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(key, json, savedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CachedJsonData &&
+          other.key == this.key &&
+          other.json == this.json &&
+          other.savedAt == this.savedAt);
+}
+
+class CachedJsonCompanion extends UpdateCompanion<CachedJsonData> {
+  final Value<String> key;
+  final Value<String> json;
+  final Value<DateTime> savedAt;
+  final Value<int> rowid;
+  const CachedJsonCompanion({
+    this.key = const Value.absent(),
+    this.json = const Value.absent(),
+    this.savedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CachedJsonCompanion.insert({
+    required String key,
+    required String json,
+    required DateTime savedAt,
+    this.rowid = const Value.absent(),
+  }) : key = Value(key),
+       json = Value(json),
+       savedAt = Value(savedAt);
+  static Insertable<CachedJsonData> custom({
+    Expression<String>? key,
+    Expression<String>? json,
+    Expression<DateTime>? savedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (key != null) 'key': key,
+      if (json != null) 'json': json,
+      if (savedAt != null) 'saved_at': savedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CachedJsonCompanion copyWith({
+    Value<String>? key,
+    Value<String>? json,
+    Value<DateTime>? savedAt,
+    Value<int>? rowid,
+  }) {
+    return CachedJsonCompanion(
+      key: key ?? this.key,
+      json: json ?? this.json,
+      savedAt: savedAt ?? this.savedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (key.present) {
+      map['key'] = Variable<String>(key.value);
+    }
+    if (json.present) {
+      map['json'] = Variable<String>(json.value);
+    }
+    if (savedAt.present) {
+      map['saved_at'] = Variable<DateTime>(savedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CachedJsonCompanion(')
+          ..write('key: $key, ')
+          ..write('json: $json, ')
+          ..write('savedAt: $savedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$LocalDb extends GeneratedDatabase {
   _$LocalDb(QueryExecutor e) : super(e);
   $LocalDbManager get managers => $LocalDbManager(this);
@@ -5129,11 +4139,11 @@ abstract class _$LocalDb extends GeneratedDatabase {
   late final $LocalSitesTable localSites = $LocalSitesTable(this);
   late final $LocalAreasTable localAreas = $LocalAreasTable(this);
   late final $OutboxTable outbox = $OutboxTable(this);
-  late final $LocalJobsTable localJobs = $LocalJobsTable(this);
   late final $LocalPeopleTable localPeople = $LocalPeopleTable(this);
   late final $PendingUploadsTable pendingUploads = $PendingUploadsTable(this);
   late final $LocalAssetsTable localAssets = $LocalAssetsTable(this);
   late final $LocalToolsTable localTools = $LocalToolsTable(this);
+  late final $CachedJsonTable cachedJson = $CachedJsonTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -5144,11 +4154,11 @@ abstract class _$LocalDb extends GeneratedDatabase {
     localSites,
     localAreas,
     outbox,
-    localJobs,
     localPeople,
     pendingUploads,
     localAssets,
     localTools,
+    cachedJson,
   ];
 }
 
@@ -6128,561 +5138,6 @@ typedef $$OutboxTableProcessedTableManager =
       $$OutboxTableUpdateCompanionBuilder,
       (OutboxEntry, BaseReferences<_$LocalDb, $OutboxTable, OutboxEntry>),
       OutboxEntry,
-      PrefetchHooks Function()
-    >;
-typedef $$LocalJobsTableCreateCompanionBuilder = LocalJobsCompanion Function({
-  required String id,
-  required String siteId,
-  Value<String?> areaId,
-  Value<String?> code,
-  required String title,
-  Value<String?> description,
-  required String priority,
-  required String status,
-  Value<String?> waitingReason,
-  Value<DateTime?> dueAt,
-  Value<double?> lat,
-  Value<double?> lng,
-  Value<String?> createdBy,
-  Value<String?> assigneeId,
-  Value<DateTime?> closedAt,
-  Value<String?> closeNote,
-  Value<String?> recurrenceId,
-  required DateTime createdAt,
-  required DateTime updatedAt,
-  Value<bool> pending,
-  Value<String?> assetId,
-  Value<String> maintenanceType,
-  Value<bool> isolationRequired,
-  Value<int> rowid,
-});
-typedef $$LocalJobsTableUpdateCompanionBuilder = LocalJobsCompanion Function({
-  Value<String> id,
-  Value<String> siteId,
-  Value<String?> areaId,
-  Value<String?> code,
-  Value<String> title,
-  Value<String?> description,
-  Value<String> priority,
-  Value<String> status,
-  Value<String?> waitingReason,
-  Value<DateTime?> dueAt,
-  Value<double?> lat,
-  Value<double?> lng,
-  Value<String?> createdBy,
-  Value<String?> assigneeId,
-  Value<DateTime?> closedAt,
-  Value<String?> closeNote,
-  Value<String?> recurrenceId,
-  Value<DateTime> createdAt,
-  Value<DateTime> updatedAt,
-  Value<bool> pending,
-  Value<String?> assetId,
-  Value<String> maintenanceType,
-  Value<bool> isolationRequired,
-  Value<int> rowid,
-});
-
-class $$LocalJobsTableFilterComposer
-    extends Composer<_$LocalDb, $LocalJobsTable> {
-  $$LocalJobsTableFilterComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnFilters<String> get id => $composableBuilder(
-    column: $table.id,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get siteId => $composableBuilder(
-    column: $table.siteId,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get areaId => $composableBuilder(
-    column: $table.areaId,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get code => $composableBuilder(
-    column: $table.code,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get title => $composableBuilder(
-    column: $table.title,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get description => $composableBuilder(
-    column: $table.description,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get priority => $composableBuilder(
-    column: $table.priority,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get status => $composableBuilder(
-    column: $table.status,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get waitingReason => $composableBuilder(
-    column: $table.waitingReason,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<DateTime> get dueAt => $composableBuilder(
-    column: $table.dueAt,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<double> get lat => $composableBuilder(
-    column: $table.lat,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<double> get lng => $composableBuilder(
-    column: $table.lng,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get createdBy => $composableBuilder(
-    column: $table.createdBy,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get assigneeId => $composableBuilder(
-    column: $table.assigneeId,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<DateTime> get closedAt => $composableBuilder(
-    column: $table.closedAt,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get closeNote => $composableBuilder(
-    column: $table.closeNote,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get recurrenceId => $composableBuilder(
-    column: $table.recurrenceId,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<DateTime> get createdAt => $composableBuilder(
-    column: $table.createdAt,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
-    column: $table.updatedAt,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<bool> get pending => $composableBuilder(
-    column: $table.pending,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get assetId => $composableBuilder(
-    column: $table.assetId,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get maintenanceType => $composableBuilder(
-    column: $table.maintenanceType,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<bool> get isolationRequired => $composableBuilder(
-    column: $table.isolationRequired,
-    builder: (column) => ColumnFilters(column),
-  );
-}
-
-class $$LocalJobsTableOrderingComposer
-    extends Composer<_$LocalDb, $LocalJobsTable> {
-  $$LocalJobsTableOrderingComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnOrderings<String> get id => $composableBuilder(
-    column: $table.id,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get siteId => $composableBuilder(
-    column: $table.siteId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get areaId => $composableBuilder(
-    column: $table.areaId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get code => $composableBuilder(
-    column: $table.code,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get title => $composableBuilder(
-    column: $table.title,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get description => $composableBuilder(
-    column: $table.description,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get priority => $composableBuilder(
-    column: $table.priority,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get status => $composableBuilder(
-    column: $table.status,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get waitingReason => $composableBuilder(
-    column: $table.waitingReason,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<DateTime> get dueAt => $composableBuilder(
-    column: $table.dueAt,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<double> get lat => $composableBuilder(
-    column: $table.lat,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<double> get lng => $composableBuilder(
-    column: $table.lng,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get createdBy => $composableBuilder(
-    column: $table.createdBy,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get assigneeId => $composableBuilder(
-    column: $table.assigneeId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<DateTime> get closedAt => $composableBuilder(
-    column: $table.closedAt,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get closeNote => $composableBuilder(
-    column: $table.closeNote,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get recurrenceId => $composableBuilder(
-    column: $table.recurrenceId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
-    column: $table.createdAt,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
-    column: $table.updatedAt,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<bool> get pending => $composableBuilder(
-    column: $table.pending,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get assetId => $composableBuilder(
-    column: $table.assetId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get maintenanceType => $composableBuilder(
-    column: $table.maintenanceType,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<bool> get isolationRequired => $composableBuilder(
-    column: $table.isolationRequired,
-    builder: (column) => ColumnOrderings(column),
-  );
-}
-
-class $$LocalJobsTableAnnotationComposer
-    extends Composer<_$LocalDb, $LocalJobsTable> {
-  $$LocalJobsTableAnnotationComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  GeneratedColumn<String> get id =>
-      $composableBuilder(column: $table.id, builder: (column) => column);
-
-  GeneratedColumn<String> get siteId =>
-      $composableBuilder(column: $table.siteId, builder: (column) => column);
-
-  GeneratedColumn<String> get areaId =>
-      $composableBuilder(column: $table.areaId, builder: (column) => column);
-
-  GeneratedColumn<String> get code =>
-      $composableBuilder(column: $table.code, builder: (column) => column);
-
-  GeneratedColumn<String> get title =>
-      $composableBuilder(column: $table.title, builder: (column) => column);
-
-  GeneratedColumn<String> get description => $composableBuilder(
-    column: $table.description,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<String> get priority =>
-      $composableBuilder(column: $table.priority, builder: (column) => column);
-
-  GeneratedColumn<String> get status =>
-      $composableBuilder(column: $table.status, builder: (column) => column);
-
-  GeneratedColumn<String> get waitingReason => $composableBuilder(
-    column: $table.waitingReason,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<DateTime> get dueAt =>
-      $composableBuilder(column: $table.dueAt, builder: (column) => column);
-
-  GeneratedColumn<double> get lat =>
-      $composableBuilder(column: $table.lat, builder: (column) => column);
-
-  GeneratedColumn<double> get lng =>
-      $composableBuilder(column: $table.lng, builder: (column) => column);
-
-  GeneratedColumn<String> get createdBy =>
-      $composableBuilder(column: $table.createdBy, builder: (column) => column);
-
-  GeneratedColumn<String> get assigneeId => $composableBuilder(
-    column: $table.assigneeId,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<DateTime> get closedAt =>
-      $composableBuilder(column: $table.closedAt, builder: (column) => column);
-
-  GeneratedColumn<String> get closeNote =>
-      $composableBuilder(column: $table.closeNote, builder: (column) => column);
-
-  GeneratedColumn<String> get recurrenceId => $composableBuilder(
-    column: $table.recurrenceId,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<DateTime> get createdAt =>
-      $composableBuilder(column: $table.createdAt, builder: (column) => column);
-
-  GeneratedColumn<DateTime> get updatedAt =>
-      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
-
-  GeneratedColumn<bool> get pending =>
-      $composableBuilder(column: $table.pending, builder: (column) => column);
-
-  GeneratedColumn<String> get assetId =>
-      $composableBuilder(column: $table.assetId, builder: (column) => column);
-
-  GeneratedColumn<String> get maintenanceType => $composableBuilder(
-    column: $table.maintenanceType,
-    builder: (column) => column,
-  );
-
-  GeneratedColumn<bool> get isolationRequired => $composableBuilder(
-    column: $table.isolationRequired,
-    builder: (column) => column,
-  );
-}
-
-class $$LocalJobsTableTableManager
-    extends
-        RootTableManager<
-          _$LocalDb,
-          $LocalJobsTable,
-          LocalJob,
-          $$LocalJobsTableFilterComposer,
-          $$LocalJobsTableOrderingComposer,
-          $$LocalJobsTableAnnotationComposer,
-          $$LocalJobsTableCreateCompanionBuilder,
-          $$LocalJobsTableUpdateCompanionBuilder,
-          (LocalJob, BaseReferences<_$LocalDb, $LocalJobsTable, LocalJob>),
-          LocalJob,
-          PrefetchHooks Function()
-        > {
-  $$LocalJobsTableTableManager(_$LocalDb db, $LocalJobsTable table)
-    : super(
-        TableManagerState(
-          db: db,
-          table: table,
-          createFilteringComposer: () =>
-              $$LocalJobsTableFilterComposer($db: db, $table: table),
-          createOrderingComposer: () =>
-              $$LocalJobsTableOrderingComposer($db: db, $table: table),
-          createComputedFieldComposer: () =>
-              $$LocalJobsTableAnnotationComposer($db: db, $table: table),
-          updateCompanionCallback:
-              ({
-                Value<String> id = const Value.absent(),
-                Value<String> siteId = const Value.absent(),
-                Value<String?> areaId = const Value.absent(),
-                Value<String?> code = const Value.absent(),
-                Value<String> title = const Value.absent(),
-                Value<String?> description = const Value.absent(),
-                Value<String> priority = const Value.absent(),
-                Value<String> status = const Value.absent(),
-                Value<String?> waitingReason = const Value.absent(),
-                Value<DateTime?> dueAt = const Value.absent(),
-                Value<double?> lat = const Value.absent(),
-                Value<double?> lng = const Value.absent(),
-                Value<String?> createdBy = const Value.absent(),
-                Value<String?> assigneeId = const Value.absent(),
-                Value<DateTime?> closedAt = const Value.absent(),
-                Value<String?> closeNote = const Value.absent(),
-                Value<String?> recurrenceId = const Value.absent(),
-                Value<DateTime> createdAt = const Value.absent(),
-                Value<DateTime> updatedAt = const Value.absent(),
-                Value<bool> pending = const Value.absent(),
-                Value<String?> assetId = const Value.absent(),
-                Value<String> maintenanceType = const Value.absent(),
-                Value<bool> isolationRequired = const Value.absent(),
-                Value<int> rowid = const Value.absent(),
-              }) => LocalJobsCompanion(
-                id: id,
-                siteId: siteId,
-                areaId: areaId,
-                code: code,
-                title: title,
-                description: description,
-                priority: priority,
-                status: status,
-                waitingReason: waitingReason,
-                dueAt: dueAt,
-                lat: lat,
-                lng: lng,
-                createdBy: createdBy,
-                assigneeId: assigneeId,
-                closedAt: closedAt,
-                closeNote: closeNote,
-                recurrenceId: recurrenceId,
-                createdAt: createdAt,
-                updatedAt: updatedAt,
-                pending: pending,
-                assetId: assetId,
-                maintenanceType: maintenanceType,
-                isolationRequired: isolationRequired,
-                rowid: rowid,
-              ),
-          createCompanionCallback:
-              ({
-                required String id,
-                required String siteId,
-                Value<String?> areaId = const Value.absent(),
-                Value<String?> code = const Value.absent(),
-                required String title,
-                Value<String?> description = const Value.absent(),
-                required String priority,
-                required String status,
-                Value<String?> waitingReason = const Value.absent(),
-                Value<DateTime?> dueAt = const Value.absent(),
-                Value<double?> lat = const Value.absent(),
-                Value<double?> lng = const Value.absent(),
-                Value<String?> createdBy = const Value.absent(),
-                Value<String?> assigneeId = const Value.absent(),
-                Value<DateTime?> closedAt = const Value.absent(),
-                Value<String?> closeNote = const Value.absent(),
-                Value<String?> recurrenceId = const Value.absent(),
-                required DateTime createdAt,
-                required DateTime updatedAt,
-                Value<bool> pending = const Value.absent(),
-                Value<String?> assetId = const Value.absent(),
-                Value<String> maintenanceType = const Value.absent(),
-                Value<bool> isolationRequired = const Value.absent(),
-                Value<int> rowid = const Value.absent(),
-              }) => LocalJobsCompanion.insert(
-                id: id,
-                siteId: siteId,
-                areaId: areaId,
-                code: code,
-                title: title,
-                description: description,
-                priority: priority,
-                status: status,
-                waitingReason: waitingReason,
-                dueAt: dueAt,
-                lat: lat,
-                lng: lng,
-                createdBy: createdBy,
-                assigneeId: assigneeId,
-                closedAt: closedAt,
-                closeNote: closeNote,
-                recurrenceId: recurrenceId,
-                createdAt: createdAt,
-                updatedAt: updatedAt,
-                pending: pending,
-                assetId: assetId,
-                maintenanceType: maintenanceType,
-                isolationRequired: isolationRequired,
-                rowid: rowid,
-              ),
-          withReferenceMapper: (p0) => p0
-              .map(
-                (e) => (
-                  e.readTable<$LocalJobsTable, LocalJob>(table),
-                  BaseReferences<_$LocalDb, $LocalJobsTable, LocalJob>(
-                    db,
-                    table,
-                    e,
-                  ),
-                ),
-              )
-              .toList(),
-          prefetchHooksCallback: null,
-        ),
-      );
-}
-
-typedef $$LocalJobsTableProcessedTableManager =
-    ProcessedTableManager<
-      _$LocalDb,
-      $LocalJobsTable,
-      LocalJob,
-      $$LocalJobsTableFilterComposer,
-      $$LocalJobsTableOrderingComposer,
-      $$LocalJobsTableAnnotationComposer,
-      $$LocalJobsTableCreateCompanionBuilder,
-      $$LocalJobsTableUpdateCompanionBuilder,
-      (LocalJob, BaseReferences<_$LocalDb, $LocalJobsTable, LocalJob>),
-      LocalJob,
       PrefetchHooks Function()
     >;
 typedef $$LocalPeopleTableCreateCompanionBuilder =
@@ -7796,6 +6251,175 @@ typedef $$LocalToolsTableProcessedTableManager =
       LocalTool,
       PrefetchHooks Function()
     >;
+typedef $$CachedJsonTableCreateCompanionBuilder = CachedJsonCompanion Function({
+  required String key,
+  required String json,
+  required DateTime savedAt,
+  Value<int> rowid,
+});
+typedef $$CachedJsonTableUpdateCompanionBuilder = CachedJsonCompanion Function({
+  Value<String> key,
+  Value<String> json,
+  Value<DateTime> savedAt,
+  Value<int> rowid,
+});
+
+class $$CachedJsonTableFilterComposer
+    extends Composer<_$LocalDb, $CachedJsonTable> {
+  $$CachedJsonTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get key => $composableBuilder(
+    column: $table.key,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get json => $composableBuilder(
+    column: $table.json,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get savedAt => $composableBuilder(
+    column: $table.savedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$CachedJsonTableOrderingComposer
+    extends Composer<_$LocalDb, $CachedJsonTable> {
+  $$CachedJsonTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get key => $composableBuilder(
+    column: $table.key,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get json => $composableBuilder(
+    column: $table.json,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get savedAt => $composableBuilder(
+    column: $table.savedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$CachedJsonTableAnnotationComposer
+    extends Composer<_$LocalDb, $CachedJsonTable> {
+  $$CachedJsonTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get key =>
+      $composableBuilder(column: $table.key, builder: (column) => column);
+
+  GeneratedColumn<String> get json =>
+      $composableBuilder(column: $table.json, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get savedAt =>
+      $composableBuilder(column: $table.savedAt, builder: (column) => column);
+}
+
+class $$CachedJsonTableTableManager
+    extends
+        RootTableManager<
+          _$LocalDb,
+          $CachedJsonTable,
+          CachedJsonData,
+          $$CachedJsonTableFilterComposer,
+          $$CachedJsonTableOrderingComposer,
+          $$CachedJsonTableAnnotationComposer,
+          $$CachedJsonTableCreateCompanionBuilder,
+          $$CachedJsonTableUpdateCompanionBuilder,
+          (
+            CachedJsonData,
+            BaseReferences<_$LocalDb, $CachedJsonTable, CachedJsonData>,
+          ),
+          CachedJsonData,
+          PrefetchHooks Function()
+        > {
+  $$CachedJsonTableTableManager(_$LocalDb db, $CachedJsonTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CachedJsonTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$CachedJsonTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$CachedJsonTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> key = const Value.absent(),
+                Value<String> json = const Value.absent(),
+                Value<DateTime> savedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CachedJsonCompanion(
+                key: key,
+                json: json,
+                savedAt: savedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String key,
+                required String json,
+                required DateTime savedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => CachedJsonCompanion.insert(
+                key: key,
+                json: json,
+                savedAt: savedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$CachedJsonTable, CachedJsonData>(table),
+                  BaseReferences<_$LocalDb, $CachedJsonTable, CachedJsonData>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$CachedJsonTableProcessedTableManager =
+    ProcessedTableManager<
+      _$LocalDb,
+      $CachedJsonTable,
+      CachedJsonData,
+      $$CachedJsonTableFilterComposer,
+      $$CachedJsonTableOrderingComposer,
+      $$CachedJsonTableAnnotationComposer,
+      $$CachedJsonTableCreateCompanionBuilder,
+      $$CachedJsonTableUpdateCompanionBuilder,
+      (
+        CachedJsonData,
+        BaseReferences<_$LocalDb, $CachedJsonTable, CachedJsonData>,
+      ),
+      CachedJsonData,
+      PrefetchHooks Function()
+    >;
 
 class $LocalDbManager {
   final _$LocalDb _db;
@@ -7810,8 +6434,6 @@ class $LocalDbManager {
       $$LocalAreasTableTableManager(_db, _db.localAreas);
   $$OutboxTableTableManager get outbox =>
       $$OutboxTableTableManager(_db, _db.outbox);
-  $$LocalJobsTableTableManager get localJobs =>
-      $$LocalJobsTableTableManager(_db, _db.localJobs);
   $$LocalPeopleTableTableManager get localPeople =>
       $$LocalPeopleTableTableManager(_db, _db.localPeople);
   $$PendingUploadsTableTableManager get pendingUploads =>
@@ -7820,4 +6442,6 @@ class $LocalDbManager {
       $$LocalAssetsTableTableManager(_db, _db.localAssets);
   $$LocalToolsTableTableManager get localTools =>
       $$LocalToolsTableTableManager(_db, _db.localTools);
+  $$CachedJsonTableTableManager get cachedJson =>
+      $$CachedJsonTableTableManager(_db, _db.cachedJson);
 }

@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
+import '../data/local_db.dart';
 import '../services/core_providers.dart';
 
 /// A chat the signed-in user is in (API.md section 10).
@@ -185,9 +187,20 @@ class ConversationsNotifier extends AsyncNotifier<List<Conversation>> {
     return _load();
   }
 
+  /// From the server, kept on the device; the kept copy when offline.
   Future<List<Conversation>> _load() async {
-    final rows =
-        await ref.read(supabaseProvider).rpc('fn_my_conversations') as List;
+    final db = ref.read(localDbProvider);
+    final key = 'chats:${ref.read(authUserIdProvider)}';
+    List rows;
+    try {
+      rows =
+          await ref.read(supabaseProvider).rpc('fn_my_conversations') as List;
+      unawaited(db.saveJson(key, jsonEncode(rows)));
+    } catch (_) {
+      final kept = await db.readJson(key);
+      if (kept == null) rethrow;
+      rows = jsonDecode(kept) as List;
+    }
     return [
       for (final r in rows)
         Conversation.fromJson(Map<String, dynamic>.from(r as Map)),
@@ -342,28 +355,56 @@ class ChatThreadNotifier extends Notifier<ChatThread> {
   SupabaseClient get _db => ref.read(supabaseProvider);
 
   Future<void> load() async {
+    final local = ref.read(localDbProvider);
+    // The copy kept on the device shows at once (and is all there is
+    // without signal); the server's copy replaces it when it arrives.
+    if (state.messages.isEmpty) {
+      final kept = await local.readJson('thread:$id');
+      if (kept != null && ref.mounted && state.messages.isEmpty) {
+        _show([
+          for (final r in jsonDecode(kept) as List)
+            Map<String, dynamic>.from(r as Map),
+        ]);
+      }
+    }
     try {
       final rows = await _db
           .from('messages')
           .select()
           .eq('conversation_id', id)
           .order('created_at', ascending: false)
-          .limit(pageSize);
-      final server = [for (final r in rows.reversed) ChatMessage.fromJson(r)];
-      final ids = {for (final m in server) m.id};
-      if (!ref.mounted) return;
-      state = state.copyWith(
-        messages: [
-          ...server,
-          for (final m in state.messages)
-            if (m.pending && !ids.contains(m.id)) m,
-        ],
-        loading: false,
+          .limit(pageSize)
+          .timeout(const Duration(seconds: 15));
+      // The latest 50 stay on the device for reading without signal.
+      unawaited(
+        local.saveJson('thread:$id', jsonEncode(rows.take(50).toList())),
       );
+      final server = _show(rows);
       await Future.wait([_signPhotos(server), _loadReactions()]);
     } catch (e) {
-      if (ref.mounted) state = state.copyWith(loading: false, error: e);
+      if (!ref.mounted) return;
+      // Keep showing the kept copy; only say so when there is none.
+      state = state.copyWith(
+        loading: false,
+        error: state.messages.isEmpty ? e : null,
+      );
     }
+  }
+
+  /// Newest-first rows on screen, keeping messages still being sent.
+  List<ChatMessage> _show(List<Map<String, dynamic>> rows) {
+    final server = [for (final r in rows.reversed) ChatMessage.fromJson(r)];
+    final ids = {for (final m in server) m.id};
+    if (!ref.mounted) return server;
+    state = state.copyWith(
+      messages: [
+        ...server,
+        for (final m in state.messages)
+          if (m.pending && !ids.contains(m.id)) m,
+      ],
+      loading: false,
+    );
+    return server;
   }
 
   void _received(ChatMessage m) {

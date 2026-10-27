@@ -57,37 +57,15 @@ class Outbox extends Table {
   Set<Column> get primaryKey => {clientRef};
 }
 
-/// Jobs at the user's sites (API.md section 7). `pending` marks rows changed
-/// on this device that the server has not confirmed yet.
-class LocalJobs extends Table {
-  TextColumn get id => text()();
-  TextColumn get siteId => text()();
-  TextColumn get areaId => text().nullable()();
-  TextColumn get code => text().nullable()();
-  TextColumn get title => text()();
-  TextColumn get description => text().nullable()();
-  TextColumn get priority => text()();
-  TextColumn get status => text()();
-  TextColumn get waitingReason => text().nullable()();
-  DateTimeColumn get dueAt => dateTime().nullable()();
-  RealColumn get lat => real().nullable()();
-  RealColumn get lng => real().nullable()();
-  TextColumn get createdBy => text().nullable()();
-  TextColumn get assigneeId => text().nullable()();
-  DateTimeColumn get closedAt => dateTime().nullable()();
-  TextColumn get closeNote => text().nullable()();
-  TextColumn get recurrenceId => text().nullable()();
-  DateTimeColumn get createdAt => dateTime()();
-  DateTimeColumn get updatedAt => dateTime()();
-  BoolColumn get pending => boolean().withDefault(const Constant(false))();
-  TextColumn get assetId => text().nullable()();
-  TextColumn get maintenanceType =>
-      text().withDefault(const Constant('corrective'))();
-  BoolColumn get isolationRequired =>
-      boolean().withDefault(const Constant(false))();
+/// Small JSON copies of online-only lists (chats and their latest
+/// messages), so they can be read without signal.
+class CachedJson extends Table {
+  TextColumn get key => text()();
+  TextColumn get json => text()();
+  DateTimeColumn get savedAt => dateTime()();
 
   @override
-  Set<Column> get primaryKey => {id};
+  Set<Column> get primaryKey => {key};
 }
 
 /// The asset register at the user's sites (API.md section 10).
@@ -163,11 +141,11 @@ class PendingUploads extends Table {
     LocalSites,
     LocalAreas,
     Outbox,
-    LocalJobs,
     LocalPeople,
     PendingUploads,
     LocalAssets,
     LocalTools,
+    CachedJson,
   ],
 )
 class LocalDb extends _$LocalDb {
@@ -184,24 +162,24 @@ class LocalDb extends _$LocalDb {
       );
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onUpgrade: (m, from, to) async {
       if (from < 2) {
-        await m.createTable(localJobs);
         await m.createTable(localPeople);
         await m.createTable(pendingUploads);
-      } else if (from < 3) {
-        await m.addColumn(localJobs, localJobs.assetId);
-        await m.addColumn(localJobs, localJobs.maintenanceType);
-        await m.addColumn(localJobs, localJobs.isolationRequired);
       }
       if (from < 3) await m.createTable(localAssets);
       if (from < 4) await m.createTable(localTools);
       if (from >= 3 && from < 5) {
         await m.addColumn(localAssets, localAssets.status);
+      }
+      if (from < 6) {
+        // The retired jobs board's copy (versions 1–5).
+        await customStatement('drop table if exists local_jobs');
+        await m.createTable(cachedJson);
       }
     },
   );
@@ -235,4 +213,15 @@ class LocalDb extends _$LocalDb {
       }
     });
   }
+}
+
+extension JsonCache on LocalDb {
+  Future<void> saveJson(String key, String json) => into(cachedJson)
+      .insertOnConflictUpdate(
+        CachedJsonData(key: key, json: json, savedAt: DateTime.now()),
+      );
+
+  Future<String?> readJson(String key) async => (await (select(
+    cachedJson,
+  )..where((c) => c.key.equals(key))).getSingleOrNull())?.json;
 }
