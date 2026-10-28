@@ -18,6 +18,7 @@ import '../ui/signature_pad.dart';
 import '../ui/charts.dart' show GlassSegmented;
 import '../ui/record_hero.dart';
 import '../ui/surfaces.dart';
+import '../reminders/remind_me_sheet.dart';
 import 'issue_forms_repository.dart';
 import 'tool_certificates.dart';
 import 'tools_repository.dart';
@@ -65,6 +66,18 @@ class _ToolDetailScreenState extends ConsumerState<ToolDetailScreen> {
         leading: const AppBackButton(fallback: '/equipment?side=tools'),
         title: Text(tool?.code ?? 'Tool'),
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
+        actions: [
+          if (tool != null)
+            IconButton(
+              tooltip: 'Remind me',
+              onPressed: () => showRemindMe(
+                context,
+                note: '${tool.code ?? ''} ${tool.name}'.trim(),
+                link: 'tool:${tool.id}',
+              ),
+              icon: const Icon(Icons.alarm_add_rounded),
+            ),
+        ],
       ),
       body: MeshBackground(
         child: tool == null

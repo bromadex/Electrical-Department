@@ -221,6 +221,16 @@ Every row inserted into `notifications` is also sent to the person's phones and 
 - Links: `job:<id>` → `/jobs/<id>`, `chat:<id>` → `/chat/<id>`. Browser notifications open `APP_URL/#/<path>`.
 - App: push stays off until `FirebaseConfig` has the project id and the platform's API key. Users switch alerts on from the Today card or More → Alerts on this device.
 
+## 8b. Personal reminders (migration 0028)
+
+"Remind me at 14:00 about EL-JC-2026-0142." Each person's own reminders.
+
+- Table `reminders`: `user_id, site_id, remind_at, note (1–300), link (a record link such as jobcard:<id>, tool:<id>, doc:<id>), notified_at, is_archived`. Read your own only.
+- `fn_create_reminder(p_client_ref, p_remind_at, p_note, p_link, p_site)`: any active user, for themselves; within a year; a time already passed (queued offline) goes off at the next minute. Repeats with the same `p_client_ref` return the reminder.
+- `fn_cancel_reminder(p_reminder)`: your own, before it goes off.
+- pg_cron `personal-reminders` every minute: `fn_send_due_reminders()` turns due reminders into a `reminder` notification (title "Reminder", body the note, link the record), so they reach the phone as a push.
+- App: Menu → Reminders (`/reminders`: coming up, with ×, and what went off), ➕ New → Reminder, and "Remind me" (alarm icon) on a job card and on a tool. Quick times: in 1 or 3 hours, today 14:00, tomorrow 08:00, Monday 08:00, or any date and time. Setting and cancelling go through the outbox.
+
 ## 9. Users (migration 0004)
 
 For system administrators only: `admin.users` at all sites (site-only admins are refused).
@@ -275,6 +285,7 @@ The paper tool issue form in the app: several tools to one person, who may work 
 - `fn_return_tools(p_form, p_items, p_signatures, p_remarks)`: `tools.issue`. `p_items` is `[{tool_id, condition, note}]`; a note is needed unless good; tools already back are skipped. Part returns are allowed; the form becomes `returned` when the last tool is back. Supervisors hear about damaged or lost tools. `fn_return_tool` on one tool also updates its form.
 - Overdue reminders for someone outside the app go to the store only, with the holder's name.
 - **Repair job cards:** a tool taken back `damaged` or `needs_repair` (on a form or with `fn_return_tool`) gets a job card "Repair T-… name" (source `direct`, P3, minor impact, location "Tool store", reporter the store person), registered by the system on the store's behalf since storekeepers lack `jc.register`. The tool is linked to it (`job_card_tools`) and `tools.repair_job_card_id` points at it; `jc.assess` holders are notified. While that job card is open, another damaged return does not open a second one.
+- **Repaired:** closing a tool's repair job card (status `closed`) sets the tool back to `good` and clears `repair_job_card_id` (trigger `job_cards_tool_repaired`, migration 0028); the store (`tools.issue`) is told "T-… is repaired and back in service". A cancelled repair job card leaves the tool as it is.
 - **Calibration certificates:** table `tool_certificates (tool_id, path, file_name, issued_on, valid_until, uploaded_by, uploaded_at)`, read with `tools.view`. `fn_add_tool_certificate(p_client_ref, p_tool, p_path, p_file_name, p_issued_on, p_valid_until)`: `tools.issue`; the file is uploaded first to `tool-files` under `<site_id>/tool/<tool_id>/`; the newest valid-until becomes the tool's `calibration_due` (an older certificate never shortens it) and calibration reminders start again.
 - Table `job_card_tools (job_card_id, tool_id, linked_by, linked_at)`: the tools a job needs or used. `fn_link_job_card_tool(p_job_card, p_tool, p_linked)`: the job card's team, its registrar, `jc.assign`, `jc.assess` or `tools.issue`, until the job card is closed or cancelled; the tool must be in the job card site's register. Read with `jc.view`.
 - Signatures in `tool-files`: `<site_id>/form/<form_id>/<issue|return-…>-<issuer|recipient|lead>-<id>.png`.

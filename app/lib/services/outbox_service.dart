@@ -41,6 +41,8 @@ class OutboxService {
     'fn_return_tools': false,
     'fn_link_job_card_tool': false,
     'fn_add_tool_certificate': false,
+    'fn_create_reminder': false,
+    'fn_cancel_reminder': false,
     'fn_save_document': false,
     'fn_add_document_version': false,
     'fn_acknowledge_document': false,

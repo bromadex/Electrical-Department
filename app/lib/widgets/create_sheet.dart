@@ -9,6 +9,7 @@ import '../reports/daily_report_screen.dart';
 import '../ui/form_sheet.dart';
 import '../reports/reports_repository.dart';
 import '../services/session_controller.dart';
+import '../reminders/remind_me_sheet.dart';
 import '../theme/tokens.dart';
 import '../ui/motion.dart';
 import '../ui/page.dart';
@@ -111,6 +112,13 @@ class _CreateSheet extends ConsumerWidget {
           colors: const [Color(0xFF5B4B8A), BrandColors.info],
           run: (c) => then(c, (h) => h.go('/chat')),
         ),
+      (
+        icon: CupertinoIcons.alarm_fill,
+        title: 'Reminder',
+        hint: 'Remind me at a time',
+        colors: const [BrandColors.coral, BrandColors.maroon],
+        run: (c) => then(c, (h) => showRemindMe(h)),
+      ),
       if (can('docs.manage'))
         (
           icon: CupertinoIcons.doc_text_fill,

@@ -19,7 +19,8 @@ const _emoji = [
   '🔧', '🔌', '💡', '🛠️', '📷', '📎', '📍', '⏰', '✔️', '❌', //
 ];
 
-/// The message box: + (photo, file, # record), emoji, text with @mentions,
+/// The message box: + (photo, file, a document, # record), emoji, text with
+/// @mentions,
 /// and one round button that is a microphone when the box is empty and
 /// Send when you type. Tapping the microphone records a voice note.
 class ChatComposer extends ConsumerStatefulWidget {
@@ -35,6 +36,7 @@ class ChatComposer extends ConsumerStatefulWidget {
     required this.onPhoto,
     required this.onFile,
     required this.onTag,
+    this.onDocument,
     required this.onVoice,
   });
 
@@ -50,6 +52,9 @@ class ChatComposer extends ConsumerStatefulWidget {
   final VoidCallback onPhoto;
   final VoidCallback onFile;
   final VoidCallback onTag;
+
+  /// Share an SOP or drawing from Documents (null hides the option).
+  final VoidCallback? onDocument;
   final void Function(ChatAttachment voice) onVoice;
 
   @override
@@ -194,6 +199,16 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
                 widget.onFile();
               },
             ),
+            if (widget.onDocument != null)
+              ListTile(
+                leading: const Icon(CupertinoIcons.book),
+                title: const Text('From Documents'),
+                subtitle: const Text('An SOP or drawing from the library'),
+                onTap: () {
+                  Navigator.pop(sheet);
+                  widget.onDocument!();
+                },
+              ),
             ListTile(
               leading: const Icon(CupertinoIcons.number),
               title: const Text('Tag a job card, equipment or tool'),

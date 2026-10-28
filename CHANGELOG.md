@@ -1,5 +1,20 @@
 # What's new
 
+## 28 October 2026
+
+- **Personal reminders** (issue #7): "Remind me" on a job card or a tool
+  (alarm icon), ➕ New → Reminder, or Menu → Reminders. Pick in 1 hour,
+  3 hours, today 14:00, tomorrow 08:00, Monday 08:00 or any time; it comes
+  as a notification that opens the job card or tool. Works offline.
+- **Share from Documents in chat** (issue #23): + → From Documents sends a
+  message that opens the SOP or drawing.
+- **Repairs close the loop**: when a tool's repair job card is closed, the
+  tool is back to Good (in service) and the store is told.
+- The unused `meeting-record` function is removed from Supabase on the next
+  deploy.
+- Issues #4, #5, #6, #8, #9 and #20 closed (done); PR #19 closed (replaced
+  by job cards).
+
 ## 27 October 2026, evening
 
 ### Dark liquid glass is the new look (issue #26)

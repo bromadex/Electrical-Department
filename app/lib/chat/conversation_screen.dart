@@ -11,6 +11,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../data/app_error.dart';
 import '../ui/form_sheet.dart';
 import '../data/site_data.dart';
+import '../documents/documents_repository.dart';
+import '../documents/documents_screen.dart' show DocTile;
 import '../ui/media.dart';
 import '../services/core_providers.dart';
 import '../services/push_service.dart';
@@ -159,6 +161,24 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
           widget.id,
           text: note.isEmpty ? '${hit.code} · ${hit.title}' : note,
           recordLink: hit.link,
+        );
+  }
+
+  /// Shares a document from Documents: a message that opens it.
+  Future<void> _shareDocument() async {
+    final doc = await showFormSheet<Doc>(context, const _DocumentPicker());
+    if (doc == null) return;
+    final note = _text.text.trim();
+    _text.clear();
+    final reply = _replyTo?.id;
+    setState(() => _replyTo = null);
+    await ref
+        .read(chatActionsProvider)
+        .send(
+          widget.id,
+          text: note.isEmpty ? '${doc.code} · ${doc.title}' : note,
+          recordLink: 'doc:${doc.id}',
+          replyTo: reply,
         );
   }
 
@@ -579,6 +599,15 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
               onPhoto: _sendPhoto,
               onFile: _sendFile,
               onTag: _tagRecord,
+              onDocument:
+                  ref
+                      .watch(sessionProvider)
+                      .can(
+                        'docs.view',
+                        siteId: ref.watch(currentSiteProvider)?.id,
+                      )
+                  ? _shareDocument
+                  : null,
               onVoice: _sendVoice,
             ),
           ],
@@ -1136,6 +1165,7 @@ class _Bubble extends StatelessWidget {
                     switch (m.recordLink?.split(':').first) {
                       'asset' => Icons.electrical_services_rounded,
                       'tool' => CupertinoIcons.wrench_fill,
+                      'doc' => CupertinoIcons.book_fill,
                       _ => CupertinoIcons.tag_fill,
                     },
                     size: 18,
@@ -1373,6 +1403,100 @@ class _RecordPickerState extends ConsumerState<_RecordPicker> {
           ),
           const SizedBox(height: Space.md),
         ],
+      ),
+    );
+  }
+}
+
+/// Picks a document from the site's Documents, with search.
+class _DocumentPicker extends ConsumerStatefulWidget {
+  const _DocumentPicker();
+
+  @override
+  ConsumerState<_DocumentPicker> createState() => _DocumentPickerState();
+}
+
+class _DocumentPickerState extends ConsumerState<_DocumentPicker> {
+  final _search = TextEditingController();
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final q = _search.text.trim().toLowerCase();
+    final docs = ref.watch(documentsProvider);
+    return SizedBox(
+      height: MediaQuery.sizeOf(context).height * 0.75,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          Space.lg,
+          Space.sm,
+          Space.lg,
+          Space.lg,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Share a document', style: theme.textTheme.headlineSmall),
+            const SizedBox(height: Space.sm),
+            CupertinoSearchTextField(
+              controller: _search,
+              placeholder: 'Search title or S- code',
+              onChanged: (_) => setState(() {}),
+            ),
+            const SizedBox(height: Space.sm),
+            Expanded(
+              child: docs.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (e, _) => Center(
+                  child: Text(
+                    AppError.from(e).isRetryable
+                        ? 'Documents load when you are online.'
+                        : AppError.from(e).message,
+                  ),
+                ),
+                data: (all) {
+                  final shown = [
+                    for (final d in all)
+                      if (q.isEmpty ||
+                          d.title.toLowerCase().contains(q) ||
+                          d.code.toLowerCase().contains(q) ||
+                          d.category.toLowerCase().contains(q))
+                        d,
+                  ];
+                  if (shown.isEmpty) {
+                    return const Center(
+                      child: EmptyState(
+                        icon: CupertinoIcons.book,
+                        title: 'No documents',
+                        message:
+                            'SOPs and drawings added in Documents show here.',
+                      ),
+                    );
+                  }
+                  return ListView(
+                    children: [
+                      for (final d in shown)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: Space.xs),
+                          child: DocTile(
+                            doc: d,
+                            trailing: const Icon(CupertinoIcons.paperplane),
+                            onTap: () => Navigator.pop(context, d),
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

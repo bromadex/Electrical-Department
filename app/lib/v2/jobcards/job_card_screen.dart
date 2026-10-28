@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../documents/job_documents_panel.dart';
+import '../../reminders/remind_me_sheet.dart';
 import '../../tools/job_tools_panel.dart';
 
 import '../../services/core_providers.dart';
@@ -537,6 +538,15 @@ class _JobCardViewState extends ConsumerState<_JobCardView>
       title: job.number,
       subtitle: job.title,
       actions: [
+        IconButton(
+          tooltip: 'Remind me',
+          onPressed: () => showRemindMe(
+            context,
+            note: '${job.number} · ${job.title}',
+            link: 'jobcard:${job.id}',
+          ),
+          icon: const Icon(Icons.alarm_add_rounded),
+        ),
         IconButton(
           tooltip: 'Refresh',
           onPressed: () => ref.read(jobCardsLiveProvider.notifier).bumpNow(),

@@ -23,6 +23,7 @@ import 'screens/settings_screen.dart';
 import 'screens/notifications_screen.dart';
 import 'reports/daily_report_screen.dart';
 import 'services/core_providers.dart';
+import 'reminders/reminders_screen.dart';
 import 'tools/holders_screen.dart';
 import 'tools/issue_form_detail_screen.dart';
 import 'tools/issue_form_screen.dart';
@@ -148,6 +149,7 @@ GoRouter buildRouter(WidgetRef ref) {
       ),
       GoRoute(path: '/tools/count', builder: (_, _) => const ToolCountScreen()),
       // Tool issue forms: /tools/forms/new?tools=<id>,<id>&job=<job card id>
+      GoRoute(path: '/reminders', builder: (_, _) => const RemindersScreen()),
       GoRoute(
         path: '/tools/holders',
         builder: (_, _) => const ToolHoldersScreen(),

@@ -145,6 +145,13 @@ class MoreScreen extends ConsumerWidget {
               onTap: () => context.push('/equipment'),
             ),
             ShortcutTile(
+              icon: Icons.alarm_rounded,
+              title: 'Reminders',
+              subtitle: 'Remind me at…',
+              colors: const [BrandColors.coral, BrandColors.maroon],
+              onTap: () => context.push('/reminders'),
+            ),
+            ShortcutTile(
               icon: Icons.notifications_none_rounded,
               title: 'Notifications',
               subtitle: unread > 0 ? '$unread unread' : 'All caught up',
