@@ -306,6 +306,15 @@ Per-site documents with versions, read-and-sign acknowledgement, and links to jo
 - `fn_link_document(p_job, p_document, p_linked)`: the job's poster, assignee or a supervisor; same site only.
 - App: More → Library → Documents & SOPs (`/documents`, filters All / To sign / categories), `/documents/<id>` (open, sign, who has signed, versions, edit or new version). Images open in the app; PDFs and drawings open in the phone's or browser's viewer through a one-hour signed link. Jobs show a Documents panel to attach SOPs. Online only for now (no offline file copies yet).
 
+## 12b. Document folders and the library screen (migration 0029)
+
+- Table `document_folders`: `site_id, name (2–60), created_by, is_archived`. Names are unique per site among folders that are not archived. Read with `docs.view`.
+- `documents.folder_id`: the folder a document is in, or null.
+- `fn_save_folder(p_client_ref, p_site, p_name, p_archived)` → the folder: `docs.manage`; creates, renames or archives. `CONFLICT` when the name is taken, `INVALID` for a name under 2 or over 60 characters. Archiving moves the folder's documents out (to no folder); nothing is deleted.
+- `fn_move_documents(p_documents uuid[], p_folder)` → how many moved: `docs.manage`; all documents at one site, and the folder at that site (`INVALID` otherwise); `p_folder` null moves them out of folders.
+- Both are on the outbox allow-list.
+- App (`/documents`): folders with file count, size and how many to sign; a grid or list view remembered on the device (list has Updated, Added by, Size and Signed columns on wide screens); filters All / To sign / Recent (30 days) / Added by me plus the type; coloured file-type badges (PDF, DOC, XLS, PPT, DWG, IMG). Upload takes several files at once, each its own document titled from its file name, with the folder, type and signing chosen once and progress per file. Each document's ⋮ menu: open, download, share in a chat (`doc:<id>`), copy a 7-day signed link for someone without the app (supervisors), move to folder, edit or new version, archive. Supervisors see how many people signed the current version.
+
 ## 13. Checklists and daily report (migration 0008)
 
 - `checklist_templates` (`site_id, area_id, name, description, frequency daily|weekly|monthly, assignee_id`) and `checklist_items` (`position, label, kind check|number|text, unit, min_value, max_value, photo_required`).

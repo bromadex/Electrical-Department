@@ -1,5 +1,26 @@
 # What's new
 
+## 29 October 2026
+
+### Documents, now a proper file library
+- **Folders** per site (supervisors make, rename and archive them). Each
+  shows how many files it holds, their size and how many still need
+  signing. Move a document with ⋮ → Move to folder; archiving a folder
+  moves its documents out and deletes nothing.
+- **File-type badges**: PDF red, Word blue, Excel green, PowerPoint amber,
+  drawings coral, photos pink.
+- **Grid or list**, remembered on each phone or PC. On a wide screen the
+  list has columns: updated, added by, size and signatures.
+- **Filters**: All, To sign, Recent (30 days), Added by me, and the type
+  (SOP, Drawing, Manual, Form, Other).
+- **Upload several files at once**: each becomes its own document named
+  after the file. Choose the folder, type and signing once; every file
+  shows waiting, uploading or done.
+- **Quick actions** on each document (⋮): open, download, share in a chat,
+  copy a 7-day link for a contractor without the app, move, edit or upload
+  a new version, archive.
+- Supervisors see how many people signed each SOP's current version.
+
 ## 28 October 2026
 
 - **Personal reminders** (issue #7): "Remind me" on a job card or a tool

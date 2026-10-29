@@ -2,10 +2,23 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show DownloadBehavior;
 import 'package:uuid/uuid.dart';
 
 import '../services/core_providers.dart';
 import '../services/session_controller.dart';
+
+/// A folder in a site's document library (API.md section 12b).
+class DocFolder {
+  DocFolder.fromJson(Map<String, dynamic> j)
+    : id = j['id'] as String,
+      siteId = j['site_id'] as String,
+      name = j['name'] as String;
+
+  final String id;
+  final String siteId;
+  final String name;
+}
 
 const documentCategories = {
   'sop': 'SOPs',
@@ -48,20 +61,26 @@ class DocVersion {
 
 /// A document with all its versions and whether I have acknowledged it.
 class Doc {
-  Doc.fromJson(Map<String, dynamic> j, Map<String, int> myAcks)
-    : id = j['id'] as String,
-      siteId = j['site_id'] as String,
-      code = j['code'] as String,
-      title = j['title'] as String,
-      category = j['category'] as String,
-      needsAck = j['needs_ack'] as bool,
-      currentVersion = (j['current_version'] as num).toInt(),
-      updatedAt = DateTime.parse(j['updated_at'] as String).toLocal(),
-      versions = [
-        for (final v in (j['document_versions'] as List? ?? const []))
-          DocVersion.fromJson(v as Map<String, dynamic>),
-      ]..sort((a, b) => b.version.compareTo(a.version)),
-      myAckVersion = myAcks[j['id']];
+  Doc.fromJson(
+    Map<String, dynamic> j,
+    Map<String, int> myAcks, [
+    Map<String, int> signed = const {},
+  ]) : id = j['id'] as String,
+       siteId = j['site_id'] as String,
+       code = j['code'] as String,
+       title = j['title'] as String,
+       category = j['category'] as String,
+       needsAck = j['needs_ack'] as bool,
+       folderId = j['folder_id'] as String?,
+       createdBy = j['created_by'] as String?,
+       currentVersion = (j['current_version'] as num).toInt(),
+       updatedAt = DateTime.parse(j['updated_at'] as String).toLocal(),
+       versions = [
+         for (final v in (j['document_versions'] as List? ?? const []))
+           DocVersion.fromJson(v as Map<String, dynamic>),
+       ]..sort((a, b) => b.version.compareTo(a.version)),
+       myAckVersion = myAcks[j['id']],
+       signed = signed[j['id']];
 
   final String id;
   final String siteId;
@@ -69,12 +88,20 @@ class Doc {
   final String title;
   final String category;
   final bool needsAck;
+  final String? folderId;
+  final String? createdBy;
   final int currentVersion;
   final DateTime updatedAt;
   final List<DocVersion> versions;
   final int? myAckVersion;
 
+  /// People who signed the current version; only supervisors see it.
+  final int? signed;
+
   DocVersion? get current => versions.firstOrNull;
+
+  /// The file name of the current version, for its type badge.
+  String get fileName => current?.fileName ?? '';
 
   /// Needs my acknowledgement of the current version.
   bool get toSign =>
@@ -102,7 +129,47 @@ final documentsProvider = FutureProvider<List<Doc>>((ref) async {
     final v = (a['version'] as num).toInt();
     if (v > (mine[id] ?? 0)) mine[id] = v;
   }
-  return [for (final r in rows) Doc.fromJson(r, mine)];
+  // Supervisors see everyone's signatures (RLS); count them on the current
+  // version of each document that needs them.
+  final signed = <String, int>{};
+  if (ref.read(sessionProvider).can('docs.manage', siteId: site)) {
+    final current = {
+      for (final r in rows)
+        if (r['needs_ack'] == true)
+          r['id'] as String: (r['current_version'] as num).toInt(),
+    };
+    if (current.isNotEmpty) {
+      final all = await db
+          .from('document_acks')
+          .select('document_id, version, user_id')
+          .inFilter('document_id', current.keys.toList());
+      final who = <String, Set<String>>{};
+      for (final a in all) {
+        final id = a['document_id'] as String;
+        if ((a['version'] as num).toInt() == current[id]) {
+          (who[id] ??= {}).add(a['user_id'] as String);
+        }
+      }
+      for (final id in current.keys) {
+        signed[id] = who[id]?.length ?? 0;
+      }
+    }
+  }
+  return [for (final r in rows) Doc.fromJson(r, mine, signed)];
+});
+
+/// Folders at the current site, by name (online).
+final foldersProvider = FutureProvider<List<DocFolder>>((ref) async {
+  final site = ref.watch(currentSiteProvider.select((s) => s?.id));
+  if (site == null) return const [];
+  final rows = await ref
+      .watch(supabaseProvider)
+      .from('document_folders')
+      .select('id, site_id, name')
+      .eq('site_id', site)
+      .eq('is_archived', false)
+      .order('name');
+  return [for (final r in rows) DocFolder.fromJson(r)];
 });
 
 final documentProvider = Provider.family<Doc?, String>((ref, id) {
@@ -176,6 +243,8 @@ class DocumentActions {
     bool archived = false,
     ({String name, Uint8List bytes})? file,
     String? note,
+    String? folderId,
+    bool reload = true,
   }) async {
     final id = doc?.id ?? _uuid.v4();
     final outbox = _ref.read(outboxProvider);
@@ -214,9 +283,92 @@ class DocumentActions {
         flushNow: false,
       );
     }
-    await _flushAndReload();
+    if (doc == null && folderId != null) {
+      await outbox.enqueue('fn_move_documents', {
+        'p_documents': [id],
+        'p_folder': folderId,
+      }, flushNow: false);
+    }
+    if (reload) await _flushAndReload();
     return id;
   }
+
+  /// Uploads several files as new documents, one after another, telling
+  /// [onProgress] which file is done. Titles come from the file names.
+  Future<void> uploadMany({
+    required String siteId,
+    required List<({String name, Uint8List bytes})> files,
+    required String category,
+    required bool needsAck,
+    String? folderId,
+    void Function(int index)? onStart,
+    void Function(int index)? onDone,
+  }) async {
+    for (final (i, f) in files.indexed) {
+      onStart?.call(i);
+      await save(
+        siteId: siteId,
+        title: titleFromFileName(f.name),
+        category: category,
+        needsAck: needsAck,
+        file: f,
+        folderId: folderId,
+        reload: false,
+      );
+      // Send each file as it is queued, so the progress is real online.
+      await _ref.read(outboxProvider).flush();
+      onDone?.call(i);
+    }
+    _ref.invalidate(documentsProvider);
+  }
+
+  /// Creates, renames or archives a folder; returns its id.
+  Future<String> saveFolder({
+    DocFolder? folder,
+    required String siteId,
+    required String name,
+    bool archived = false,
+  }) async {
+    final id = folder?.id ?? _uuid.v4();
+    await _ref.read(outboxProvider).enqueue('fn_save_folder', {
+      'p_client_ref': id,
+      'p_site': siteId,
+      'p_name': name.trim(),
+      'p_archived': archived,
+    }, flushNow: false);
+    await _ref.read(outboxProvider).flush();
+    _ref.invalidate(foldersProvider);
+    _ref.invalidate(documentsProvider);
+    return id;
+  }
+
+  /// Moves documents into [folderId], or out of folders with null.
+  Future<void> move(List<String> documentIds, String? folderId) async {
+    await _ref.read(outboxProvider).enqueue('fn_move_documents', {
+      'p_documents': documentIds,
+      'p_folder': folderId,
+    }, flushNow: false);
+    await _flushAndReload();
+  }
+
+  /// A link to the current file that works for 7 days without signing in,
+  /// for someone outside the app (a contractor or the client).
+  Future<String> shareLink(DocVersion v) => _ref
+      .read(supabaseProvider)
+      .storage
+      .from('documents')
+      .createSignedUrl(v.path, 7 * 24 * 3600);
+
+  /// A link that downloads the file instead of opening it.
+  Future<String> downloadLink(DocVersion v) => _ref
+      .read(supabaseProvider)
+      .storage
+      .from('documents')
+      .createSignedUrl(
+        v.path,
+        600,
+        download: DownloadBehavior.named(v.fileName),
+      );
 
   Future<void> acknowledge(Doc doc) async {
     await _ref.read(outboxProvider).enqueue('fn_acknowledge_document', {
@@ -247,6 +399,11 @@ class DocumentActions {
   }
 }
 
+String titleFromFileName(String name) => name
+    .replaceAll(RegExp(r'\.[^.]+$'), '')
+    .replaceAll(RegExp(r'[_]+'), ' ')
+    .trim();
+
 String mimeFor(String name) {
   final ext = name.split('.').last.toLowerCase();
   return switch (ext) {
@@ -260,7 +417,13 @@ String mimeFor(String name) {
     'xls' => 'application/vnd.ms-excel',
     'xlsx' =>
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'ppt' => 'application/vnd.ms-powerpoint',
+    'pptx' => 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
     'dwg' => 'application/acad',
+    'dxf' => 'image/vnd.dxf',
+    'csv' => 'text/csv',
+    'txt' => 'text/plain',
+    'zip' => 'application/zip',
     _ => 'application/octet-stream',
   };
 }
