@@ -67,8 +67,8 @@ select pg_temp.check((select name = 'Crusher motor 1' from public.assets
 select pg_temp.as_owner();
 
 select pg_temp.act_as('90000000-0000-0000-0000-000000000003');
-select pg_temp.check(not exists (select 1 from public.assets where site_id = '90000000-0000-0000-0000-0000000000a1'),
-  'other sites cannot see the register');
+select pg_temp.check(exists (select 1 from public.assets where site_id = '90000000-0000-0000-0000-0000000000a1'),
+  'other sites can see the register (0030)');
 select pg_temp.as_owner();
 
 -- Jobs on an asset.

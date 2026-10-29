@@ -507,7 +507,9 @@ class _JobCardViewState extends ConsumerState<_JobCardView>
       'comments' => CommentsPanel(
         job: job,
         comments: x.comments,
-        canComment: session.can('jc.view', siteId: job.siteId),
+        canComment:
+            session.can('jc.view', siteId: job.siteId) &&
+            session.worksAt(job.siteId),
       ),
       'work' =>
         work == null

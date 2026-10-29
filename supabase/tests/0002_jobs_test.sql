@@ -108,11 +108,11 @@ select pg_temp.fails($$select public.fn_set_job_status((select job1 from t), 'op
 select pg_temp.check((select count(*) from public.fn_job_history((select job1 from t))) >= 6, 'history has the steps');
 reset role;
 
--- Other site cannot see it
+-- Other sites see it too (0030: every site is visible to everyone)
 select pg_temp.act_as('20000000-0000-0000-0000-000000000003');
-select pg_temp.check((select count(*) from public.jobs where id = (select job1 from t)) = 0, 'other site cannot see the job');
-select pg_temp.check((select count(*) from public.fn_job_history((select job1 from t))) = 0, 'other site gets no history');
-select pg_temp.fails($$select public.fn_comment_job(gen_random_uuid(), (select job1 from t), 'hi')$$, 'NOT_FOUND', 'other site cannot comment');
+select pg_temp.check((select count(*) from public.jobs where id = (select job1 from t)) = 1, 'other sites can see the job');
+select pg_temp.check((select count(*) from public.fn_job_history((select job1 from t))) > 0, 'and its history');
+select pg_temp.fails($$select public.fn_comment_job(gen_random_uuid(), (select job1 from t), 'hi')$$, 'NOT_ALLOWED', 'other site cannot comment');
 reset role;
 
 -- Supervisor: urgent alert, assign, cancel

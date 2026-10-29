@@ -210,9 +210,9 @@ select pg_temp.check((select count(*) from public.job_work_records where job_car
 select pg_temp.as_owner();
 select pg_temp.act_as((select elec_sel from t));
 select pg_temp.fails($$select public.fn_add_work_record(null, (select job1 from t), 'diagnosis', 'x', null)$$,
-  'NOT_FOUND', 'another site''s electrician cannot write to this job card');
-select pg_temp.fails($$select public.fn_job_work((select job1 from t))$$, 'NOT_FOUND',
-  'another site''s electrician cannot read its work record');
+  'NOT_ALLOWED', 'another site''s electrician cannot write to this job card');
+select public.fn_job_work((select job1 from t));
+select pg_temp.check(true, 'but can read its work record (0030)');
 select pg_temp.as_owner();
 
 -- ---------------------------------------------------------------------------

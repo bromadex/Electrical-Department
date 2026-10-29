@@ -2,6 +2,15 @@
 
 ## 29 October 2026
 
+### Everyone can see every site
+- The site picker now lists all four sites (Harare, Kamativi, Manhizi,
+  Selous) for everyone. Sites where you have no role are marked
+  **view only**: you see their job cards, tools, store, documents, reports
+  and statistics.
+- Work stays at your own sites: commenting on or working a job card,
+  adding to the daily report, doing checklists and signing SOPs need a
+  role at that site. Alerts still come only from your own sites.
+
 ### Documents, now a proper file library
 - **Folders** per site (supervisors make, rename and archive them). Each
   shows how many files it holds, their size and how many still need

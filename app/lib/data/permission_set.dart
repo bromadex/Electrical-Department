@@ -25,6 +25,13 @@ class PermissionSet {
   bool hasAnyAt(String siteId) =>
       _sites.values.any((s) => s.contains(null) || s.contains(siteId));
 
+  /// True when the user has a role at [siteId] (or at all sites). Every
+  /// site is visible to everyone (migration 0030); work stays at these.
+  /// Before the server sends `site.member`, any grant at the site counts.
+  bool worksAt(String siteId) => _sites.containsKey('site.member')
+      ? can('site.member', siteId: siteId)
+      : hasAnyAt(siteId);
+
   /// True when [code] is granted at all sites.
   bool canEverywhere(String code) => _sites[code]?.contains(null) ?? false;
 

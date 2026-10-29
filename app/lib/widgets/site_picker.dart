@@ -93,6 +93,7 @@ class SitePicker extends ConsumerWidget {
                     code: s.code,
                     name: s.name,
                     areas: session.areasAt(s.id).length,
+                    viewOnly: !session.worksAt(s.id),
                     selected: s.id == current?.id,
                     onTap: () {
                       ref.read(pickedSiteIdProvider.notifier).pick(s.id);
@@ -113,6 +114,7 @@ class _SiteRow extends StatelessWidget {
     required this.code,
     required this.name,
     required this.areas,
+    required this.viewOnly,
     required this.selected,
     required this.onTap,
   });
@@ -120,6 +122,9 @@ class _SiteRow extends StatelessWidget {
   final String code;
   final String name;
   final int areas;
+
+  /// The user can look at this site but has no role there.
+  final bool viewOnly;
   final bool selected;
   final VoidCallback onTap;
 
@@ -154,7 +159,12 @@ class _SiteRow extends StatelessWidget {
             ),
           ),
           title: Text(name, style: theme.textTheme.titleMedium),
-          subtitle: Text(areas == 1 ? '1 area' : '$areas areas'),
+          subtitle: Text(
+            [
+              areas == 1 ? '1 area' : '$areas areas',
+              if (viewOnly) 'view only',
+            ].join(' · '),
+          ),
           trailing: AnimatedScale(
             scale: selected ? 1 : 0,
             duration: Motion.of(context, Motion.medium),

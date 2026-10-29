@@ -39,6 +39,7 @@ class _CreateSheet extends ConsumerWidget {
     final site = ref.watch(currentSiteProvider);
     final at = site?.id;
     bool can(String code) => site != null && session.can(code, siteId: at);
+    final works = session.worksAt(at);
 
     // Close this sheet, then open the next screen or form from the page
     // underneath so it is not stacked on top of the sheet.
@@ -74,7 +75,7 @@ class _CreateSheet extends ConsumerWidget {
           colors: const [Color(0xFF8E2D45), BrandColors.info],
           run: (c) => then(c, (h) => h.go('/jobs?mine=1')),
         ),
-      if (can('jc.view'))
+      if (can('jc.view') && works)
         (
           icon: CupertinoIcons.square_pencil,
           title: 'Today\'s report',
@@ -88,7 +89,7 @@ class _CreateSheet extends ConsumerWidget {
             ),
           ),
         ),
-      if (can('jc.view'))
+      if (can('jc.view') && works)
         (
           icon: CupertinoIcons.checkmark_rectangle_fill,
           title: 'Do a checklist',

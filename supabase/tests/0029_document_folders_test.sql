@@ -79,7 +79,8 @@ select pg_temp.check((select folder_id is null from public.documents where id = 
 select pg_temp.as_owner();
 
 select pg_temp.act_as('f9000000-0000-0000-0000-000000000002');
-select pg_temp.check((select count(*) = 1 from public.document_folders), 'people at the site see its folders only');
+select pg_temp.check((select count(*) = 1 from public.document_folders
+  where site_id = 'f9000000-0000-0000-0000-0000000000a1'), 'people at the site see its folders');
 select pg_temp.fails($$select public.fn_move_documents(array['f9000000-0000-0000-0000-0000000000d2']::uuid[],
   'f9000000-0000-0000-0000-0000000000f1')$$, 'NOT_ALLOWED', 'technicians cannot move documents');
 select pg_temp.as_owner();

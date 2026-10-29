@@ -66,6 +66,7 @@ class _DailyReportScreenState extends ConsumerState<DailyReportScreen> {
       ),
       floatingActionButton:
           _range == _Range.day &&
+              ref.watch(sessionProvider).worksAt(site?.id) &&
               day.value != null &&
               !day.value!.report.approved
           ? FloatingActionButton.extended(

@@ -65,6 +65,7 @@ class Doc {
     Map<String, dynamic> j,
     Map<String, int> myAcks, [
     Map<String, int> signed = const {},
+    this.member = true,
   ]) : id = j['id'] as String,
        siteId = j['site_id'] as String,
        code = j['code'] as String,
@@ -95,6 +96,9 @@ class Doc {
   final List<DocVersion> versions;
   final int? myAckVersion;
 
+  /// The user works at the document's site; other sites are view only.
+  final bool member;
+
   /// People who signed the current version; only supervisors see it.
   final int? signed;
 
@@ -105,7 +109,10 @@ class Doc {
 
   /// Needs my acknowledgement of the current version.
   bool get toSign =>
-      needsAck && currentVersion > 0 && myAckVersion != currentVersion;
+      member &&
+      needsAck &&
+      currentVersion > 0 &&
+      myAckVersion != currentVersion;
 }
 
 /// Documents at the current site (online: files need a connection anyway).
@@ -155,7 +162,8 @@ final documentsProvider = FutureProvider<List<Doc>>((ref) async {
       }
     }
   }
-  return [for (final r in rows) Doc.fromJson(r, mine, signed)];
+  final member = ref.read(sessionProvider).worksAt(site);
+  return [for (final r in rows) Doc.fromJson(r, mine, signed, member)];
 });
 
 /// Folders at the current site, by name (online).

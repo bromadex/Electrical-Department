@@ -106,7 +106,8 @@ select pg_temp.fails($$select public.fn_issue_tool('f6000000-0000-0000-0000-0000
 select pg_temp.as_owner();
 
 select pg_temp.act_as('f6000000-0000-0000-0000-000000000002');
-select pg_temp.check((select count(*) = 1 from public.tool_issue_forms), 'people at the site see the form');
+select pg_temp.check((select count(*) = 1 from public.tool_issue_forms
+  where site_id = 'f6000000-0000-0000-0000-0000000000a1'), 'people at the site see the form');
 select pg_temp.as_owner();
 
 -- Part return, then the rest.

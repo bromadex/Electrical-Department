@@ -37,10 +37,16 @@ class SessionState {
 
   bool can(String code, {String? siteId}) => perms.can(code, siteId: siteId);
 
-  /// Unarchived sites where the user holds at least one permission.
+  /// Has a role at the site; other sites are view only.
+  bool worksAt(String? siteId) => siteId != null && perms.worksAt(siteId);
+
+  /// Unarchived sites the user can open: the ones they work at first,
+  /// then the ones they can only view.
   List<LocalSite> get mySites => [
     for (final s in sites)
-      if (!s.isArchived && perms.hasAnyAt(s.id)) s,
+      if (!s.isArchived && perms.worksAt(s.id)) s,
+    for (final s in sites)
+      if (!s.isArchived && !perms.worksAt(s.id) && perms.hasAnyAt(s.id)) s,
   ];
 
   LocalSite? siteById(String? id) {

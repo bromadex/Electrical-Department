@@ -24,6 +24,27 @@ void main() {
     expect(perms.can('jobs.assign'), isFalse);
   });
 
+  test('views at every site, work only where you have a role', () {
+    final p = PermissionSet([
+      (code: 'docs.view', siteId: null),
+      (code: 'jc.execute', siteId: 'kam'),
+      (code: 'site.member', siteId: 'kam'),
+    ]);
+    expect(p.can('docs.view', siteId: 'hre'), isTrue);
+    expect(p.hasAnyAt('hre'), isTrue);
+    expect(p.worksAt('kam'), isTrue);
+    expect(p.worksAt('hre'), isFalse);
+  });
+
+  test('before the server sends site.member, any grant at a site counts', () {
+    expect(perms.worksAt('kam'), isTrue);
+    expect(perms.worksAt('xyz'), isTrue); // stats.view at all sites
+    expect(
+      PermissionSet([(code: 'jobs.view', siteId: 'kam')]).worksAt('sel'),
+      isFalse,
+    );
+  });
+
   test('empty set grants nothing', () {
     expect(PermissionSet.empty().can('jobs.view'), isFalse);
     expect(PermissionSet.empty().isEmpty, isTrue);

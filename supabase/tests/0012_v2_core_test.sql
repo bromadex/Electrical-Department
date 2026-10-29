@@ -363,10 +363,10 @@ select pg_temp.check(not exists (select 1 from public.notifications where user_i
 -- Permissions and administration (Test 10)
 -- ---------------------------------------------------------------------------
 select pg_temp.act_as((select elec_sel from t));
-select pg_temp.fails($$select public.fn_dashboard((select kam from t), null, null)$$,
-  'NOT_ALLOWED', 'the dashboard is limited to the caller''s sites');
-select pg_temp.check((select count(*) from public.job_cards where site_id = (select kam from t)) = 0,
-  'job cards at other sites are hidden');
+select public.fn_dashboard((select kam from t), null, null);
+select pg_temp.check(true, 'the dashboard of another site is visible (0030)');
+select pg_temp.check((select count(*) from public.job_cards where site_id = (select kam from t)) > 0,
+  'and its job cards');
 reset role;
 
 select pg_temp.act_as((select elec from t));
