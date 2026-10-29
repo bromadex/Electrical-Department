@@ -134,7 +134,8 @@ Push edge function `push-send` (week 2, Tafara) sends FCM for every new notifica
 - `permissions.every_site`: a permission marked so counts at every site for anyone who holds it at one site. Set for `jc.view, jobs.view, tools.view, docs.view, store.view, assets.view, reports.view, stats.view`. To wall a kind of record off again, set it back to false.
 - `_can` follows it; `my_permissions()` returns those codes with `site_id` null, plus `site.member` rows for the sites the user has a role at (null = all).
 - `_works_at(site)`: the user has a role at the site. Work stays there: job card writes (`_jc_for_write`, also open to the requester and the people on the job), old jobs (`_job_for_write`), daily report updates and SOP signatures raise `NOT_ALLOWED` at other sites. Every other write already needs a working permission at the site.
-- Notifications, "who must sign" lists and `_user_can` still use roles at the site, so nobody is alerted about other sites.
+- Notifications, "who must sign" lists and `_user_can` still use roles at the site.
+- Migration 0031 (`_roles_to_all_sites()`): the department is one team, so every existing site-only role became the same role at all sites (site-only rows archived; visible in the activity log). Since then everyone works at every site, gets every site's alerts and is in every site's group chat. New roles default to All sites in Admin → Users; picking one site still limits a role to it.
 - App: the site picker lists every site, the ones you work at first, the rest marked "view only"; `SessionState.worksAt(site)` hides comment boxes, daily report updates, checklists and SOP signing at view-only sites.
 
 ## 3. Foundation functions

@@ -2,6 +2,14 @@
 
 ## 29 October 2026
 
+### One team: everyone works at every site
+- Everyone's roles now apply at **all sites**: a Harare technician can
+  comment on and work Kamativi job cards, do its checklists, add to its
+  daily report and sign its SOPs, as people at Kamativi do.
+- Alerts follow: supervisors hear about critical and overdue job cards at
+  every site, and everyone is in every site's group chat.
+- Admin → Users still lets you limit a role to one site if needed.
+
 ### Everyone can see every site
 - The site picker now lists all four sites (Harare, Kamativi, Manhizi,
   Selous) for everyone. Sites where you have no role are marked
