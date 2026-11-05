@@ -1,5 +1,19 @@
 # What's new
 
+## 5 November 2026
+
+### Electrical store (first half of issue #12)
+- **Menu → Store**: every store item at the site with its I- code, bin and
+  stock on hand. Search by name, code or bin; filter by low stock or by
+  type (cable, breakers, lugs, glands, lamps, fittings, consumables).
+  Stock shows red when empty and amber when below its minimum.
+- The storekeeper adds items (unit, category, bin, "alert below" level),
+  **receives** deliveries and **issues** stock to a job card or a person.
+  Every movement is kept with who, when and the balance after.
+- Stock can never go below zero, and the store and supervisors are
+  alerted when an item falls under its minimum.
+- Next: returns, adjustments, stock counts and issuing to projects.
+
 ## 29 October 2026
 
 ### One team: everyone works at every site
