@@ -47,6 +47,7 @@ String? notificationPath(String? link) {
     'toolform' => '/tools/forms/$id',
     'asset' => '/assets/$id',
     'doc' => '/documents/$id',
+    'item' => '/store/$id',
     'checklist' => '/checklists/$id',
     'request' => '/requests',
     _ => null,

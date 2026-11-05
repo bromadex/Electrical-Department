@@ -1,3 +1,5 @@
+import 'store/store_screen.dart';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -84,7 +86,11 @@ GoRouter buildRouter(WidgetRef ref) {
       // Old tab addresses, kept for bookmarks.
       GoRoute(path: '/today', redirect: (_, _) => '/home'),
       GoRoute(path: '/board', redirect: (_, _) => '/jobs'),
-      GoRoute(path: '/store', redirect: (_, _) => '/equipment?side=tools'),
+      GoRoute(path: '/store', builder: (_, _) => const StoreScreen()),
+      GoRoute(
+        path: '/store/:id',
+        builder: (_, s) => StoreItemScreen(id: s.pathParameters['id']!),
+      ),
       GoRoute(path: '/more', redirect: (_, _) => '/menu'),
       GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
       GoRoute(
