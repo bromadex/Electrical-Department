@@ -335,18 +335,21 @@ Per-site documents with versions, read-and-sign acknowledgement, and links to jo
 - Daily report: `daily_reports` (`site_id, report_date, code R-, summary jsonb, status open|approved, supervisor_comment`) and `report_updates` (`body, photo_paths`). `fn_build_daily_report(p_site, p_date)` (also nightly 19:10 for every site) sums up jobs opened/closed, checklists done/missed and tools; `fn_add_report_update(p_client_ref, p_site, p_date, p_body, p_photo_paths)`; `fn_approve_report(p_report, p_comment)` (`reports.approve`). Photos go to `job-photos` under `<site_id>/checklist/...` and `<site_id>/report/...`.
 - App: More → Library → Checklists (`/checklists`): status per round (done, failed, due today), supervisors build templates; `/checklists/<id>` runs a round offline (templates cached on the device). The daily report screen and PDF export are next.
 
-## 13b. Electrical store, stock basics (migration 0032, issue #12 part 1)
+## 13b. Electrical store (migrations 0032 and 0033, issue #12)
 
 - Table `store_items`: `site_id, code (I-0001), name, unit, category (cable | breakers | lugs | glands | lamps | fittings | consumables | other), bin, min_level, on_hand`. One live item per site, name and unit. `on_hand` never goes below 0 and changes only through the functions below. Read with `store.view`.
-- Table `stock_moves`: `id (the client ref), item_id, site_id, kind (receive | issue), qty (signed: + in, - out), balance_after, job_card_id, to_user, to_name, note, created_by, created_at`. `on_hand` always equals the sum of an item's moves. Read with `store.view`.
+- Table `stock_moves`: `id (the client ref), item_id, site_id, kind (receive | issue | return | adjust | count), qty (signed: + in, - out), balance_after, job_card_id, to_user, to_name (for a return: who brought it back), note (for an adjustment: the reason), count_id, created_by, created_at`. `on_hand` always equals the sum of an item's moves. Read with `store.view`.
 - `fn_save_item(p_client_ref, p_site, p_name, p_unit, p_category, p_bin, p_min_level, p_archived)`: `store.adjust`; new items get the next I- code; `CONFLICT` for the same name and unit.
 - `fn_receive_stock(p_client_ref, p_item, p_qty, p_note)`: `store.receive`; qty above 0.
 - `fn_issue_stock(p_client_ref, p_item, p_qty, p_job_card, p_to, p_to_name, p_note)`: `store.issue`; to a job card at the item's site, an app user or a named person; `INVALID: Only N unit of … in stock` rather than going negative.
-- Repeats with the same `p_client_ref` return the first move. The item row is locked for each move.
-- Low stock: when a move takes an item from at or above its `min_level` to below it, `store.issue` and `mr.approve` holders get a `low_stock` notification (`item:<id>`).
-- All three are on the outbox allow-list.
-- App: Menu → **Store** (`/store`: search by name, I- code or bin; All · Low stock · categories; stock in red when empty, amber when low), `/store/<id>` (stock on hand, **Issue** to a job card or a person, **Receive**, every movement with who and when; edit or archive the item). Online to view; moves and item edits queue offline.
-- Still to come (part 2): returns, adjustments with a reason, stock counts, and issuing to projects (issue #14).
+- `fn_return_stock(p_client_ref, p_item, p_qty, p_job_card, p_from, p_from_name, p_note)`: `store.receive`; unused stock coming back from a job card at the item's site, an app user or a named person.
+- `fn_adjust_stock(p_client_ref, p_item, p_delta, p_reason)`: `store.adjust`; a signed correction with a reason of 3 to 300 characters; never below 0.
+- `fn_submit_count(p_client_ref, p_site, p_lines, p_note)` → the count: `store.adjust`; `p_lines` is `[{item_id, counted}]` for items at the site. Tables `stock_counts (id, site_id, note, items, differences, created_by, created_at)` and `stock_count_lines (count_id, item_id, expected, counted)` keep every count; each item that differs gets a `count` move to the counted amount, linked by `count_id`. Read with `store.view`.
+- Repeats with the same `p_client_ref` return the first move or count. The item row is locked for each move.
+- Low stock: when any move (an issue, an adjustment or a count) takes an item from at or above its `min_level` to below it, `store.issue` and `mr.approve` holders get a `low_stock` notification (`item:<id>`).
+- All six are on the outbox allow-list.
+- App: Menu → **Store** (`/store`: search by name, I- code or bin; All · Low stock · categories; stock in red when empty, amber when low), `/store/<id>` (stock on hand, **Issue** to a job card or a person, **Receive**, **Take back**, **Adjust** with a reason, every movement with who and when; edit or archive the item), **Count stock** (`/store/count`, the # icon: items sorted by bin, type what is on the shelf, differences shown as you go; only the items counted are sent). The stock list is saved on the device each time it loads; without signal (or after 8 s of weak signal) the saved copy shows with when it was saved. Moves, counts and item edits queue offline.
+- Issuing to projects waits for projects (issue #14).
 
 ## 14. Safety check, escalation, audit log (migration 0009)
 

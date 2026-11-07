@@ -1,3 +1,4 @@
+import 'store/store_count_screen.dart';
 import 'store/store_screen.dart';
 
 import 'package:flutter/cupertino.dart';
@@ -87,6 +88,10 @@ GoRouter buildRouter(WidgetRef ref) {
       GoRoute(path: '/today', redirect: (_, _) => '/home'),
       GoRoute(path: '/board', redirect: (_, _) => '/jobs'),
       GoRoute(path: '/store', builder: (_, _) => const StoreScreen()),
+      GoRoute(
+        path: '/store/count',
+        builder: (_, _) => const StoreCountScreen(),
+      ),
       GoRoute(
         path: '/store/:id',
         builder: (_, s) => StoreItemScreen(id: s.pathParameters['id']!),

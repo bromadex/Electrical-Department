@@ -1,8 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../services/core_providers.dart';
 import '../services/session_controller.dart';
+import '../theme/theme_mode.dart';
 
 /// The electrical store, stock basics (API.md section 13b): items with I-
 /// codes and stock on hand, moved only by receiving and issuing.
@@ -31,9 +34,10 @@ const storeUnits = [
 
 double _num(Object? v) => (v as num?)?.toDouble() ?? 0;
 
-/// 12.5 → "12.5", 12.0 → "12".
-String qtyText(double q) =>
-    q == q.roundToDouble() ? q.toInt().toString() : q.toStringAsFixed(2);
+/// 12.5 → "12.5", 12.0 → "12", 0.25 → "0.25".
+String qtyText(double q) => q == q.roundToDouble()
+    ? q.toInt().toString()
+    : q.toStringAsFixed(2).replaceFirst(RegExp(r'0+$'), '');
 
 class StoreItem {
   StoreItem.fromJson(Map<String, dynamic> j)
@@ -59,7 +63,74 @@ class StoreItem {
 
   bool get low => minLevel > 0 && onHand < minLevel;
   bool get empty => onHand <= 0;
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'site_id': siteId,
+    'code': code,
+    'name': name,
+    'unit': unit,
+    'category': category,
+    'bin': bin,
+    'min_level': minLevel,
+    'on_hand': onHand,
+  };
 }
+
+/// The stock list, and when it was saved on this device if it is the copy
+/// shown without signal.
+class StoreStock {
+  const StoreStock(this.items, {this.savedAt});
+
+  final List<StoreItem> items;
+  final DateTime? savedAt;
+
+  bool get offline => savedAt != null;
+}
+
+/// The saved copy of a site's stock list, as JSON.
+String encodeStock(List<StoreItem> items, DateTime at) => jsonEncode({
+  'at': at.toUtc().toIso8601String(),
+  'items': [for (final i in items) i.toJson()],
+});
+
+StoreStock? decodeStock(String? raw) {
+  if (raw == null) return null;
+  try {
+    final j = jsonDecode(raw) as Map<String, dynamic>;
+    return StoreStock([
+      for (final i in j['items'] as List)
+        StoreItem.fromJson(Map<String, dynamic>.from(i as Map)),
+    ], savedAt: DateTime.parse(j['at'] as String).toLocal());
+  } catch (_) {
+    return null;
+  }
+}
+
+/// How a movement reads: "+120 m received", "−20 m to J-0012",
+/// "+6 m back from Tinashe", "−2 m adjusted", "−5 m on count".
+String moveTitle(StockMove m, String unit, String? who) {
+  final q = '${m.qty > 0 ? '+' : '−'}${qtyText(m.qty.abs())} $unit';
+  return switch (m.kind) {
+    'receive' => '$q received',
+    'issue' => '$q to ${who ?? 'someone'}',
+    'return' => '$q back${who == null ? '' : ' from $who'}',
+    'adjust' => '$q adjusted',
+    'count' => '$q on count',
+    _ => q,
+  };
+}
+
+/// Stock count differences: how far each counted item is from stock on
+/// hand (counted minus on hand), only for items that differ.
+Map<String, double> countDifferences(
+  List<StoreItem> items,
+  Map<String, double> counted,
+) => {
+  for (final i in items)
+    if (counted[i.id] case final double c when c != i.onHand)
+      i.id: c - i.onHand,
+};
 
 class StockMove {
   StockMove.fromJson(Map<String, dynamic> j)
@@ -88,29 +159,59 @@ class StockMove {
   final DateTime createdAt;
 }
 
-/// The current site's items, by name (online).
-final storeItemsProvider = FutureProvider<List<StoreItem>>((ref) async {
+String _cacheKey(String site) => 'store_stock_$site';
+
+/// The current site's items, by name. Online it saves a copy on the device;
+/// without signal it shows that copy.
+final storeItemsProvider = FutureProvider<StoreStock>((ref) async {
   final site = ref.watch(currentSiteProvider.select((s) => s?.id));
-  if (site == null) return const [];
-  final rows = await ref
-      .watch(supabaseProvider)
-      .from('store_items')
-      .select()
-      .eq('site_id', site)
-      .eq('is_archived', false)
-      .order('name');
-  return [for (final r in rows) StoreItem.fromJson(r)];
+  if (site == null) return const StoreStock([]);
+  try {
+    final rows = await ref
+        .watch(supabaseProvider)
+        .from('store_items')
+        .select()
+        .eq('site_id', site)
+        .eq('is_archived', false)
+        .order('name')
+        // Weak signal retries for a long time; show the saved copy instead.
+        .timeout(const Duration(seconds: 8));
+    final items = [for (final r in rows) StoreItem.fromJson(r)];
+    try {
+      await ref
+          .read(sharedPrefsProvider)
+          .setString(_cacheKey(site), encodeStock(items, DateTime.now()));
+    } catch (_) {}
+    return StoreStock(items);
+  } catch (e) {
+    StoreStock? saved;
+    try {
+      saved = decodeStock(
+        ref.read(sharedPrefsProvider).getString(_cacheKey(site)),
+      );
+    } catch (_) {}
+    if (saved == null) rethrow;
+    return saved;
+  }
 });
 
 final storeItemProvider = FutureProvider.autoDispose.family<StoreItem?, String>(
   (ref, id) async {
-    final row = await ref
-        .watch(supabaseProvider)
-        .from('store_items')
-        .select()
-        .eq('id', id)
-        .maybeSingle();
-    return row == null ? null : StoreItem.fromJson(row);
+    try {
+      final row = await ref
+          .watch(supabaseProvider)
+          .from('store_items')
+          .select()
+          .eq('id', id)
+          .maybeSingle();
+      return row == null ? null : StoreItem.fromJson(row);
+    } catch (_) {
+      // Without signal, the saved stock list.
+      final stock = await ref.read(storeItemsProvider.future);
+      final hit = stock.items.where((i) => i.id == id).firstOrNull;
+      if (hit == null) rethrow;
+      return hit;
+    }
   },
 );
 
@@ -226,5 +327,56 @@ class StoreActions {
       'p_note': note?.trim(),
     }, id);
     _ref.invalidate(storeItemProvider(item.id));
+  }
+
+  /// Unused stock coming back from a job card or a person.
+  Future<void> giveBack(
+    StoreItem item,
+    double qty, {
+    String? jobCardId,
+    String? fromUser,
+    String? fromName,
+    String? note,
+  }) async {
+    final id = _uuid.v4();
+    await _send('fn_return_stock', {
+      'p_client_ref': id,
+      'p_item': item.id,
+      'p_qty': qty,
+      'p_job_card': jobCardId,
+      'p_from': fromUser,
+      'p_from_name': fromName?.trim(),
+      'p_note': note?.trim(),
+    }, id);
+    _ref.invalidate(storeItemProvider(item.id));
+  }
+
+  /// Corrects stock by [delta] (negative takes it off), with the reason.
+  Future<void> adjust(StoreItem item, double delta, String reason) async {
+    final id = _uuid.v4();
+    await _send('fn_adjust_stock', {
+      'p_client_ref': id,
+      'p_item': item.id,
+      'p_delta': delta,
+      'p_reason': reason.trim(),
+    }, id);
+    _ref.invalidate(storeItemProvider(item.id));
+  }
+
+  /// Records a count: what is on the shelf for each counted item.
+  Future<void> submitCount(
+    String siteId,
+    Map<String, double> counted, {
+    String? note,
+  }) async {
+    final id = _uuid.v4();
+    await _send('fn_submit_count', {
+      'p_client_ref': id,
+      'p_site': siteId,
+      'p_lines': [
+        for (final e in counted.entries) {'item_id': e.key, 'counted': e.value},
+      ],
+      'p_note': note?.trim(),
+    }, id);
   }
 }

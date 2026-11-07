@@ -54,6 +54,14 @@ class _StoreScreenState extends ConsumerState<StoreScreen> {
         leading: const AppBackButton(),
         title: Text('Store · ${site?.code ?? ''}'),
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
+        actions: [
+          if (canAdd)
+            IconButton(
+              tooltip: 'Count stock',
+              icon: const Icon(CupertinoIcons.number_square),
+              onPressed: () => context.push('/store/count'),
+            ),
+        ],
       ),
       floatingActionButton: canAdd
           ? FloatingActionButton.extended(
@@ -129,7 +137,8 @@ class _StoreScreenState extends ConsumerState<StoreScreen> {
                                 : AppError.from(e).message,
                           ),
                         ],
-                        data: (list) {
+                        data: (stock) {
+                          final list = stock.items;
                           final q = _query.trim().toLowerCase();
                           final low = list.where((i) => i.low).length;
                           final shown = [
@@ -145,6 +154,31 @@ class _StoreScreenState extends ConsumerState<StoreScreen> {
                                 i,
                           ];
                           return [
+                            if (stock.offline)
+                              Padding(
+                                padding: const EdgeInsets.only(
+                                  bottom: Space.sm,
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      CupertinoIcons.wifi_slash,
+                                      size: 16,
+                                      color: Colors.orange,
+                                    ),
+                                    const SizedBox(width: Space.xs),
+                                    Expanded(
+                                      child: Text(
+                                        'No signal: stock as saved '
+                                        '${MaterialLocalizations.of(context).formatShortMonthDay(stock.savedAt!)} '
+                                        '${TimeOfDay.fromDateTime(stock.savedAt!).format(context)}',
+                                        style: theme.textTheme.labelMedium
+                                            ?.copyWith(color: Colors.orange),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             if (list.isNotEmpty)
                               Padding(
                                 padding: const EdgeInsets.only(
@@ -405,12 +439,49 @@ class StoreItemScreen extends ConsumerWidget {
                                         OutlinedButton.icon(
                                           onPressed: () => showFormSheet<void>(
                                             context,
-                                            StockSheet(item: i, receive: true),
+                                            StockSheet(
+                                              item: i,
+                                              action: StockAction.receive,
+                                            ),
                                           ),
                                           icon: const Icon(
                                             CupertinoIcons.arrow_down_left,
                                           ),
                                           label: const Text('Receive'),
+                                        ),
+                                      if (session.can(
+                                        'store.receive',
+                                        siteId: i.siteId,
+                                      ))
+                                        OutlinedButton.icon(
+                                          onPressed: () => showFormSheet<void>(
+                                            context,
+                                            StockSheet(
+                                              item: i,
+                                              action: StockAction.giveBack,
+                                            ),
+                                          ),
+                                          icon: const Icon(
+                                            CupertinoIcons.arrow_uturn_left,
+                                          ),
+                                          label: const Text('Take back'),
+                                        ),
+                                      if (session.can(
+                                        'store.adjust',
+                                        siteId: i.siteId,
+                                      ))
+                                        OutlinedButton.icon(
+                                          onPressed: () => showFormSheet<void>(
+                                            context,
+                                            StockSheet(
+                                              item: i,
+                                              action: StockAction.adjust,
+                                            ),
+                                          ),
+                                          icon: const Icon(
+                                            CupertinoIcons.slider_horizontal_3,
+                                          ),
+                                          label: const Text('Adjust'),
                                         ),
                                     ],
                                   ),
@@ -426,7 +497,7 @@ class StoreItemScreen extends ConsumerWidget {
                                 error: (e, _) => Text(AppError.from(e).message),
                                 data: (list) => list.isEmpty
                                     ? Text(
-                                        'Nothing received or issued yet.',
+                                        'No stock has moved yet.',
                                         style: theme.textTheme.labelMedium,
                                       )
                                     : Column(
@@ -441,19 +512,35 @@ class StoreItemScreen extends ConsumerWidget {
                                                       '/jobs/${m.jobCardNumber}',
                                                     ),
                                               leading: Icon(
-                                                m.qty > 0
-                                                    ? CupertinoIcons
-                                                          .arrow_down_left
-                                                    : CupertinoIcons
-                                                          .arrow_up_right,
+                                                switch (m.kind) {
+                                                  'receive' =>
+                                                    CupertinoIcons
+                                                        .arrow_down_left,
+                                                  'issue' =>
+                                                    CupertinoIcons
+                                                        .arrow_up_right,
+                                                  'return' =>
+                                                    CupertinoIcons
+                                                        .arrow_uturn_left,
+                                                  'count' =>
+                                                    CupertinoIcons
+                                                        .number_square,
+                                                  _ =>
+                                                    CupertinoIcons
+                                                        .slider_horizontal_3,
+                                                },
                                                 color: m.qty > 0
                                                     ? BrandColors.success
                                                     : theme.colorScheme.primary,
                                               ),
                                               title: Text(
-                                                '${m.qty > 0 ? '+' : '−'}'
-                                                '${qtyText(m.qty.abs())} ${i.unit}'
-                                                '${m.qty > 0 ? ' received' : ' to ${m.jobCardNumber ?? people[m.toUser] ?? m.toName ?? 'someone'}'}',
+                                                moveTitle(
+                                                  m,
+                                                  i.unit,
+                                                  m.jobCardNumber ??
+                                                      people[m.toUser] ??
+                                                      m.toName,
+                                                ),
                                               ),
                                               subtitle: Text(
                                                 [
@@ -487,12 +574,19 @@ class StoreItemScreen extends ConsumerWidget {
   }
 }
 
-/// Receive stock into an item, or issue it to a job card or a person.
+enum StockAction { issue, receive, giveBack, adjust }
+
+/// Receive stock, issue it to a job card or a person, take unused stock
+/// back, or correct it with a reason.
 class StockSheet extends ConsumerStatefulWidget {
-  const StockSheet({super.key, required this.item, this.receive = false});
+  const StockSheet({
+    super.key,
+    required this.item,
+    this.action = StockAction.issue,
+  });
 
   final StoreItem item;
-  final bool receive;
+  final StockAction action;
 
   @override
   ConsumerState<StockSheet> createState() => _StockSheetState();
@@ -505,8 +599,15 @@ class _StockSheetState extends ConsumerState<StockSheet> {
   String? _jobCard;
   String? _person;
   bool _toJob = true;
+  bool _add = false;
   String? _error;
   bool _busy = false;
+
+  StockAction get _action => widget.action;
+
+  /// Issue and give-back name a job card or a person.
+  bool get _withWho =>
+      _action == StockAction.issue || _action == StockAction.giveBack;
 
   @override
   void dispose() {
@@ -523,35 +624,56 @@ class _StockSheetState extends ConsumerState<StockSheet> {
       setState(() => _error = 'Enter how much');
       return;
     }
-    if (!widget.receive) {
-      if (qty > i.onHand) {
-        setState(() => _error = 'Only ${qtyText(i.onHand)} ${i.unit} in stock');
-        return;
-      }
-      if (_toJob ? _jobCard == null : _person == null && _name.text.isEmpty) {
-        setState(
-          () => _error = _toJob
-              ? 'Pick the job card'
-              : 'Pick the person or type a name',
-        );
-        return;
-      }
+    final takesOff =
+        _action == StockAction.issue ||
+        (_action == StockAction.adjust && !_add);
+    if (takesOff && qty > i.onHand) {
+      setState(() => _error = 'Only ${qtyText(i.onHand)} ${i.unit} in stock');
+      return;
+    }
+    if (_withWho &&
+        (_toJob ? _jobCard == null : _person == null && _name.text.isEmpty)) {
+      setState(
+        () => _error = _toJob
+            ? 'Pick the job card'
+            : 'Pick the person or type a name',
+      );
+      return;
+    }
+    if (_action == StockAction.adjust && _note.text.trim().length < 3) {
+      setState(() => _error = 'Say why stock changes');
+      return;
     }
     setState(() => _busy = true);
     HapticFeedback.mediumImpact();
     try {
       final actions = ref.read(storeActionsProvider);
-      if (widget.receive) {
-        await actions.receive(i, qty, note: _note.text);
-      } else {
-        await actions.issue(
-          i,
-          qty,
-          jobCardId: _toJob ? _jobCard : null,
-          toUser: _toJob ? null : _person,
-          toName: _toJob || _person != null ? null : _name.text,
-          note: _note.text,
-        );
+      final job = _toJob ? _jobCard : null;
+      final user = _toJob ? null : _person;
+      final name = _toJob || _person != null ? null : _name.text;
+      switch (_action) {
+        case StockAction.receive:
+          await actions.receive(i, qty, note: _note.text);
+        case StockAction.issue:
+          await actions.issue(
+            i,
+            qty,
+            jobCardId: job,
+            toUser: user,
+            toName: name,
+            note: _note.text,
+          );
+        case StockAction.giveBack:
+          await actions.giveBack(
+            i,
+            qty,
+            jobCardId: job,
+            fromUser: user,
+            fromName: name,
+            note: _note.text,
+          );
+        case StockAction.adjust:
+          await actions.adjust(i, _add ? qty : -qty, _note.text);
       }
       if (mounted) Navigator.pop(context);
     } catch (e) {
@@ -566,12 +688,19 @@ class _StockSheetState extends ConsumerState<StockSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final i = widget.item;
-    final jobs = widget.receive
-        ? null
-        : ref.watch(openJobCardsProvider).value ?? const [];
+    final jobs = _withWho
+        ? ref.watch(openJobCardsProvider).value ?? const []
+        : const <({String id, String number, String title})>[];
     final people = ref.watch(peopleProvider).value ?? const {};
     final names = people.entries.toList()
       ..sort((a, b) => a.value.compareTo(b.value));
+    final back = _action == StockAction.giveBack;
+    final (title, button) = switch (_action) {
+      StockAction.receive => ('Receive stock', 'Receive'),
+      StockAction.issue => ('Issue stock', 'Issue'),
+      StockAction.giveBack => ('Take stock back', 'Take back'),
+      StockAction.adjust => ('Adjust stock', 'Adjust'),
+    };
     return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(
         Space.lg,
@@ -583,14 +712,22 @@ class _StockSheetState extends ConsumerState<StockSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            widget.receive ? 'Receive stock' : 'Issue stock',
-            style: theme.textTheme.headlineSmall,
-          ),
+          Text(title, style: theme.textTheme.headlineSmall),
           Text(
             '${i.code} ${i.name} · ${qtyText(i.onHand)} ${i.unit} in stock',
             style: theme.textTheme.bodySmall,
           ),
+          if (_action == StockAction.adjust) ...[
+            const SizedBox(height: Space.md),
+            SegmentedButton<bool>(
+              segments: const [
+                ButtonSegment(value: false, label: Text('Take off')),
+                ButtonSegment(value: true, label: Text('Add')),
+              ],
+              selected: {_add},
+              onSelectionChanged: (s) => setState(() => _add = s.first),
+            ),
+          ],
           const SizedBox(height: Space.md),
           TextField(
             controller: _qty,
@@ -601,12 +738,18 @@ class _StockSheetState extends ConsumerState<StockSheet> {
               suffixText: i.unit,
             ),
           ),
-          if (!widget.receive) ...[
+          if (_withWho) ...[
             const SizedBox(height: Space.md),
             SegmentedButton<bool>(
-              segments: const [
-                ButtonSegment(value: true, label: Text('To a job card')),
-                ButtonSegment(value: false, label: Text('To a person')),
+              segments: [
+                ButtonSegment(
+                  value: true,
+                  label: Text(back ? 'From a job card' : 'To a job card'),
+                ),
+                ButtonSegment(
+                  value: false,
+                  label: Text(back ? 'From a person' : 'To a person'),
+                ),
               ],
               selected: {_toJob},
               onSelectionChanged: (s) => setState(() => _toJob = s.first),
@@ -618,7 +761,7 @@ class _StockSheetState extends ConsumerState<StockSheet> {
                 isExpanded: true,
                 decoration: const InputDecoration(labelText: 'Job card'),
                 items: [
-                  for (final j in jobs!)
+                  for (final j in jobs)
                     DropdownMenuItem(
                       value: j.id,
                       child: Text(
@@ -661,9 +804,11 @@ class _StockSheetState extends ConsumerState<StockSheet> {
           TextField(
             controller: _note,
             decoration: InputDecoration(
-              labelText: widget.receive
-                  ? 'Supplier or delivery note (optional)'
-                  : 'Note (optional)',
+              labelText: switch (_action) {
+                StockAction.receive => 'Supplier or delivery note (optional)',
+                StockAction.adjust => 'Why (damaged, found, written off…)',
+                _ => 'Note (optional)',
+              },
             ),
           ),
           if (_error != null)
@@ -675,10 +820,7 @@ class _StockSheetState extends ConsumerState<StockSheet> {
               ),
             ),
           const SizedBox(height: Space.lg),
-          FilledButton(
-            onPressed: _busy ? null : _save,
-            child: Text(widget.receive ? 'Receive' : 'Issue'),
-          ),
+          FilledButton(onPressed: _busy ? null : _save, child: Text(button)),
         ],
       ),
     );

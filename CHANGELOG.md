@@ -1,5 +1,19 @@
 # What's new
 
+## 7 November 2026
+
+### Electrical store, second half (issue #12)
+- **Take back**: unused stock coming back from a job card or a person.
+- **Adjust**: add or take off stock with a reason (damaged, found,
+  written off); it shows in the item's history.
+- **Count stock** (the # icon on Store): items sorted by bin; type what is
+  on the shelf and see the difference as you go. Saving corrects only the
+  items that differ and keeps the whole count on record.
+- **Without signal** the store shows the stock as last loaded on the phone,
+  with when that was. Moves and counts are kept and sent when back online.
+- The store and supervisors are alerted about low stock whatever caused it:
+  an issue, an adjustment or a count.
+
 ## 5 November 2026
 
 ### Electrical store (first half of issue #12)
