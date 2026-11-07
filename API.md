@@ -300,6 +300,17 @@ The paper tool issue form in the app: several tools to one person, who may work 
 - Signatures in `tool-files`: `<site_id>/form/<form_id>/<issue|return-…>-<issuer|recipient|lead>-<id>.png`.
 - App: Equipment & tools → **Forms** (`/tools/forms`: Out · Returned · All, search), **New form** (`/tools/forms/new?tools=<ids>&job=<job card id>`: someone else or an app user, team lead, place, return date, tools from the register or added on the spot, quantity and condition each, remarks, three signatures), the form page `/tools/forms/<id>` (tools with condition out and back, signatures, **Take back** part or all with condition per tool and the return signatures, **PDF** laid out like the company's paper form). A job card's Assignment tab has **Tools** (add or remove, who has each, "Issue … in store on a form"); a tool's page has a **Jobs** tab (including its repair job cards) and, on Details, **Calibration certificates** (upload a PDF or photo with its dates; tap to open). **Who has what** (`/tools/holders`, the people icon on the tools side) lists everyone holding tools now, app users and people on forms with their company, overdue first. Forms are online to view; issuing and taking back work offline through the outbox.
 
+## 11c. Tool statistics (migration 0036, issue #27)
+
+- `fn_tool_stats(p_site, p_from, p_to)` → jsonb, read only: `tools.view` at the site, or with `p_site` null every site the caller can see (All my sites). `INVALID` when `p_from` is after `p_to`.
+  - `totals`: returned, lost, damaged and late in the range; overdue now; calibration expired and due within 30 days.
+  - `losses`: tools that came back `lost` in the range, with who had them (app user or the form's recipient) and their company.
+  - `late`: returns in the range after their `due_back`, with `days_late`, plus tools still out past their due date (`still_out`), worst first.
+  - `damage`: returns `damaged` or `needs_repair` in the range, with the repair job card opened for it (number and status).
+  - `calibration`: tools whose calibration expired or is due within 30 days (`expired`).
+  - `people`: per person and company, how many returned, lost, damaged and late, the worst first.
+- Not built: purchase or repair costs, utilisation. No app screen yet (a Tools section on Job stats).
+
 ## 12. SOPs and documents (migration 0007)
 
 Per-site documents with versions, read-and-sign acknowledgement, and links to jobs.
@@ -551,6 +562,37 @@ seeded rules, each notice once per job, rule and deadline). Bucket `job-files`
 `jobcard:<id>` → `/v2/job-cards/<id>` and `servicerequest:<id>` → `/v2/requests/<id>`
 (Version 1 keeps `request:`). Realtime on `job_cards`, `job_assignments`, `job_card_comments`,
 `job_attachments`, `service_requests` and the work tables.
+
+## 18. Projects, roster and calendar (migration 0034, issue #14)
+
+- Table `projects`: `site_id, code (P-0001), name, description, target_date, owner_id, status (active | on_hold | done | cancelled)`; `project_members (project_id, user_id)`; `job_cards.project_id`. Read with `jc.view`.
+- View `project_overview`: each project with `jobs_total` (job cards not cancelled), `jobs_done` (closed) and `member_ids`.
+- `fn_save_project(p_client_ref, p_site, p_name, p_description, p_target_date, p_owner, p_status, p_members)` → project: `projects.manage`; new projects get the next P- code; `p_members` (when given) replaces the team, and new members are told (`project:<id>`).
+- `fn_set_job_project(p_job_card, p_project)`: `projects.manage` or `jc.assign`; same site; null takes it off.
+- Store: `stock_moves.project_id`; `fn_issue_stock` takes `p_project` (default null) to issue to a project at the item's site.
+- Roster: table `roster_entries (site_id, user_id, day, shift (day | night | off | leave), standby, note)`, one per person per day; `roster_weeks (site_id, week_start (a Monday), published_at)`. Read: your own entries, or all with `jc.view`.
+- `fn_set_roster(p_site, p_week_start, p_entries, p_publish)` → entries saved: `projects.manage`; `p_entries` `[{user_id, day, shift, standby, note}]`, shift null clears the day, no standby on days off or leave. `p_publish` tells everyone on that week's roster (`roster:<week start>`).
+- pg_cron `standby-reminders` daily 16:00 Harare: people on standby tomorrow in a published week are reminded once.
+- `fn_calendar(p_site, p_from, p_to)` → `(kind, ref_id, title, day, at, link)`, through the caller's own access (security invoker): `job` (open job cards by target completion), `meeting`, `tool_return`, `calibration`, `planned` (planned maintenance), `project` (target dates), the caller's own `shift` and `standby`, and the caller's `reminder`s.
+- No app screens yet.
+
+## 19. Material requests, purchases and BOQ (migration 0035, issue #13)
+
+- Lines (on requests, purchases and BOQs) are a store item at the site (`item_id`; the unit comes from the item) or something not stocked (`description` and `unit`).
+- `material_requests (site_id, code MR-, job_card_id, project_id, requested_by, needed_by, note, status pending | approved | rejected | part_issued | issued | cancelled, decided_by, decided_at, decision_note)` and `mr_lines (item_id, description, unit, qty, issued_qty)`. Read with `store.view`.
+- `fn_create_mr(p_client_ref, p_site, p_job_card, p_project, p_needed_by, p_note, p_lines)`: `mr.create`; supervisors (`mr.approve`) are asked to approve (`mr:<id>`).
+- `fn_decide_mr(p_mr, p_approve, p_note)`: `mr.approve`, pending only; a rejection needs a reason; the requester is told, and on approval the store (`store.issue`).
+- `fn_issue_mr(p_client_ref, p_mr, p_lines [{line_id, qty}])`: `store.issue`; store items only, never more than asked for; stock goes to the request's job card and project; the request becomes `part_issued` or `issued`; the requester is told to collect it.
+- `fn_cancel_mr(p_mr)`: the requester or `mr.approve`, while pending or approved.
+- `suppliers (name, contact, phone, email)`, shared by all sites; `fn_save_supplier(p_client_ref, p_site, p_name, p_contact, p_phone, p_email, p_archived)`: `po.manage` at p_site; `CONFLICT` for a name already used.
+- `purchase_orders (site_id, code PO-, supplier_id, po_number, status requested | ordered | delivered | cancelled, expected_date, note, ordered_at, delivered_at)`, `po_lines (item_id, description, unit, qty, unit_price, received_qty, mr_line_id)`, `po_deliveries`. Read with `po.manage`, `mr.approve` or `store.receive` (prices are not shown to technicians).
+- `fn_create_po(p_client_ref, p_site, p_supplier, p_po_number, p_expected, p_note, p_lines)`: `po.manage`; a line may carry `unit_price` and `mr_line_id` (a line of an approved request at the site).
+- `fn_set_po_status(p_po, p_status (ordered | cancelled), p_po_number, p_expected)`: `po.manage`.
+- `fn_receive_po(p_client_ref, p_po, p_lines [{line_id, qty}], p_note)`: `store.receive`; store items go into stock (`stock_moves.po_id`); something not stocked bought for a request counts as handed over on that request; delivered when everything has come; whoever asked for the materials is told (`po:<id>`).
+- `boq_lines (project_id, item_id, description, unit, qty)`. Read with `jc.view`. `fn_import_boq(p_project, p_lines, p_replace)` → lines loaded: `projects.manage`; the app reads the spreadsheet and sends the lines; a description that matches a store item at the site (name and unit) is linked to it.
+- View `boq_status`: per BOQ line `issued` (to the project), `requested` (in open requests), `on_order` (purchases for the project's requests), `in_stock`, `still_needed` and `to_request` (what nobody has asked for yet).
+- `fn_boq_shortfall_to_mr(p_client_ref, p_project, p_needed_by)`: everything `to_request` as one material request (`mr.create`); null when nothing is short.
+- Retries with the same `p_client_ref` change nothing. No app screens yet.
 
 ## 6. Feature sections (filled in as features are built)
 

@@ -1,8 +1,4 @@
--- DRAFT for issue #14, not a migration yet. Database part only, not
--- tested. To ship: renumber into supabase/migrations/, write its test in
--- supabase/tests/, then build the screens.
-
--- 0032_projects_roster_calendar: projects (P-), the weekly roster with
+-- 0034_projects_roster_calendar: projects (P-), the weekly roster with
 -- standby, and one calendar across features (API.md section 18, issue #14).
 -- Projects and rosters are managed with projects.manage; everyone who sees
 -- job cards (jc.view) sees them.
@@ -334,6 +330,66 @@ as $$
 $$;
 
 -- ---------------------------------------------------------------------------
+-- Store stock issued to a project (the part of issue #12 that waited for it)
+-- ---------------------------------------------------------------------------
+alter table public.stock_moves add column project_id uuid references public.projects (id);
+create index stock_moves_project on public.stock_moves (project_id) where project_id is not null;
+
+drop function public.fn_issue_stock(uuid, uuid, numeric, uuid, uuid, text, text);
+
+-- As in 0032, plus p_project: stock for a project at the item's site.
+create function public.fn_issue_stock(
+  p_client_ref uuid,
+  p_item uuid,
+  p_qty numeric,
+  p_job_card uuid,
+  p_to uuid,
+  p_to_name text,
+  p_note text,
+  p_project uuid default null
+)
+returns public.stock_moves
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  m public.stock_moves;
+  v_site uuid;
+begin
+  select * into m from public.stock_moves where id = p_client_ref;
+  if found then
+    return m;
+  end if;
+  if coalesce(p_qty, 0) <= 0 then
+    raise exception 'INVALID: Issue more than zero';
+  end if;
+  if p_job_card is null and p_project is null and p_to is null and length(trim(coalesce(p_to_name, ''))) = 0 then
+    raise exception 'INVALID: Say which job card, project or person it is for';
+  end if;
+  select site_id into v_site from public.store_items where id = p_item;
+  if p_job_card is not null and not exists (
+    select 1 from public.job_cards where id = p_job_card and site_id = v_site and not is_archived
+  ) then
+    raise exception 'INVALID: That job card is not at this site';
+  end if;
+  if p_project is not null and not exists (
+    select 1 from public.projects where id = p_project and site_id = v_site and not is_archived
+  ) then
+    raise exception 'INVALID: That project is not at this site';
+  end if;
+  m := public._stock_move(p_client_ref, p_item, 'issue', -p_qty, p_job_card, p_to, p_to_name, p_note);
+  if p_project is not null then
+    update public.stock_moves set project_id = p_project where id = m.id returning * into m;
+  end if;
+  return m;
+end;
+$$;
+
+revoke execute on function public.fn_issue_stock(uuid, uuid, numeric, uuid, uuid, text, text, uuid) from public, anon;
+grant execute on function public.fn_issue_stock(uuid, uuid, numeric, uuid, uuid, text, text, uuid) to authenticated;
+
+-- ---------------------------------------------------------------------------
 -- Access
 -- ---------------------------------------------------------------------------
 alter table public.projects enable row level security;
@@ -371,5 +427,5 @@ grant execute on function
   public.fn_calendar(uuid, date, date)
 to authenticated;
 
-insert into public.schema_migrations (filename) values ('0032_projects_roster_calendar.sql')
+insert into public.schema_migrations (filename) values ('0034_projects_roster_calendar.sql')
 on conflict do nothing;

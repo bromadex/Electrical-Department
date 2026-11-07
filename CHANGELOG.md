@@ -1,5 +1,26 @@
 # What's new
 
+## 7 November 2026, evening: database for three more features
+
+No screens yet; these are the server side, tested and live.
+
+- **Projects, roster and calendar (issue #14):** projects with P- codes,
+  a team and progress from their job cards; store stock can be issued to a
+  project. A weekly roster with day, night, off and leave shifts and
+  standby; publishing it tells everyone on it, and standby people get a
+  reminder the afternoon before. One calendar of job cards due, meetings,
+  tool returns, calibration, planned maintenance, project dates, your own
+  shifts and your reminders.
+- **Material requests, purchases and BOQ (issue #13):** ask for materials
+  (MR-) for a job card or project; a supervisor approves; the store issues
+  from stock or buys it. Purchases (PO-) with supplier, prices and expected
+  date, received into the store; whoever asked is told when it arrives.
+  A project's bill of quantities compared with what was issued, requested,
+  on order and in stock; the shortfall becomes a request in one go.
+- **Tool statistics (issue #27):** losses, late returns, damage with its
+  repair job cards, calibration due or expired, and who had what, for one
+  site or all of them.
+
 ## 7 November 2026
 
 ### Electrical store, second half (issue #12)
