@@ -289,9 +289,37 @@ class OutboxService {
     await flush(force: true);
   }
 
-  Future<void> discardUpload(String id) {
-    return (_db.delete(_db.pendingUploads)..where((u) => u.id.equals(id))).go();
+  /// Drops a file and the changes that refer to it (they would point at a
+  /// file that does not exist). Returns how many changes went with it.
+  Future<int> discardUpload(String id) {
+    return _db.transaction(() async {
+      final u = await (_db.select(
+        _db.pendingUploads,
+      )..where((x) => x.id.equals(id))).getSingleOrNull();
+      if (u == null) return 0;
+      await (_db.delete(
+        _db.pendingUploads,
+      )..where((x) => x.id.equals(id))).go();
+      return (_db.delete(
+        _db.outbox,
+      )..where((o) => o.payload.contains(u.path))).go();
+    });
   }
+
+  /// Everything still only on this device: changes and files, waiting or
+  /// refused. Signing out must not wipe these unnoticed.
+  Future<int> unsentCount() async {
+    final a = await _db.select(_db.outbox).get();
+    final b = await _db.select(_db.pendingUploads).get();
+    return a.length + b.length;
+  }
+
+  /// Deletes every unsent change and file (someone chose to sign out and
+  /// lose them).
+  Future<void> discardAll() => _db.transaction(() async {
+    await _db.delete(_db.outbox).go();
+    await _db.delete(_db.pendingUploads).go();
+  });
 
   /// Completes when nothing is waiting (or sending has stopped on an error).
   Future<bool> get isEmpty async {
@@ -329,11 +357,25 @@ class OutboxService {
               lastError: Value(error.toString()),
             ),
           );
-          if (error.isRetryable) _offline();
-          return;
+          // No signal: everything waits. A refused file is set aside (the
+          // changes naming it are held below); the other files still go.
+          if (error.isRetryable) {
+            _offline();
+            return;
+          }
         }
       }
     }
+
+    // Files the server refused for good: a change that refers to one waits
+    // (and everything after it, to keep the order) until the file is tried
+    // again or discarded, so no record points at a file that is not there.
+    final refused = [
+      for (final u in await (_db.select(
+        _db.pendingUploads,
+      )..where((u) => u.tries.isBiggerOrEqualValue(maxTries))).get())
+        u.path,
+    ];
 
     final pending =
         await (_db.select(_db.outbox)
@@ -344,6 +386,20 @@ class OutboxService {
             .get();
 
     for (final entry in pending) {
+      final file = heldBy(entry.payload, refused);
+      if (file != null) {
+        await (_db.update(
+          _db.outbox,
+        )..where((o) => o.clientRef.equals(entry.clientRef))).write(
+          OutboxCompanion(
+            lastError: Value(
+              'Waiting for its file ${file.split('/').last}, which could '
+              'not be uploaded: try the file again or discard it',
+            ),
+          ),
+        );
+        return;
+      }
       final params = Map<String, dynamic>.from(
         jsonDecode(entry.payload) as Map,
       );
@@ -372,6 +428,14 @@ class OutboxService {
         }
       }
     }
+  }
+
+  /// The refused file a change's payload refers to, if any.
+  static String? heldBy(String payload, List<String> refusedPaths) {
+    for (final p in refusedPaths) {
+      if (payload.contains(p)) return p;
+    }
+    return null;
   }
 
   static Stream<int> _combine(Stream<int> a, Stream<int> b) {

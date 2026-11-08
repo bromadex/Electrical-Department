@@ -61,13 +61,25 @@ class AuthUserIdNotifier extends Notifier<String?> {
     return auth.currentUser?.id;
   }
 
-  /// Sends queued changes first so nothing is lost, stops pushes to this
-  /// device (a shared phone must not keep getting the last person's jobs),
-  /// then signs out.
-  Future<void> signOut() async {
-    await ref.read(outboxProvider).flush(force: true);
+  /// Sends queued changes first, stops pushes to this device (a shared
+  /// phone must not keep getting the last person's jobs), then signs out.
+  ///
+  /// If changes or files are still unsent (no signal, or refused), it does
+  /// not sign out and returns how many; the caller asks whether to wait or
+  /// to sign out with [discardUnsent], which deletes them. Returns 0 once
+  /// signed out.
+  Future<int> signOut({bool discardUnsent = false}) async {
+    final outbox = ref.read(outboxProvider);
+    if (discardUnsent) {
+      await outbox.discardAll();
+    } else {
+      await outbox.flush(force: true);
+      final left = await outbox.unsentCount();
+      if (left > 0) return left;
+    }
     await ref.read(pushProvider.notifier).forgetDevice();
     await ref.read(supabaseProvider).auth.signOut();
+    return 0;
   }
 }
 
@@ -80,10 +92,15 @@ final syncProvider = Provider<void>((ref) {
   // Work that gave up for lack of signal (older versions counted that as a
   // failure) goes back in the queue.
   unawaited(
-    ref.read(outboxProvider).reviveOfflineFailures().then((_) => flush()),
+    ref.read(outboxProvider).reviveOfflineFailures().then((_) {
+      if (ref.read(authUserIdProvider) != null) flush();
+    }),
   );
   unawaited(ref.read(localDbProvider).pruneJson());
-  final timer = Timer.periodic(const Duration(seconds: 30), (_) => flush());
+  // Nothing is sent while signed out: it would be refused and given up.
+  final timer = Timer.periodic(const Duration(seconds: 30), (_) {
+    if (ref.read(authUserIdProvider) != null) flush();
+  });
   final lifecycle = AppLifecycleListener(
     onResume: () {
       if (ref.read(authUserIdProvider) == null) return;

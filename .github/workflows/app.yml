@@ -12,7 +12,7 @@ name: App
 # Repository secrets:
 #   VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID      web deploys
 #   ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD,
-#   ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD             APK signing (optional)
+#   ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD             APK signing (required for releases)
 #   FIREBASE_APP_ID, FIREBASE_SERVICE_ACCOUNT           App Distribution (optional)
 
 on:
@@ -162,9 +162,11 @@ jobs:
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          if [ -z "$KEYSTORE" ]; then
-            echo "::warning::No signing key secrets; the APK is signed with a debug key."
-            exit 0
+          # A release signed with the debug key cannot install over the real
+          # app and Play refuses it, so a release without the key stops here.
+          if [ -z "$KEYSTORE" ] || [ -z "$STORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ]; then
+            echo "::error::Signing key secrets are missing (ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD); a release must be signed with the release key."
+            exit 1
           fi
           echo "$KEYSTORE" | base64 -d > android/app/release.jks
           cat > android/key.properties <<EOF
@@ -178,6 +180,8 @@ jobs:
         env:
           SUPABASE_URL: ${{ vars.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
+          # Releases must use the release key (build.gradle.kts checks).
+          REQUIRE_RELEASE_SIGNING: ${{ env.VERSION != '' }}
         run: |
           flutter pub get
           name="${VERSION#v}"

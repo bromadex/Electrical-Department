@@ -62,6 +62,11 @@ class _StoreScreenState extends ConsumerState<StoreScreen> {
             icon: const Icon(CupertinoIcons.chart_bar_alt_fill),
             onPressed: () => context.push('/inventory/stats'),
           ),
+          IconButton(
+            tooltip: 'Past counts',
+            icon: const Icon(CupertinoIcons.clock),
+            onPressed: () => context.push('/inventory/counts'),
+          ),
           if (canAdd)
             IconButton(
               tooltip: 'Count stock',

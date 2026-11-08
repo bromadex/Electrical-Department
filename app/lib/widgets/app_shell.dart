@@ -23,6 +23,7 @@ import 'notifications_button.dart';
 import 'site_picker.dart';
 import 'sync_banner.dart';
 import 'theme_toggle.dart';
+import 'sign_out.dart';
 
 /// Phone: iOS-style large title and floating glass tab bar.
 /// Wider screens: floating capsule menu beside a large glass window.
@@ -333,7 +334,7 @@ class _ProfileChip extends ConsumerWidget {
           case 'more':
             context.go('/menu');
           case 'signout':
-            ref.read(authUserIdProvider.notifier).signOut();
+            signOutWithCheck(context, ref);
         }
       },
       itemBuilder: (_) => [

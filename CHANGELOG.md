@@ -1,5 +1,31 @@
 # What's new
 
+## 8 November 2026, night
+
+### Stock take
+- **Past counts** (Inventory → clock icon, `/inventory/counts`): every count
+  with who, when, how many items and which were corrected, from what to what.
+- A count in progress is kept on the phone: leaving the screen (a call,
+  another app) no longer loses it. **Start again** clears it.
+- A count typed without signal and sent later no longer wipes out stock
+  issued or received in between: each line is corrected as of when it was
+  counted (migration 0039).
+
+### Nothing is lost by accident (issues #28, #29)
+- **Signing out** with changes not yet sent no longer deletes them: the app
+  says how many, and offers to wait, see them, or sign out and delete them.
+- A change whose photo or file the server refused waits (with the reason in
+  **Waiting to send**) instead of being saved pointing at a missing file.
+  Trying the file again sends both; discarding the file discards the change.
+
+### Documents
+- Drag a document that is not in a folder onto a folder to move it there
+  (with the mouse on a computer, long-press on a phone), with Undo.
+
+### Releases (issue #30) and README (issue #32)
+- A release without the signing key now stops instead of producing an APK
+  signed with the debug key. The README describes the system as it is now.
+
 ## 8 November 2026, evening
 
 ### Work done without signal is never lost (issue #17)

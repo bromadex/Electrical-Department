@@ -160,7 +160,7 @@ def architecture():
     d.add(String(W / 2, 224, "Supabase (the server)", fontName="Inter-ExtraBold", fontSize=9.5,
                  fillColor=MAROON, textAnchor="middle"))
     box(d, 20, 150, 102, 62, "Sign-in", ["accounts, sessions", "password reset"], fill=colors.white)
-    box(d, 130, 150, 102, 62, "Database", ["every record,", "rules on every row,", "38 migrations"],
+    box(d, 130, 150, 102, 62, "Database", ["every record,", "rules on every row,", "39 migrations"],
         fill=colors.white)
     box(d, 240, 150, 102, 62, "Functions", ["fn_* do every change", "and check permission"],
         fill=colors.white)
@@ -343,7 +343,7 @@ table([
     ["Flutter app", "Screens on phones and browsers", "Code in <i>app/</i>. Keeps a local database "
                                                       "(drift) for offline use and an outbox of "
                                                       "changes waiting to send."],
-    ["Supabase database", "All records and the rules", "PostgreSQL. 38 numbered migrations in "
+    ["Supabase database", "All records and the rules", "PostgreSQL. 39 numbered migrations in "
                                                        "<i>supabase/migrations</i>; every table has "
                                                        "row-level security; changes go through "
                                                        "fn_* functions."],
@@ -515,8 +515,9 @@ table([
     ["Issue", "Store", "Stock out to a job card, a project or a person; refused if not enough."],
     ["Take back", "Store", "Unused stock returned from a job card or a person."],
     ["Adjust", "Store", "A correction with a required reason (damaged, found, written off)."],
-    ["Count", "Store", "Count the shelves by bin; only items that differ are corrected, and the whole "
-                       "count is kept."],
+    ["Count", "Store", "Count the shelves by bin, offline too; a count in progress is kept if you leave. "
+                       "Only items that differ are corrected, as of when they were counted (later issues "
+                       "stay). Past counts lists every count and its corrections."],
 ], [26, 22, 122])
 bullets([
     "When an item falls below its level, the store and supervisors are alerted.",
@@ -576,8 +577,8 @@ bullets([
     "recent, added by me, type) and coloured file-type badges.",
     "Each document keeps every version. A document marked <i>everyone must read and sign</i> asks "
     "people to sign the current version; a new version asks again. Supervisors see who has signed.",
-    "Upload several files at once (or drop them onto the page on a PC); share in a chat; copy a 7-day "
-    "link for someone without the app; move, edit, archive.",
+    "Upload several files at once (or drop them onto the page on a PC); drag a document onto a folder "
+    "to file it; share in a chat; copy a 7-day link for someone without the app; move, edit, archive.",
 ])
 h2("Checklists (daily rounds)")
 bullets([
@@ -652,6 +653,10 @@ bullets([
     "Only the server refusing a change marks it <i>not saved</i>, for example a note on a job card that "
     "someone else cancelled meanwhile. It then shows in the banner and in Settings → <i>Waiting to send</i> "
     "with <b>Try again</b> and <b>Discard</b>.",
+    "A change whose file the server refused waits until the file is tried again or discarded, so no "
+    "record points at a missing photo.",
+    "<b>Signing out</b> with work not yet sent asks first: wait, see what is waiting, or sign out and "
+    "delete it. Nothing unsent is deleted silently.",
     "Up to 300 MB of files can wait on a phone. Status changes and work timers need signal, so the "
     "server's times stay true.",
 ])
@@ -693,8 +698,8 @@ table([
     ["Step", "What happens"],
     ["1. A change", "Code is changed in the repository (GitHub). Database changes are a new numbered "
                     "migration with a test; old migrations are never edited."],
-    ["2. Checks", "GitHub checks every push: code format, analysis, app tests (72), and every database "
-                  "test against a throwaway copy of the database (651 checks)."],
+    ["2. Checks", "GitHub checks every push: code format, analysis, app tests (79), and every database "
+                  "test against a throwaway copy of the database (659 checks)."],
     ["3. Deploy", "On main: the migrations are applied to the live database, and the web app is "
                   "built and published on Vercel within minutes."],
     ["4. Android", "Every push builds an APK. A release (run by hand with a version like v0.1.3) builds "
@@ -722,8 +727,8 @@ p("Everything planned has been built. These steps need a person with a phone, an
   "secret:")
 table([
     ["Item", "Why it matters"],
-    ["Release v0.1.3 to phones", "Phones are on 27 October's version and miss three weeks of work, "
-                                 "including the offline fix."],
+    ["Release v0.1.4 to phones", "Phones are on 27 October's version and miss three weeks of work, "
+                                 "including the offline and sign-out fixes."],
     ["BACKUP_PASSPHRASE secret in GitHub", "Without it the nightly backup stops rather than keep an "
                                            "unencrypted copy."],
     ["Firebase App Distribution role", "So testers receive new APKs automatically."],

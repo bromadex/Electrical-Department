@@ -9,6 +9,7 @@ import 'projects/projects_screen.dart';
 import 'projects/roster_screen.dart';
 import 'tools/tool_stats_screen.dart';
 import 'store/store_count_screen.dart';
+import 'store/store_counts_screen.dart';
 import 'store/store_screen.dart';
 
 import 'package:flutter/cupertino.dart';
@@ -161,6 +162,10 @@ GoRouter buildRouter(WidgetRef ref) {
       GoRoute(
         path: '/inventory/count',
         builder: (_, _) => const StoreCountScreen(),
+      ),
+      GoRoute(
+        path: '/inventory/counts',
+        builder: (_, _) => const StoreCountsScreen(),
       ),
       GoRoute(
         path: '/inventory/:id',

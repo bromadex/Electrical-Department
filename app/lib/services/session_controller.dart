@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/app_error.dart';
 import '../data/local_db.dart';
 import '../data/permission_set.dart';
+import '../theme/theme_mode.dart';
 import 'core_providers.dart';
 
 /// Who is signed in and what they may do: profile, permissions, sites and
@@ -90,11 +91,26 @@ class SessionNotifier extends Notifier<SessionState> {
   SessionState build() {
     final userId = ref.watch(authUserIdProvider);
     if (userId == null) {
+      // Unsent work stays (signing out asks first; see signOut).
       unawaited(_db.clearAll());
       return const SessionState();
     }
+    unawaited(_claimUnsent(userId));
     Future.microtask(() => _load(userId));
     return const SessionState(loading: true);
+  }
+
+  /// Unsent work left on the device belongs to whoever made it. If someone
+  /// else signs in (the last session ended without signing out), it cannot
+  /// be sent as them, so it is dropped; the same person gets it sent.
+  Future<void> _claimUnsent(String userId) async {
+    const key = 'unsent_owner';
+    final prefs = ref.read(sharedPrefsProvider);
+    final owner = prefs.getString(key);
+    if (owner != null && owner != userId) {
+      await ref.read(outboxProvider).discardAll();
+    }
+    if (owner != userId) await prefs.setString(key, userId);
   }
 
   /// Shows cached data at once, then refreshes from Supabase.

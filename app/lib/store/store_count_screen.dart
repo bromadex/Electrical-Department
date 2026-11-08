@@ -1,9 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:go_router/go_router.dart';
+
 import '../data/app_error.dart';
+import '../services/core_providers.dart';
+import '../theme/theme_mode.dart';
 import '../services/session_controller.dart';
 import '../theme/tokens.dart';
 import '../ui/bits.dart';
@@ -13,6 +19,8 @@ import 'store_repository.dart';
 
 /// Stock count: walk the shelves and type what is there. Only the items
 /// counted are sent; those that differ from stock on hand are corrected.
+/// What is typed is kept on the device until the count is saved, so leaving
+/// the screen does not lose it.
 class StoreCountScreen extends ConsumerStatefulWidget {
   const StoreCountScreen({super.key});
 
@@ -22,15 +30,99 @@ class StoreCountScreen extends ConsumerStatefulWidget {
 
 class _StoreCountScreenState extends ConsumerState<StoreCountScreen> {
   final _counted = <String, double>{};
+  final _countedAt = <String, DateTime>{};
   final _note = TextEditingController();
   String _query = '';
   bool _busy = false;
+  bool _restored = false;
+  String? _draftKey;
+
+  @override
+  void initState() {
+    super.initState();
+    final user = ref.read(authUserIdProvider);
+    final site = ref.read(currentSiteProvider);
+    if (user != null && site != null) {
+      _draftKey = countDraftKey(user, site.id);
+      final draft = CountDraft.decode(
+        ref.read(sharedPrefsProvider).getString(_draftKey!),
+      );
+      if (!draft.isEmpty) {
+        _counted.addAll(draft.counted);
+        _countedAt.addAll(draft.countedAt);
+        _note.text = draft.note;
+        _restored = true;
+      }
+    }
+    _note.addListener(_saveDraft);
+  }
 
   @override
   void dispose() {
     _note.dispose();
     super.dispose();
   }
+
+  void _saveDraft() {
+    final key = _draftKey;
+    if (key == null) return;
+    final draft = CountDraft(
+      counted: _counted,
+      countedAt: _countedAt,
+      note: _note.text,
+    );
+    final prefs = ref.read(sharedPrefsProvider);
+    unawaited(
+      draft.isEmpty ? prefs.remove(key) : prefs.setString(key, draft.encode()),
+    );
+  }
+
+  void _set(String id, double? v) {
+    setState(() {
+      if (v == null) {
+        _counted.remove(id);
+        _countedAt.remove(id);
+      } else {
+        _counted[id] = v;
+        _countedAt[id] = DateTime.now();
+      }
+    });
+    _saveDraft();
+  }
+
+  Future<void> _startAgain() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Start the count again?'),
+        content: Text(
+          'The ${_counted.length} items counted so far are cleared.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Keep them'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Start again'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    setState(() {
+      _counted.clear();
+      _countedAt.clear();
+      _restored = false;
+      // Fresh boxes: the lines are keyed by this generation.
+      _generation++;
+    });
+    _note.clear();
+    _saveDraft();
+  }
+
+  int _generation = 0;
 
   Future<void> _submit(List<StoreItem> items) async {
     final site = ref.read(currentSiteProvider);
@@ -65,7 +157,16 @@ class _StoreCountScreenState extends ConsumerState<StoreCountScreen> {
     try {
       await ref
           .read(storeActionsProvider)
-          .submitCount(site.id, Map.of(_counted), note: _note.text);
+          .submitCount(
+            site.id,
+            Map.of(_counted),
+            countedAt: Map.of(_countedAt),
+            note: _note.text,
+          );
+      final key = _draftKey;
+      if (key != null) {
+        await ref.read(sharedPrefsProvider).remove(key);
+      }
       messenger.showSnackBar(
         SnackBar(
           content: Text(
@@ -110,6 +211,19 @@ class _StoreCountScreenState extends ConsumerState<StoreCountScreen> {
         leading: const AppBackButton(fallback: '/inventory'),
         title: const Text('Count stock'),
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
+        actions: [
+          IconButton(
+            tooltip: 'Past counts',
+            icon: const Icon(CupertinoIcons.clock),
+            onPressed: () => context.push('/inventory/counts'),
+          ),
+          if (_counted.isNotEmpty)
+            IconButton(
+              tooltip: 'Start again',
+              icon: const Icon(CupertinoIcons.arrow_counterclockwise),
+              onPressed: _busy ? null : _startAgain,
+            ),
+        ],
       ),
       floatingActionButton: _counted.isEmpty
           ? null
@@ -135,6 +249,16 @@ class _StoreCountScreenState extends ConsumerState<StoreCountScreen> {
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
+                    if (_restored) ...[
+                      const SizedBox(height: Space.sm),
+                      Text(
+                        'Carrying on with the count you started: '
+                        '${_counted.length} items already counted.',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: Space.sm),
                     CupertinoSearchTextField(
                       placeholder: 'Find an item or bin',
@@ -163,16 +287,12 @@ class _StoreCountScreenState extends ConsumerState<StoreCountScreen> {
                       // Keyed so a line keeps what was typed when the list
                       // above it changes.
                       Padding(
-                        key: ValueKey(i.id),
+                        key: ValueKey('${i.id}#$_generation'),
                         padding: const EdgeInsets.only(bottom: Space.xs),
                         child: CountLine(
                           item: i,
                           counted: _counted[i.id],
-                          onChanged: (v) => setState(
-                            () => v == null
-                                ? _counted.remove(i.id)
-                                : _counted[i.id] = v,
-                          ),
+                          onChanged: (v) => _set(i.id, v),
                         ),
                       ),
                     const SizedBox(height: Space.md),
@@ -260,7 +380,8 @@ class CountLine extends StatelessWidget {
             ),
           SizedBox(
             width: 112,
-            child: TextField(
+            child: TextFormField(
+              initialValue: c == null ? null : qtyText(c),
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),

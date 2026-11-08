@@ -1,13 +1,24 @@
 # Bravura Electrical
 
 Android + web app for the Bravura Electrical department, built from one
-Flutter codebase on Supabase. See the build plan for features and roadmap.
+Flutter codebase on Supabase. **[docs/how-the-system-works.pdf](docs/how-the-system-works.pdf)**
+explains every part of the system for readers who are not developers;
+[CHANGELOG.md](CHANGELOG.md) lists what changed when.
 
 ```
 app/        Flutter app (Android + web)
 supabase/   migrations/, tests/, seed.sql
+docs/       system guide, offline test plan, Play Store notes
+scripts/    backup checks, the system guide's generator
 API.md      app <-> Supabase contract
 ```
+
+What the app covers: job cards and work requests, tools (issue forms,
+calibration, repairs), equipment and planned maintenance, inventory (stock,
+counts), material requests, purchases and BOQs, projects, calendar and
+roster, documents, checklists, daily reports, chat with calls and meetings,
+reminders, statistics and administration. Everyone sees every site, and
+roles apply at all sites.
 
 **[API.md](API.md)** lists every table, function, bucket and realtime channel
 the app uses. Update it in the same pull request as the migration or screen
@@ -21,7 +32,15 @@ that changes it.
   (`0002_jobs.sql` …) with a matching `supabase/tests/0002_jobs_test.sql`.
   Never edit a migration that has been applied.
 - Merging to `main` applies new migrations to Supabase and deploys the web app.
-  Tagging `v1.2.3` builds the APK.
+  Tagging `v1.2.3` (or running the App workflow with a version) releases the
+  signed APK and Play Store bundle.
+- Before pushing, in `app/`: `dart format --set-exit-if-changed lib test`,
+  `flutter analyze` and `flutter test`. Database tests run with
+  `supabase db reset` then each `supabase/tests/*.sql` through `psql`
+  (CI does this on every change under `supabase/`).
+- Every new foreign key gets an index (test 0038 fails otherwise), and work
+  that can be done offline goes through the outbox and its allow-list
+  (`app/lib/services/outbox_service.dart`).
 
 ## Run the app
 
@@ -60,10 +79,11 @@ fails if they are stale.
 | `App` | every push and PR | `flutter analyze`, `flutter test`, format and generated-code checks |
 | `App` | push to `main` | web build deployed to Vercel production |
 | `App` | pull request | web preview deployed to Vercel; link in the run summary |
-| `App` | tag `v*` | release APK attached to a GitHub release (+ Firebase App Distribution) |
+| `App` | tag `v*` or manual run with a version | signed release APK and `.aab` attached to a GitHub release (+ Firebase App Distribution); fails without the signing key |
 | `Supabase database` | changes under `supabase/` | migrations + SQL tests on a throwaway database; preview of pending migrations |
 | `Supabase database` | push to `main` | new migrations applied to Supabase |
-| `Acceptance tests` | pushes to `feat/**` and PRs touching the app or database | browser tests of Job Cards Version 2 (and Version 1's board) against a throwaway Supabase; screenshots in the `acceptance` artifact |
+| `Acceptance tests` | pushes to `feat/**`, PRs touching the app or database, nightly | browser tests of the main flows against a throwaway Supabase; screenshots in the `acceptance` artifact |
+| `Backup` | nightly 00:20 Harare | database dump, test-restored and compared, encrypted with `BACKUP_PASSPHRASE`, kept 90 days (uploaded files are not included yet, issue #31) |
 
 GitHub settings (**Settings → Secrets and variables → Actions**):
 
@@ -75,7 +95,8 @@ GitHub settings (**Settings → Secrets and variables → Actions**):
 | `VERCEL_TOKEN` | secret | Vercel **Account Settings → Tokens** |
 | `VERCEL_ORG_ID` | secret | Vercel team ID (**Team Settings → General**) |
 | `VERCEL_PROJECT_ID` | secret | Vercel **Project Settings → General → Project ID** |
-| `ANDROID_KEYSTORE_BASE64` etc. | secret | optional APK signing key, see `.github/workflows/app.yml` |
+| `ANDROID_KEYSTORE_BASE64` etc. | secret | APK signing key, required for releases; see `.github/workflows/app.yml` |
+| `BACKUP_PASSPHRASE` | secret | encrypts the nightly backup; without it the backup stops |
 | `FIREBASE_APP_ID`, `FIREBASE_SERVICE_ACCOUNT` | secret | optional, for Firebase App Distribution |
 
 GitHub Actions builds the web app and uploads the finished files to Vercel, so
@@ -101,20 +122,19 @@ Accounts are created by an admin, not by sign-up from the app:
    where u.email = 'you@example.com' and r.name = 'Admin';
    ```
 
-## Job Cards Version 2
+## Job cards
 
-The job card & maintenance management system runs beside the jobs board so the two can
-be compared: the **Job cards** tile ("New system · trial") in Menu and on Home, or the first
-link in the desktop side menu (`/v2`). It has its own menu (dashboard, job cards,
-incoming requests, my jobs, my requests, audit log, settings) and shares people, sites,
-assets, notifications and the theme with the main app; "Back to main app" returns to Home.
-Its code is in `app/lib/v2/` and migrations 0012–0014; API.md section 17 lists its tables
-and functions.
+Job cards are the department's one job system (the old jobs board is gone;
+its tables keep their data, read only). Screens: `/jobs` (the Jobs tab),
+`/jobs/<number>`, `/jobs/mine`, `/jobs/new`, `/requests`, `/my-requests`,
+`/job-stats`; code in `app/lib/v2/` (routes in `app/lib/v2/routes.dart`).
+API.md section 17 lists its tables and functions.
 
-Who can use it comes from the roles: technicians work job cards, supervisors register,
-assess, assign and verify them, and anyone with a role can raise a request. Settings →
-priorities, escalation rules and the safety checklist need `settings.manage` (Admin).
-Local test data adds `tech2@`, `manager@` and `requester@bravura.test` (password as above).
+Technicians work job cards, supervisors register, assess, assign and verify
+them, and anyone with a role can raise a request. Settings → Admin → Job card
+settings (priorities, escalation rules, the safety checklist) needs
+`settings.manage` (Admin). Local test data adds `tech2@`, `manager@` and
+`requester@bravura.test` (password as above).
 
 ## Branding
 

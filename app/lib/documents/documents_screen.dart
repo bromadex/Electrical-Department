@@ -183,6 +183,28 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
     );
   }
 
+  /// A document dragged onto a folder moves into it.
+  Future<void> _dropInto(Doc d, DocFolder f) async {
+    if (d.folderId == f.id) return;
+    HapticFeedback.mediumImpact();
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref.read(documentActionsProvider).move([d.id], f.id);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Moved ${d.title} to ${f.name}'),
+          action: SnackBarAction(
+            label: 'Undo',
+            onPressed: () =>
+                ref.read(documentActionsProvider).move([d.id], d.folderId),
+          ),
+        ),
+      );
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(AppError.from(e).message)));
+    }
+  }
+
   Future<void> _archiveFolder(DocFolder f, int count) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -513,6 +535,7 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
                       if (d.folderId == f.id) d,
                   ],
                   canManage: canManage,
+                  onDrop: canManage ? (d) => _dropInto(d, f) : null,
                   onOpen: () => setState(() => _folder = f.id),
                   onRename: () => _folderSheet(folder: f),
                   onArchive: (n) => _archiveFolder(f, n),
@@ -559,9 +582,13 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
           minWidth: 170,
           children: [
             for (final d in shown)
-              _DocCard(
+              _DraggableDoc(
                 doc: d,
-                actions: DocMenu(doc: d),
+                enabled: canManage && showFolders && folders.isNotEmpty,
+                child: _DocCard(
+                  doc: d,
+                  actions: DocMenu(doc: d),
+                ),
               ),
           ],
         ),
@@ -600,10 +627,14 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
                 for (final (i, d) in shown.indexed)
                   Padding(
                     padding: const EdgeInsets.only(bottom: Space.sm),
-                    child: DocTile(
+                    child: _DraggableDoc(
                       doc: d,
-                      wide: wide,
-                      menu: DocMenu(doc: d),
+                      enabled: canManage && showFolders && folders.isNotEmpty,
+                      child: DocTile(
+                        doc: d,
+                        wide: wide,
+                        menu: DocMenu(doc: d),
+                      ),
                     ),
                   ).entrance(context, index: i.clamp(0, 8)),
               ],
@@ -674,11 +705,15 @@ class _FolderTile extends StatelessWidget {
     required this.onOpen,
     required this.onRename,
     required this.onArchive,
+    this.onDrop,
   });
 
   final DocFolder folder;
   final List<Doc> docs;
   final bool canManage;
+
+  /// A document dropped on the folder (null: not a drop target).
+  final ValueChanged<Doc>? onDrop;
   final VoidCallback onOpen;
   final VoidCallback onRename;
   final void Function(int count) onArchive;
@@ -688,7 +723,18 @@ class _FolderTile extends StatelessWidget {
     final theme = Theme.of(context);
     final size = docs.fold<int>(0, (n, d) => n + (d.current?.sizeBytes ?? 0));
     final toSign = docs.where((d) => d.toSign).length;
-    return SurfaceCard(
+    final drop = onDrop;
+    if (drop == null) return _tile(theme, size, toSign, false);
+    return DragTarget<Doc>(
+      onWillAcceptWithDetails: (d) => d.data.folderId != folder.id,
+      onAcceptWithDetails: (d) => drop(d.data),
+      builder: (context, over, _) =>
+          _tile(theme, size, toSign, over.isNotEmpty),
+    );
+  }
+
+  Widget _tile(ThemeData theme, int size, int toSign, bool over) {
+    final card = SurfaceCard(
       onTap: onOpen,
       padding: const EdgeInsets.fromLTRB(
         Space.md,
@@ -743,6 +789,91 @@ class _FolderTile extends StatelessWidget {
         ],
       ),
     );
+    // Lit up while a document is held over it.
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(Radii.lg),
+        border: Border.all(
+          color: over ? theme.colorScheme.primary : Colors.transparent,
+          width: 2,
+        ),
+      ),
+      child: AnimatedScale(
+        scale: over ? 1.03 : 1,
+        duration: const Duration(milliseconds: 150),
+        child: card,
+      ),
+    );
+  }
+}
+
+/// A document that can be dragged onto a folder: straight away with a
+/// mouse, after a long press on a phone (so scrolling still works).
+class _DraggableDoc extends StatelessWidget {
+  const _DraggableDoc({
+    required this.doc,
+    required this.enabled,
+    required this.child,
+  });
+
+  final Doc doc;
+  final bool enabled;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!enabled) return child;
+    final theme = Theme.of(context);
+    final feedback = Material(
+      color: Colors.transparent,
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: Space.md,
+          vertical: Space.sm,
+        ),
+        constraints: const BoxConstraints(maxWidth: 280),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(Radii.md),
+          boxShadow: const [BoxShadow(blurRadius: 16, color: Colors.black38)],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            FileBadge(fileName: doc.fileName, size: 32),
+            const SizedBox(width: Space.sm),
+            Flexible(
+              child: Text(
+                doc.title,
+                style: theme.textTheme.titleSmall,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    final dimmed = Opacity(opacity: 0.4, child: child);
+    final touch = switch (theme.platform) {
+      TargetPlatform.android || TargetPlatform.iOS => true,
+      _ => false,
+    };
+    return touch
+        ? LongPressDraggable<Doc>(
+            data: doc,
+            feedback: feedback,
+            childWhenDragging: dimmed,
+            onDragStarted: HapticFeedback.selectionClick,
+            child: child,
+          )
+        : Draggable<Doc>(
+            data: doc,
+            feedback: feedback,
+            childWhenDragging: dimmed,
+            child: child,
+          );
   }
 }
 

@@ -215,10 +215,15 @@ class LocalDb extends _$LocalDb {
     });
   }
 
-  /// Wipes everything, including unsent outbox entries (used on sign-out).
-  Future<void> clearAll() {
+  /// Wipes the cache. Unsent changes and files stay unless [keepUnsent] is
+  /// false: signing out asks first (see AuthUserIdNotifier.signOut), and a
+  /// session that ended by itself keeps them for the same person.
+  Future<void> clearAll({bool keepUnsent = true}) {
     return transaction(() async {
       for (final table in allTables) {
+        if (keepUnsent && (table == outbox || table == pendingUploads)) {
+          continue;
+        }
         await delete(table).go();
       }
     });

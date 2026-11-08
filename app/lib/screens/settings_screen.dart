@@ -22,6 +22,7 @@ import '../ui/form_sheet.dart';
 import '../ui/motion.dart';
 import '../ui/surfaces.dart';
 import '../widgets/app_back_button.dart';
+import '../widgets/sign_out.dart';
 
 /// Settings in one place, grouped like iOS: you, this device, admin (for
 /// administrators) and about. Opened from the Menu.
@@ -295,8 +296,7 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: Space.lg),
                     OutlinedButton.icon(
-                      onPressed: () =>
-                          ref.read(authUserIdProvider.notifier).signOut(),
+                      onPressed: () => signOutWithCheck(context, ref),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: scheme.error,
                         minimumSize: const Size.fromHeight(48),

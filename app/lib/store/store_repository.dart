@@ -368,10 +368,13 @@ class StoreActions {
     _ref.invalidate(storeItemProvider(item.id));
   }
 
-  /// Records a count: what is on the shelf for each counted item.
+  /// Records a count: what is on the shelf for each counted item, and when
+  /// it was counted, so the server corrects stock as it was then (moves
+  /// since stay).
   Future<void> submitCount(
     String siteId,
     Map<String, double> counted, {
+    Map<String, DateTime> countedAt = const {},
     String? note,
   }) async {
     final id = _uuid.v4();
@@ -379,9 +382,149 @@ class StoreActions {
       'p_client_ref': id,
       'p_site': siteId,
       'p_lines': [
-        for (final e in counted.entries) {'item_id': e.key, 'counted': e.value},
+        for (final e in counted.entries)
+          {
+            'item_id': e.key,
+            'counted': e.value,
+            if (countedAt[e.key] case final DateTime at)
+              'counted_at': at.toUtc().toIso8601String(),
+          },
       ],
       'p_note': note?.trim(),
     }, id);
+    _ref.invalidate(stockCountsProvider);
   }
 }
+
+/// A count in progress, kept on the device so leaving the screen (a call,
+/// another app) does not lose it: what was counted, when, and the note.
+class CountDraft {
+  const CountDraft({
+    this.counted = const {},
+    this.countedAt = const {},
+    this.note = '',
+  });
+
+  final Map<String, double> counted;
+  final Map<String, DateTime> countedAt;
+  final String note;
+
+  bool get isEmpty => counted.isEmpty && note.trim().isEmpty;
+
+  String encode() => jsonEncode({
+    'note': note,
+    'lines': {
+      for (final e in counted.entries)
+        e.key: {
+          'c': e.value,
+          if (countedAt[e.key] case final DateTime at)
+            'at': at.toIso8601String(),
+        },
+    },
+  });
+
+  static CountDraft decode(String? json) {
+    if (json == null || json.isEmpty) return const CountDraft();
+    try {
+      final m = jsonDecode(json) as Map<String, dynamic>;
+      final counted = <String, double>{};
+      final at = <String, DateTime>{};
+      for (final e in (m['lines'] as Map<String, dynamic>? ?? {}).entries) {
+        final l = e.value as Map<String, dynamic>;
+        final c = (l['c'] as num?)?.toDouble();
+        if (c == null || c < 0) continue;
+        counted[e.key] = c;
+        if (DateTime.tryParse(l['at'] as String? ?? '') case final DateTime t) {
+          at[e.key] = t;
+        }
+      }
+      return CountDraft(
+        counted: counted,
+        countedAt: at,
+        note: m['note'] as String? ?? '',
+      );
+    } catch (_) {
+      return const CountDraft();
+    }
+  }
+}
+
+/// Where a person's count in progress for a site is kept.
+String countDraftKey(String userId, String siteId) =>
+    'count_draft_${userId}_$siteId';
+
+/// A saved stock count, newest first in [stockCountsProvider].
+typedef StockCountSummary = ({
+  String id,
+  String siteId,
+  String? note,
+  int items,
+  int differences,
+  DateTime at,
+  String by,
+});
+
+/// One counted item whose count differed from stock on hand.
+typedef StockCountLine = ({
+  String code,
+  String name,
+  String unit,
+  double expected,
+  double counted,
+});
+
+/// Past stock counts for the site filter (or every site), newest first.
+final stockCountsProvider = FutureProvider.autoDispose<List<StockCountSummary>>(
+  (ref) async {
+    final filter = ref.watch(siteFilterProvider);
+    if (filter == null && !ref.watch(allSitesProvider)) return const [];
+    var q = ref
+        .watch(supabaseProvider)
+        .from('stock_counts')
+        .select(
+          'id, site_id, note, items, differences, created_at, '
+          'profiles(full_name)',
+        );
+    if (filter != null) q = q.eq('site_id', filter);
+    final rows = await q.order('created_at', ascending: false).limit(100);
+    return [
+      for (final r in rows)
+        (
+          id: r['id'] as String,
+          siteId: r['site_id'] as String,
+          note: r['note'] as String?,
+          items: r['items'] as int,
+          differences: r['differences'] as int,
+          at: DateTime.parse(r['created_at'] as String).toLocal(),
+          by: (r['profiles'] as Map?)?['full_name'] as String? ?? '',
+        ),
+    ];
+  },
+);
+
+/// The lines of one count that differed, largest difference first.
+final stockCountLinesProvider = FutureProvider.autoDispose
+    .family<List<StockCountLine>, String>((ref, countId) async {
+      final rows = await ref
+          .watch(supabaseProvider)
+          .from('stock_count_lines')
+          .select('expected, counted, store_items(code, name, unit)')
+          .eq('count_id', countId);
+      final lines = [
+        for (final r in rows)
+          if ((r['expected'] as num) != (r['counted'] as num))
+            (
+              code: (r['store_items'] as Map)['code'] as String,
+              name: (r['store_items'] as Map)['name'] as String,
+              unit: (r['store_items'] as Map)['unit'] as String,
+              expected: (r['expected'] as num).toDouble(),
+              counted: (r['counted'] as num).toDouble(),
+            ),
+      ];
+      lines.sort(
+        (a, b) => (b.counted - b.expected).abs().compareTo(
+          (a.counted - a.expected).abs(),
+        ),
+      );
+      return lines;
+    });

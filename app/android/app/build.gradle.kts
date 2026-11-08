@@ -70,8 +70,14 @@ android {
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.findByName("release")
-                ?: signingConfigs.getByName("debug")
+            // Test builds without the key use the debug key; a release
+            // (REQUIRE_RELEASE_SIGNING=true, set by the release workflow)
+            // never does, since it could not install over the real app.
+            val releaseKey = signingConfigs.findByName("release")
+            if (releaseKey == null && System.getenv("REQUIRE_RELEASE_SIGNING") == "true") {
+                throw GradleException("Release builds must be signed with the release key (android/key.properties is missing)")
+            }
+            signingConfig = releaseKey ?: signingConfigs.getByName("debug")
         }
     }
 }
