@@ -309,7 +309,8 @@ The paper tool issue form in the app: several tools to one person, who may work 
   - `damage`: returns `damaged` or `needs_repair` in the range, with the repair job card opened for it (number and status).
   - `calibration`: tools whose calibration expired or is due within 30 days (`expired`).
   - `people`: per person and company, how many returned, lost, damaged and late, the worst first.
-- Not built: purchase or repair costs, utilisation. No app screen yet (a Tools section on Job stats).
+- Not built: purchase or repair costs, utilisation.
+- App: **Tool stats** (`/tools/stats`; the chart icon on Equipment & tools, or Menu): 7 days · 30 days · 90 days · Year, All my sites, the totals as tiles, then Losses, Late returns, Damage (tap the repair job card), Calibration and By person.
 
 ## 12. SOPs and documents (migration 0007)
 
@@ -359,7 +360,7 @@ Per-site documents with versions, read-and-sign acknowledgement, and links to jo
 - Repeats with the same `p_client_ref` return the first move or count. The item row is locked for each move.
 - Low stock: when any move (an issue, an adjustment or a count) takes an item from at or above its `min_level` to below it, `store.issue` and `mr.approve` holders get a `low_stock` notification (`item:<id>`).
 - All six are on the outbox allow-list.
-- App: Menu → **Store** (`/store`: search by name, I- code or bin; All · Low stock · categories; stock in red when empty, amber when low), `/store/<id>` (stock on hand, **Issue** to a job card or a person, **Receive**, **Take back**, **Adjust** with a reason, every movement with who and when; edit or archive the item), **Count stock** (`/store/count`, the # icon: items sorted by bin, type what is on the shelf, differences shown as you go; only the items counted are sent). The stock list is saved on the device each time it loads; without signal (or after 8 s of weak signal) the saved copy shows with when it was saved. Moves, counts and item edits queue offline.
+- App: Menu → **Inventory** (`/inventory`, renamed from Store; old `/store` links redirect: search by name, I- code or bin; All · Low stock · categories; stock in red when empty, amber when low), `/inventory/<id>` (stock on hand, **Issue** to a job card or a person, **Receive**, **Take back**, **Adjust** with a reason, every movement with who and when; edit or archive the item), **Count stock** (`/inventory/count`, the # icon: items sorted by bin, type what is on the shelf, differences shown as you go; only the items counted are sent). The stock list is saved on the device each time it loads; without signal (or after 8 s of weak signal) the saved copy shows with when it was saved. Moves, counts and item edits queue offline.
 - Issuing to projects waits for projects (issue #14).
 
 ## 14. Safety check, escalation, audit log (migration 0009)
@@ -574,7 +575,7 @@ seeded rules, each notice once per job, rule and deadline). Bucket `job-files`
 - `fn_set_roster(p_site, p_week_start, p_entries, p_publish)` → entries saved: `projects.manage`; `p_entries` `[{user_id, day, shift, standby, note}]`, shift null clears the day, no standby on days off or leave. `p_publish` tells everyone on that week's roster (`roster:<week start>`).
 - pg_cron `standby-reminders` daily 16:00 Harare: people on standby tomorrow in a published week are reminded once.
 - `fn_calendar(p_site, p_from, p_to)` → `(kind, ref_id, title, day, at, link)`, through the caller's own access (security invoker): `job` (open job cards by target completion), `meeting`, `tool_return`, `calibration`, `planned` (planned maintenance), `project` (target dates), the caller's own `shift` and `standby`, and the caller's `reminder`s.
-- No app screens yet.
+- App: **Projects** (`/projects`: progress ring, job cards done, due date; `/projects/<id>`: team, job cards (add or take off), materials issued and its requests, the BOQ), **Calendar** (`/calendar`: month grid with a dot per kind, the chosen day's list; tap opens the record), **Roster** (`/roster?day=<date>`: my shifts on top; supervisors tap a cell to cycle day, night, off and leave, press and hold for standby, then Save or Publish). Saving projects and rosters queues offline; viewing needs a connection.
 
 ## 19. Material requests, purchases and BOQ (migration 0035, issue #13)
 
@@ -592,7 +593,8 @@ seeded rules, each notice once per job, rule and deadline). Bucket `job-files`
 - `boq_lines (project_id, item_id, description, unit, qty)`. Read with `jc.view`. `fn_import_boq(p_project, p_lines, p_replace)` → lines loaded: `projects.manage`; the app reads the spreadsheet and sends the lines; a description that matches a store item at the site (name and unit) is linked to it.
 - View `boq_status`: per BOQ line `issued` (to the project), `requested` (in open requests), `on_order` (purchases for the project's requests), `in_stock`, `still_needed` and `to_request` (what nobody has asked for yet).
 - `fn_boq_shortfall_to_mr(p_client_ref, p_project, p_needed_by)`: everything `to_request` as one material request (`mr.create`); null when nothing is short.
-- Retries with the same `p_client_ref` change nothing. No app screens yet.
+- Retries with the same `p_client_ref` change nothing.
+- App: **Materials** (`/materials`: Requests and, for the store and supervisors, Purchases; Open · All). `/materials/new?job=&project=` (lines from inventory or typed; ➕ New → Request materials), `/materials/<id>` (Approve or Reject with a reason, Issue from inventory, Order, Cancel), `/purchases/new?mr=<id>` (supplier, with New supplier; PO number; expected date; lines with unit prices; from a request its lines still to supply are filled in), `/purchases/<id>` (Mark ordered with the PO number, Receive delivery, Cancel). On a project, **Bill of quantities**: Import (paste three columns from Excel, description, unit and quantity, or pick a CSV file), each line's progress, and Request the shortfall. Requests queue offline; approving, issuing, ordering and receiving are online so refusals show.
 
 ## 6. Feature sections (filled in as features are built)
 

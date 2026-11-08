@@ -1,5 +1,39 @@
 # What's new
 
+## 8 November 2026
+
+### The store is now called Inventory
+- Menu → **Inventory** (was Store). Old links still open.
+
+### Projects, calendar and roster (issue #14)
+- **Projects** (Menu): each with a progress ring from its job cards, a
+  team, the materials issued to it and its bill of quantities. Add or take
+  off job cards from the project page.
+- **Calendar**: a month view with a coloured dot for everything due (job
+  cards, meetings, tools coming back, calibration, planned maintenance,
+  project deadlines, your shifts and reminders); tap a day for its list.
+- **Roster**: your shifts for the week at the top. Supervisors tap a day to
+  set day, night, off or leave, press and hold for standby, then publish;
+  everyone on it is told, and standby people are reminded the day before.
+
+### Materials and purchases (issue #13)
+- **Request materials** from ➕ New, a project or Menu → Materials: pick
+  from inventory or type what is not stocked. A supervisor approves or
+  rejects with a reason.
+- The store **issues** from inventory, or **orders** what is missing: a
+  purchase with supplier, PO number, expected date and prices, filled in
+  from the request. **Receive delivery** puts it into inventory and tells
+  whoever asked.
+- On a project, **import the BOQ** by pasting three columns from Excel (or
+  a CSV file) and see each line issued, requested, on order and in
+  inventory. **Request the shortfall** turns what is missing into one
+  request.
+
+### Tool stats (issue #27)
+- Equipment & tools → the chart icon (or Menu → Tool stats): losses, late
+  returns, damage with its repair job card, calibration due or expired, and
+  who had what, for 7 days to a year, one site or all.
+
 ## 7 November 2026, evening: database for three more features
 
 No screens yet; these are the server side, tested and live.

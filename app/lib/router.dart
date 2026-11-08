@@ -1,3 +1,8 @@
+import 'procurement/materials_screen.dart';
+import 'projects/calendar_screen.dart';
+import 'projects/projects_screen.dart';
+import 'projects/roster_screen.dart';
+import 'tools/tool_stats_screen.dart';
 import 'store/store_count_screen.dart';
 import 'store/store_screen.dart';
 
@@ -87,13 +92,56 @@ GoRouter buildRouter(WidgetRef ref) {
       // Old tab addresses, kept for bookmarks.
       GoRoute(path: '/today', redirect: (_, _) => '/home'),
       GoRoute(path: '/board', redirect: (_, _) => '/jobs'),
-      GoRoute(path: '/store', builder: (_, _) => const StoreScreen()),
+      GoRoute(path: '/inventory', builder: (_, _) => const StoreScreen()),
+      GoRoute(path: '/projects', builder: (_, _) => const ProjectsScreen()),
       GoRoute(
-        path: '/store/count',
+        path: '/projects/:id',
+        builder: (_, s) => ProjectScreen(id: s.pathParameters['id']!),
+      ),
+      GoRoute(path: '/calendar', builder: (_, _) => const CalendarScreen()),
+      GoRoute(
+        path: '/roster',
+        builder: (_, s) => RosterScreen(
+          day: DateTime.tryParse(s.uri.queryParameters['day'] ?? ''),
+        ),
+      ),
+      GoRoute(path: '/materials', builder: (_, _) => const MaterialsScreen()),
+      GoRoute(
+        path: '/materials/new',
+        builder: (_, s) => MaterialRequestForm(
+          jobCardId: s.uri.queryParameters['job'],
+          projectId: s.uri.queryParameters['project'],
+        ),
+      ),
+      GoRoute(
+        path: '/materials/:id',
+        builder: (_, s) => MaterialRequestScreen(id: s.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/purchases',
+        builder: (_, _) => const MaterialsScreen(purchases: true),
+      ),
+      GoRoute(
+        path: '/purchases/new',
+        builder: (_, s) => PurchaseForm(mrId: s.uri.queryParameters['mr']),
+      ),
+      GoRoute(
+        path: '/purchases/:id',
+        builder: (_, s) => PurchaseScreen(id: s.pathParameters['id']!),
+      ),
+      GoRoute(path: '/tools/stats', builder: (_, _) => const ToolStatsScreen()),
+      // Store was renamed Inventory; old links still open.
+      GoRoute(
+        path: '/store/:id',
+        redirect: (_, s) => '/inventory/${s.pathParameters['id']}',
+      ),
+      GoRoute(path: '/store', redirect: (_, _) => '/inventory'),
+      GoRoute(
+        path: '/inventory/count',
         builder: (_, _) => const StoreCountScreen(),
       ),
       GoRoute(
-        path: '/store/:id',
+        path: '/inventory/:id',
         builder: (_, s) => StoreItemScreen(id: s.pathParameters['id']!),
       ),
       GoRoute(path: '/more', redirect: (_, _) => '/menu'),

@@ -67,6 +67,14 @@ class _CreateSheet extends ConsumerWidget {
           colors: const [BrandColors.maroon, BrandColors.coral],
           run: (c) => then(c, (h) => h.push('/my-requests/new')),
         ),
+      if (can('mr.create'))
+        (
+          icon: CupertinoIcons.cart_badge_plus,
+          title: 'Request materials',
+          hint: 'Cable, breakers, parts',
+          colors: const [BrandColors.coral, BrandColors.info],
+          run: (c) => then(c, (h) => h.push('/materials/new')),
+        ),
       if (can('jc.execute'))
         (
           icon: CupertinoIcons.person_crop_circle_badge_checkmark,

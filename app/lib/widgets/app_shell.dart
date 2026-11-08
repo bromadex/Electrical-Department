@@ -622,8 +622,15 @@ List<(String, String, IconData)> shellLinks(
     ('/checklists', 'Checklists', CupertinoIcons.checkmark_rectangle),
     ('/reports', 'Daily report', CupertinoIcons.doc_chart),
     ('/equipment', 'Equipment & tools', Icons.home_repair_service_outlined),
-    if (session.can('store.view', siteId: siteId))
-      ('/store', 'Store', CupertinoIcons.cube_box),
+    if (session.can('store.view', siteId: siteId)) ...[
+      ('/inventory', 'Inventory', CupertinoIcons.cube_box),
+      ('/materials', 'Materials', CupertinoIcons.cart),
+    ],
+    if (session.can('jc.view', siteId: siteId)) ...[
+      ('/projects', 'Projects', CupertinoIcons.flag),
+      ('/calendar', 'Calendar', CupertinoIcons.calendar),
+      ('/roster', 'Roster', CupertinoIcons.person_2_square_stack),
+    ],
     if (session.can('docs.view', siteId: siteId))
       ('/documents', 'Documents', CupertinoIcons.book),
   ],

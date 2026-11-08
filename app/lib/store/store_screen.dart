@@ -52,14 +52,14 @@ class _StoreScreenState extends ConsumerState<StoreScreen> {
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         leading: const AppBackButton(),
-        title: Text('Store · ${site?.code ?? ''}'),
+        title: Text('Inventory · ${site?.code ?? ''}'),
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
         actions: [
           if (canAdd)
             IconButton(
               tooltip: 'Count stock',
               icon: const Icon(CupertinoIcons.number_square),
-              onPressed: () => context.push('/store/count'),
+              onPressed: () => context.push('/inventory/count'),
             ),
         ],
       ),
@@ -131,9 +131,9 @@ class _StoreScreenState extends ConsumerState<StoreScreen> {
                         error: (e, _) => [
                           EmptyState(
                             icon: CupertinoIcons.wifi_slash,
-                            title: 'Could not load the store',
+                            title: 'Could not load the inventory',
                             message: AppError.from(e).isRetryable
-                                ? 'The store loads when you are connected.'
+                                ? 'The inventory loads when you are connected.'
                                 : AppError.from(e).message,
                           ),
                         ],
@@ -197,7 +197,7 @@ class _StoreScreenState extends ConsumerState<StoreScreen> {
                               EmptyState(
                                 icon: CupertinoIcons.cube_box,
                                 title: list.isEmpty
-                                    ? 'The store is empty'
+                                    ? 'The inventory is empty'
                                     : 'Nothing here',
                                 message: list.isEmpty
                                     ? 'The storekeeper adds items, then '
@@ -241,7 +241,7 @@ class _ItemTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return SurfaceCard(
-      onTap: () => context.push('/store/${item.id}'),
+      onTap: () => context.push('/inventory/${item.id}'),
       child: Row(
         children: [
           Expanded(
@@ -315,7 +315,7 @@ class StoreItemScreen extends ConsumerWidget {
       backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        leading: const AppBackButton(fallback: '/store'),
+        leading: const AppBackButton(fallback: '/inventory'),
         title: Text(i?.code ?? 'Item'),
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
         actions: [
@@ -888,7 +888,7 @@ class _ItemFormState extends ConsumerState<ItemForm> {
           );
       if (!mounted) return;
       Navigator.pop(context);
-      if (archive) context.go('/store');
+      if (archive) context.go('/inventory');
     } catch (e) {
       setState(() {
         _busy = false;

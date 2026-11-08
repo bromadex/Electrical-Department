@@ -250,6 +250,12 @@ class _EquipmentScreenState extends ConsumerState<EquipmentScreen> {
         actions: [
           if (onTools)
             IconButton(
+              tooltip: 'Tool stats',
+              onPressed: () => context.push('/tools/stats'),
+              icon: const Icon(CupertinoIcons.chart_bar_alt_fill),
+            ),
+          if (onTools)
+            IconButton(
               tooltip: 'Who has what',
               onPressed: () => context.push('/tools/holders'),
               icon: const Icon(CupertinoIcons.person_2),

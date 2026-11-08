@@ -102,7 +102,7 @@ class _StoreCountScreenState extends ConsumerState<StoreCountScreen> {
       backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        leading: const AppBackButton(fallback: '/store'),
+        leading: const AppBackButton(fallback: '/inventory'),
         title: const Text('Count stock'),
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
       ),
@@ -152,7 +152,7 @@ class _StoreCountScreenState extends ConsumerState<StoreCountScreen> {
                       const EmptyState(
                         icon: CupertinoIcons.cube_box,
                         title: 'Nothing to count',
-                        message: 'Add items to the store first.',
+                        message: 'Add items to the inventory first.',
                       ),
                     for (final i in shown)
                       // Keyed so a line keeps what was typed when the list

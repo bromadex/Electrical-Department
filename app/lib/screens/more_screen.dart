@@ -144,6 +144,53 @@ class MoreScreen extends ConsumerWidget {
               colors: const [BrandColors.maroonDeep, BrandColors.maroon],
               onTap: () => context.push('/equipment'),
             ),
+            if (session.can('store.view'))
+              ShortcutTile(
+                icon: Icons.inventory_2_outlined,
+                title: 'Inventory',
+                subtitle: 'Stock, receive, issue, count',
+                colors: const [BrandColors.info, BrandColors.maroon],
+                onTap: () => context.push('/inventory'),
+              ),
+            if (session.can('store.view'))
+              ShortcutTile(
+                icon: Icons.shopping_cart_outlined,
+                title: 'Materials',
+                subtitle: 'Requests and purchases',
+                colors: const [BrandColors.coral, BrandColors.info],
+                onTap: () => context.push('/materials'),
+              ),
+            if (session.can('jc.view')) ...[
+              ShortcutTile(
+                icon: Icons.flag_outlined,
+                title: 'Projects',
+                subtitle: 'Progress, materials, BOQ',
+                colors: const [BrandColors.maroon, BrandColors.blush],
+                onTap: () => context.push('/projects'),
+              ),
+              ShortcutTile(
+                icon: Icons.calendar_month_outlined,
+                title: 'Calendar',
+                subtitle: 'Everything due',
+                colors: const [BrandColors.info, BrandColors.success],
+                onTap: () => context.push('/calendar'),
+              ),
+              ShortcutTile(
+                icon: Icons.badge_outlined,
+                title: 'Roster',
+                subtitle: 'Shifts and standby',
+                colors: const [Color(0xFF5B4B8A), BrandColors.maroon],
+                onTap: () => context.push('/roster'),
+              ),
+            ],
+            if (session.can('tools.view'))
+              ShortcutTile(
+                icon: Icons.query_stats_outlined,
+                title: 'Tool stats',
+                subtitle: 'Losses, late, damage',
+                colors: const [BrandColors.maroonDeep, BrandColors.coral],
+                onTap: () => context.push('/tools/stats'),
+              ),
             ShortcutTile(
               icon: Icons.alarm_rounded,
               title: 'Reminders',

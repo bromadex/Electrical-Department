@@ -255,7 +255,7 @@ class _Hero extends StatelessWidget {
         ),
         const SizedBox(height: Space.md),
         Text(
-          'Jobs, checklists, tools, the store and the team chat for '
+          'Jobs, checklists, tools, inventory and the team chat for '
           'Bravura Electrical — on the phone and on the web.',
           style: theme.textTheme.bodyLarge?.copyWith(
             color: scheme.onSurfaceVariant,
