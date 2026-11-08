@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import '../services/core_providers.dart';
 import '../services/session_controller.dart';
 import '../theme/theme_mode.dart';
+import '../v2/site_filter.dart';
 
 /// The electrical store, stock basics (API.md section 13b): items with I-
 /// codes and stock on hand, moved only by receiving and issuing.
@@ -161,18 +162,22 @@ class StockMove {
 
 String _cacheKey(String site) => 'store_stock_$site';
 
-/// The current site's items, by name. Online it saves a copy on the device;
-/// without signal it shows that copy.
+/// The current site's items (or every site's, with All my sites), by name.
+/// Online it saves a copy on the device; without signal it shows that copy.
 final storeItemsProvider = FutureProvider<StoreStock>((ref) async {
-  final site = ref.watch(currentSiteProvider.select((s) => s?.id));
-  if (site == null) return const StoreStock([]);
+  final filter = ref.watch(siteFilterProvider);
+  if (filter == null && !ref.watch(allSitesProvider)) {
+    return const StoreStock([]);
+  }
+  final site = filter ?? 'all';
   try {
-    final rows = await ref
+    var q = ref
         .watch(supabaseProvider)
         .from('store_items')
         .select()
-        .eq('site_id', site)
-        .eq('is_archived', false)
+        .eq('is_archived', false);
+    if (filter != null) q = q.eq('site_id', filter);
+    final rows = await q
         .order('name')
         // Weak signal retries for a long time; show the saved copy instead.
         .timeout(const Duration(seconds: 8));

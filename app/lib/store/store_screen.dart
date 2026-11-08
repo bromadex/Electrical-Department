@@ -12,6 +12,7 @@ import '../ui/bits.dart';
 import '../ui/form_sheet.dart';
 import '../ui/motion.dart';
 import '../ui/surfaces.dart';
+import '../v2/site_filter.dart';
 import '../widgets/app_back_button.dart';
 import 'store_repository.dart';
 
@@ -97,6 +98,8 @@ class _StoreScreenState extends ConsumerState<StoreScreen> {
                         scrollDirection: Axis.horizontal,
                         child: Row(
                           children: [
+                            const AllSitesChip(),
+                            const SizedBox(width: Space.xs),
                             chip(
                               'All',
                               !_low && _category == null,
@@ -209,7 +212,12 @@ class _StoreScreenState extends ConsumerState<StoreScreen> {
                                 padding: const EdgeInsets.only(
                                   bottom: Space.sm,
                                 ),
-                                child: _ItemTile(item: i),
+                                child: _ItemTile(
+                                  item: i,
+                                  siteCode: ref.watch(allSitesProvider)
+                                      ? session.siteById(i.siteId)?.code
+                                      : null,
+                                ),
                               ).entrance(context, index: n.clamp(0, 8)),
                           ];
                         },
@@ -233,9 +241,12 @@ Color _levelColor(StoreItem i) => i.empty
     : BrandColors.success;
 
 class _ItemTile extends StatelessWidget {
-  const _ItemTile({required this.item});
+  const _ItemTile({required this.item, this.siteCode});
 
   final StoreItem item;
+
+  /// Shown with All my sites.
+  final String? siteCode;
 
   @override
   Widget build(BuildContext context) {
@@ -251,6 +262,10 @@ class _ItemTile extends StatelessWidget {
                 Row(
                   children: [
                     RecordCode(item.code),
+                    if (siteCode != null) ...[
+                      const SizedBox(width: Space.xs),
+                      Pill(label: siteCode!, dense: true),
+                    ],
                     const SizedBox(width: Space.xs),
                     Expanded(
                       child: Text(

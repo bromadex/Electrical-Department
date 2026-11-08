@@ -18,9 +18,11 @@ import '../ui/bits.dart';
 import '../ui/form_sheet.dart';
 import '../ui/motion.dart';
 import '../ui/surfaces.dart';
+import '../v2/site_filter.dart';
 import '../widgets/app_back_button.dart';
 import 'document_detail_screen.dart';
 import 'documents_repository.dart';
+import 'drop/drop_files.dart';
 
 IconData docIcon(Doc d) {
   final mime = d.current?.mimeType ?? '';
@@ -113,6 +115,42 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
   String? _folder;
   late bool _grid = _loadGrid();
 
+  /// Files are being dragged over the page (browser).
+  bool _dragging = false;
+  Object? _drops;
+
+  @override
+  void initState() {
+    super.initState();
+    _drops = listenForDrops(
+      onOver: (over) {
+        if (mounted && over != _dragging && _canUpload) {
+          setState(() => _dragging = over);
+        }
+      },
+      onDrop: (files) {
+        if (!mounted || !_canUpload) return;
+        setState(() => _dragging = false);
+        showFormSheet<void>(
+          context,
+          UploadSheet(folderId: _folder, dropped: files),
+        );
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    stopListening(_drops);
+    super.dispose();
+  }
+
+  bool get _canUpload {
+    final site = ref.read(currentSiteProvider);
+    return site != null &&
+        ref.read(sessionProvider).can('docs.manage', siteId: site.id);
+  }
+
   bool _loadGrid() {
     try {
       return ref.read(sharedPrefsProvider).getBool(_gridKey) ?? false;
@@ -128,8 +166,13 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
     } catch (_) {}
   }
 
+  /// Searching, filtering or All my sites lists documents from every folder
+  /// (folders belong to one site).
   bool get _filtering =>
-      _query.isNotEmpty || _category != null || _show != _Show.all;
+      _query.isNotEmpty ||
+      _category != null ||
+      _show != _Show.all ||
+      ref.read(allSitesProvider);
 
   Future<void> _folderSheet({DocFolder? folder}) async {
     final site = ref.read(currentSiteProvider);
@@ -185,6 +228,7 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final docs = ref.watch(documentsProvider);
+    ref.watch(allSitesProvider);
     final folders = ref.watch(foldersProvider).value ?? const <DocFolder>[];
     final session = ref.watch(sessionProvider);
     final site = ref.watch(currentSiteProvider);
@@ -269,103 +313,147 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
                 label: const Text('Upload'),
               )
             : null,
-        body: MeshBackground(
-          child: RefreshIndicator(
-            edgeOffset: top,
-            onRefresh: () async {
-              ref.invalidate(foldersProvider);
-              ref.invalidate(documentsProvider);
-            },
-            child: ListView(
-              padding: EdgeInsets.fromLTRB(
-                Space.md,
-                top + Space.md,
-                Space.md,
-                120,
-              ),
-              children: [
-                Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 1100),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        CupertinoSearchTextField(
-                          placeholder: folder == null
-                              ? 'Search titles or S- codes'
-                              : 'Search in ${folder.name}',
-                          onChanged: (v) => setState(() => _query = v),
-                        ),
-                        const SizedBox(height: Space.sm),
-                        SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            children: [
-                              chip(
-                                'All',
-                                _show == _Show.all && _category == null,
-                                () => setState(() {
-                                  _show = _Show.all;
-                                  _category = null;
-                                }),
-                              ),
-                              chip(
-                                toSign > 0 ? 'To sign ($toSign)' : 'To sign',
-                                _show == _Show.toSign,
-                                () => setState(() => _show = _Show.toSign),
-                              ),
-                              chip(
-                                'Recent',
-                                _show == _Show.recent,
-                                () => setState(() => _show = _Show.recent),
-                              ),
-                              if (canManage)
-                                chip(
-                                  'Added by me',
-                                  _show == _Show.mine,
-                                  () => setState(() => _show = _Show.mine),
-                                ),
-                              Container(
-                                width: 1,
-                                height: 24,
-                                margin: const EdgeInsets.only(right: Space.xs),
-                                color: theme.dividerColor,
-                              ),
-                              for (final c in documentCategories.keys)
-                                chip(
-                                  categoryLabel(c),
-                                  _category == c,
-                                  () => setState(
-                                    () => _category = _category == c ? null : c,
+        body: Stack(
+          children: [
+            MeshBackground(
+              child: RefreshIndicator(
+                edgeOffset: top,
+                onRefresh: () async {
+                  ref.invalidate(foldersProvider);
+                  ref.invalidate(documentsProvider);
+                },
+                child: ListView(
+                  padding: EdgeInsets.fromLTRB(
+                    Space.md,
+                    top + Space.md,
+                    Space.md,
+                    120,
+                  ),
+                  children: [
+                    Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1100),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            CupertinoSearchTextField(
+                              placeholder: folder == null
+                                  ? 'Search titles or S- codes'
+                                  : 'Search in ${folder.name}',
+                              onChanged: (v) => setState(() => _query = v),
+                            ),
+                            const SizedBox(height: Space.sm),
+                            SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: [
+                                  if (_folder == null) ...[
+                                    const AllSitesChip(),
+                                    const SizedBox(width: Space.xs),
+                                  ],
+                                  chip(
+                                    'All',
+                                    _show == _Show.all && _category == null,
+                                    () => setState(() {
+                                      _show = _Show.all;
+                                      _category = null;
+                                    }),
                                   ),
+                                  chip(
+                                    toSign > 0
+                                        ? 'To sign ($toSign)'
+                                        : 'To sign',
+                                    _show == _Show.toSign,
+                                    () => setState(() => _show = _Show.toSign),
+                                  ),
+                                  chip(
+                                    'Recent',
+                                    _show == _Show.recent,
+                                    () => setState(() => _show = _Show.recent),
+                                  ),
+                                  if (canManage)
+                                    chip(
+                                      'Added by me',
+                                      _show == _Show.mine,
+                                      () => setState(() => _show = _Show.mine),
+                                    ),
+                                  Container(
+                                    width: 1,
+                                    height: 24,
+                                    margin: const EdgeInsets.only(
+                                      right: Space.xs,
+                                    ),
+                                    color: theme.dividerColor,
+                                  ),
+                                  for (final c in documentCategories.keys)
+                                    chip(
+                                      categoryLabel(c),
+                                      _category == c,
+                                      () => setState(
+                                        () => _category = _category == c
+                                            ? null
+                                            : c,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: Space.md),
+                            ...docs.when(
+                              loading: () => [
+                                const Center(
+                                  child: CircularProgressIndicator(),
                                 ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: Space.md),
-                        ...docs.when(
-                          loading: () => [
-                            const Center(child: CircularProgressIndicator()),
-                          ],
-                          error: (e, _) => [
-                            EmptyState(
-                              icon: CupertinoIcons.wifi_slash,
-                              title: 'Could not load documents',
-                              message: AppError.from(e).isRetryable
-                                  ? 'Documents load when you are connected.'
-                                  : AppError.from(e).message,
+                              ],
+                              error: (e, _) => [
+                                EmptyState(
+                                  icon: CupertinoIcons.wifi_slash,
+                                  title: 'Could not load documents',
+                                  message: AppError.from(e).isRetryable
+                                      ? 'Documents load when you are connected.'
+                                      : AppError.from(e).message,
+                                ),
+                              ],
+                              data: (list) =>
+                                  _body(context, list, folders, canManage, me),
                             ),
                           ],
-                          data: (list) =>
-                              _body(context, list, folders, canManage, me),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (_dragging)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: Container(
+                    margin: const EdgeInsets.all(Space.lg),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.8),
+                      borderRadius: BorderRadius.circular(Radii.xl),
+                      border: Border.all(
+                        color: Theme.of(context).colorScheme.primary,
+                        width: 3,
+                      ),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(CupertinoIcons.cloud_upload, size: 56),
+                        const SizedBox(height: Space.sm),
+                        Text(
+                          'Drop files to upload them here',
+                          style: Theme.of(context).textTheme.titleLarge,
                         ),
                       ],
                     ),
                   ),
                 ),
-              ],
-            ),
-          ),
+              ),
+          ],
         ),
       ),
     );
@@ -824,6 +912,18 @@ class DocTile extends ConsumerWidget {
                 Row(
                   children: [
                     RecordCode(doc.code),
+                    if (ref.watch(allSitesProvider)) ...[
+                      const SizedBox(width: Space.xs),
+                      Pill(
+                        label:
+                            ref
+                                .watch(sessionProvider)
+                                .siteById(doc.siteId)
+                                ?.code ??
+                            '',
+                        dense: true,
+                      ),
+                    ],
                     const SizedBox(width: Space.xs),
                     Expanded(
                       child: Text(
@@ -1218,9 +1318,12 @@ enum _UploadState { waiting, uploading, done, failed }
 /// Uploads several files at once, each its own document, with the folder,
 /// type and signing chosen once for all of them.
 class UploadSheet extends ConsumerStatefulWidget {
-  const UploadSheet({super.key, this.folderId});
+  const UploadSheet({super.key, this.folderId, this.dropped = const []});
 
   final String? folderId;
+
+  /// Files dragged onto the page (browser).
+  final List<DroppedFile> dropped;
 
   @override
   ConsumerState<UploadSheet> createState() => _UploadSheetState();
@@ -1236,6 +1339,36 @@ class _UploadSheetState extends ConsumerState<UploadSheet> {
   bool _needsAck = true;
   bool _busy = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _add([
+      for (final f in widget.dropped) (name: f.name, read: () async => f.bytes),
+    ]);
+  }
+
+  /// Adds files, leaving out any over 25 MB.
+  Future<void> _add(
+    List<({String name, Future<Uint8List> Function() read})> picked,
+  ) async {
+    final big = <String>[];
+    for (final f in picked) {
+      final bytes = await f.read();
+      if (bytes.length > _maxBytes) {
+        big.add(f.name);
+        continue;
+      }
+      _files.add((name: f.name, bytes: bytes));
+      _state.add(_UploadState.waiting);
+    }
+    if (!mounted) return;
+    setState(
+      () => _error = big.isEmpty
+          ? null
+          : '${big.join(', ')} ${big.length == 1 ? 'is' : 'are'} over 25 MB',
+    );
+  }
 
   Future<void> _pick() async {
     final picked = await FilePicker.pickFiles(
@@ -1258,21 +1391,9 @@ class _UploadSheetState extends ConsumerState<UploadSheet> {
       ],
     );
     if (picked.isEmpty) return;
-    final big = <String>[];
-    for (final f in picked) {
-      final bytes = await f.xFile.readAsBytes();
-      if (bytes.length > _maxBytes) {
-        big.add(f.name);
-        continue;
-      }
-      _files.add((name: f.name, bytes: bytes));
-      _state.add(_UploadState.waiting);
-    }
-    setState(
-      () => _error = big.isEmpty
-          ? null
-          : '${big.join(', ')} ${big.length == 1 ? 'is' : 'are'} over 25 MB',
-    );
+    await _add([
+      for (final f in picked) (name: f.name, read: f.xFile.readAsBytes),
+    ]);
   }
 
   Future<void> _upload() async {

@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../services/core_providers.dart';
-import '../services/session_controller.dart';
+import '../v2/site_filter.dart';
 
 /// Projects, the roster and the calendar (API.md section 18).
 
@@ -61,16 +61,14 @@ class Project {
       open && targetDate != null && targetDate!.isBefore(today);
 }
 
-/// The current site's projects, open ones first, then by target date.
+/// The current site's projects (or every site's, with All my sites), open
+/// ones first, then by target date.
 final projectsProvider = FutureProvider.autoDispose<List<Project>>((ref) async {
-  final site = ref.watch(currentSiteProvider.select((s) => s?.id));
-  if (site == null) return const [];
-  final rows = await ref
-      .watch(supabaseProvider)
-      .from('project_overview')
-      .select()
-      .eq('site_id', site)
-      .order('target_date', ascending: true, nullsFirst: false);
+  final site = ref.watch(siteFilterProvider);
+  if (site == null && !ref.watch(allSitesProvider)) return const [];
+  var q = ref.watch(supabaseProvider).from('project_overview').select();
+  if (site != null) q = q.eq('site_id', site);
+  final rows = await q.order('target_date', ascending: true, nullsFirst: false);
   final list = [for (final r in rows) Project.fromJson(r)];
   list.sort((a, b) => (a.open == b.open) ? 0 : (a.open ? -1 : 1));
   return list;

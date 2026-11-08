@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 
 import '../services/core_providers.dart';
 import '../services/session_controller.dart';
+import '../v2/site_filter.dart';
 
 /// A folder in a site's document library (API.md section 12b).
 class DocFolder {
@@ -117,17 +118,21 @@ class Doc {
 
 /// Documents at the current site (online: files need a connection anyway).
 final documentsProvider = FutureProvider<List<Doc>>((ref) async {
-  final site = ref.watch(currentSiteProvider.select((s) => s?.id));
+  // The current site, or every site with All my sites.
+  final site = ref.watch(siteFilterProvider);
   final me = ref.watch(authUserIdProvider);
-  if (site == null || me == null) return const [];
+  if ((site == null && !ref.watch(allSitesProvider)) || me == null) {
+    return const [];
+  }
+  final session = ref.read(sessionProvider);
   final db = ref.watch(supabaseProvider);
+  var docs = db
+      .from('documents')
+      .select('*, document_versions(*)')
+      .eq('is_archived', false);
+  if (site != null) docs = docs.eq('site_id', site);
   final (rows, acks) = await (
-    db
-        .from('documents')
-        .select('*, document_versions(*)')
-        .eq('site_id', site)
-        .eq('is_archived', false)
-        .order('title'),
+    docs.order('title'),
     db.from('document_acks').select('document_id, version').eq('user_id', me),
   ).wait;
   final mine = <String, int>{};
@@ -139,10 +144,11 @@ final documentsProvider = FutureProvider<List<Doc>>((ref) async {
   // Supervisors see everyone's signatures (RLS); count them on the current
   // version of each document that needs them.
   final signed = <String, int>{};
-  if (ref.read(sessionProvider).can('docs.manage', siteId: site)) {
+  {
     final current = {
       for (final r in rows)
-        if (r['needs_ack'] == true)
+        if (r['needs_ack'] == true &&
+            session.can('docs.manage', siteId: r['site_id'] as String))
           r['id'] as String: (r['current_version'] as num).toInt(),
     };
     if (current.isNotEmpty) {
@@ -162,8 +168,10 @@ final documentsProvider = FutureProvider<List<Doc>>((ref) async {
       }
     }
   }
-  final member = ref.read(sessionProvider).worksAt(site);
-  return [for (final r in rows) Doc.fromJson(r, mine, signed, member)];
+  return [
+    for (final r in rows)
+      Doc.fromJson(r, mine, signed, session.worksAt(r['site_id'] as String)),
+  ];
 });
 
 /// Folders at the current site, by name (online).

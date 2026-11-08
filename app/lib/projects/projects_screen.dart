@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../data/app_error.dart';
+import '../data/xlsx.dart';
 import '../data/site_data.dart';
 import '../procurement/procurement_repository.dart';
 import '../services/session_controller.dart';
@@ -15,6 +16,7 @@ import '../ui/bits.dart';
 import '../ui/form_sheet.dart';
 import '../ui/motion.dart';
 import '../ui/surfaces.dart';
+import '../v2/site_filter.dart';
 import '../widgets/app_back_button.dart';
 import 'projects_repository.dart';
 
@@ -128,6 +130,11 @@ class ProjectsScreen extends ConsumerWidget {
                         ),
                       ],
                       data: (list) => [
+                        const Align(
+                          alignment: Alignment.centerLeft,
+                          child: AllSitesChip(),
+                        ),
+                        const SizedBox(height: Space.sm),
                         if (list.isEmpty)
                           const EmptyState(
                             icon: CupertinoIcons.flag,
@@ -153,6 +160,20 @@ class ProjectsScreen extends ConsumerWidget {
                                         Row(
                                           children: [
                                             RecordCode(p.code),
+                                            if (ref.watch(
+                                              allSitesProvider,
+                                            )) ...[
+                                              const SizedBox(width: Space.xs),
+                                              Pill(
+                                                label:
+                                                    ref
+                                                        .watch(sessionProvider)
+                                                        .siteById(p.siteId)
+                                                        ?.code ??
+                                                    '',
+                                                dense: true,
+                                              ),
+                                            ],
                                             const SizedBox(width: Space.xs),
                                             Expanded(
                                               child: Text(
@@ -729,14 +750,22 @@ class _BoqImportSheetState extends ConsumerState<BoqImportSheet> {
     super.dispose();
   }
 
-  Future<void> _pickCsv() async {
+  Future<void> _pickFile() async {
     final f = await FilePicker.pickFile(
       type: FileType.custom,
-      allowedExtensions: const ['csv', 'txt', 'tsv'],
+      allowedExtensions: const ['xlsx', 'csv', 'txt', 'tsv'],
     );
     if (f == null) return;
     final bytes = await f.xFile.readAsBytes();
-    setState(() => _text.text = String.fromCharCodes(bytes));
+    try {
+      final rows = readTable(f.name, bytes);
+      setState(() {
+        _text.text = [for (final r in rows) r.join('\t')].join('\n');
+        _error = null;
+      });
+    } on FormatException catch (e) {
+      setState(() => _error = e.message);
+    }
   }
 
   Future<void> _import() async {
@@ -780,7 +809,7 @@ class _BoqImportSheetState extends ConsumerState<BoqImportSheet> {
           Text('Import BOQ', style: theme.textTheme.headlineSmall),
           Text(
             'Copy three columns from Excel (description, unit, quantity) and '
-            'paste them here, or pick a CSV file. Names that match inventory '
+            'paste them here, or pick the .xlsx or CSV file. Names that match inventory '
             'items are linked to them.',
             style: theme.textTheme.bodySmall,
           ),
@@ -798,9 +827,9 @@ class _BoqImportSheetState extends ConsumerState<BoqImportSheet> {
           Row(
             children: [
               OutlinedButton.icon(
-                onPressed: _busy ? null : _pickCsv,
+                onPressed: _busy ? null : _pickFile,
                 icon: const Icon(CupertinoIcons.doc),
-                label: const Text('CSV file'),
+                label: const Text('Excel or CSV file'),
               ),
               const Spacer(),
               Text(

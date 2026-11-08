@@ -85,7 +85,12 @@ class _StoreCountScreenState extends ConsumerState<StoreCountScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final stock = ref.watch(storeItemsProvider);
-    final items = stock.value?.items ?? const <StoreItem>[];
+    // A count is of one site's shelves, whatever the list shows.
+    final here = ref.watch(currentSiteProvider)?.id;
+    final items = [
+      for (final i in stock.value?.items ?? const <StoreItem>[])
+        if (i.siteId == here) i,
+    ];
     final top = MediaQuery.paddingOf(context).top + kToolbarHeight;
     final q = _query.trim().toLowerCase();
     final shown = [
