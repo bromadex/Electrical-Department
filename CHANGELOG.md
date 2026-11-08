@@ -1,5 +1,26 @@
 # What's new
 
+## 8 November 2026, afternoon
+
+### Smaller things
+- **All my sites** now also works on Inventory, Projects and Documents:
+  everything from every site, each tagged with its site.
+- **Excel files**: the BOQ import takes .xlsx files as well as CSV.
+- **Drag and drop**: on a PC, drop files onto Documents to upload them.
+
+### Statistics, imports, backups and admin (issue #16)
+- **Inventory stats** (chart icon on Inventory): what was used most, stock
+  per project, the job cards using the most, corrections and what is low.
+- **Import from Excel** on Inventory (items with their opening stock) and
+  on Equipment & tools (tools with serial numbers and calibration dates).
+  The first row names the columns; the app works out which is which.
+- **Roles and permissions** (Settings → Admin): switch what each role may
+  do.
+- **Reports archive** (archive icon on the daily report): every daily
+  report, with search through what people wrote.
+- **Nightly backups**: the database is copied every night, test-restored to
+  prove it works, encrypted and kept for 90 days.
+
 ## 8 November 2026
 
 ### The store is now called Inventory

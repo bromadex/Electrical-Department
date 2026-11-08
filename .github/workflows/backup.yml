@@ -1,0 +1,118 @@
+name: Database backup
+
+# Every night the live database is dumped, encrypted and kept for 90 days as
+# a workflow artifact, then restored into a throwaway database and the row
+# counts compared, so each backup is known to restore (issue #16).
+#
+# Required repo secrets:
+#   SUPABASE_DB_URL     the same connection string the Supabase workflow uses
+#   BACKUP_PASSPHRASE   a long passphrase; backups are encrypted with it
+#                       (gpg, AES-256). Keep it somewhere safe outside GitHub:
+#                       without it a backup cannot be opened.
+#
+# Restore by hand: download the artifact, then
+#   gpg --decrypt backup-<date>.tar.gpg | tar -xz
+#   psql "$DB_URL" -f roles.sql; psql "$DB_URL" -f schema.sql
+#   psql "$DB_URL" -c "set session_replication_role = replica" \
+#     -f auth_storage_data.sql -f data.sql
+# Files in Supabase Storage (photos, documents) are not in the database and
+# are not in this backup.
+
+on:
+  schedule:
+    - cron: "20 22 * * *" # 00:20 Harare
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SUPABASE_CLI_VERSION: 2.122.0
+
+concurrency:
+  group: database-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Dump, encrypt and test a restore
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: ${{ env.SUPABASE_CLI_VERSION }}
+
+      - name: Check secrets
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "::error::SUPABASE_DB_URL secret is not set."; exit 1
+          fi
+          if [ -z "$BACKUP_PASSPHRASE" ]; then
+            echo "::error::Set the BACKUP_PASSPHRASE secret; backups are never kept unencrypted."; exit 1
+          fi
+
+      - name: Dump the live database
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          mkdir -p backup
+          supabase db dump --db-url "$SUPABASE_DB_URL" --role-only -f backup/roles.sql
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f backup/schema.sql
+          # The app's data, and separately the sign-in accounts and storage
+          # records (Supabase manages those schemas and can change them).
+          supabase db dump --db-url "$SUPABASE_DB_URL" --data-only --use-copy --schema public -f backup/data.sql
+          supabase db dump --db-url "$SUPABASE_DB_URL" --data-only --use-copy --schema auth,storage -f backup/auth_storage_data.sql
+          ls -la backup
+
+      - name: Count rows in the live database
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          psql "$SUPABASE_DB_URL" -At -f scripts/backup_row_counts.sql > live_counts.txt
+          cat live_counts.txt
+
+      - name: Restore into a throwaway database
+        run: |
+          supabase db start
+          DB=postgresql://postgres:postgres@127.0.0.1:54322/postgres
+          # The local database already has the schema (the same migrations);
+          # load the app's data with triggers off, as a restore would. The
+          # auth and storage data is kept but not test-restored: those
+          # schemas follow Supabase's versions, not ours.
+          psql "$DB" -v ON_ERROR_STOP=1 -q \
+            -c "set session_replication_role = replica" \
+            -f scripts/backup_truncate.sql \
+            -f backup/data.sql
+          psql "$DB" -At -f scripts/backup_row_counts.sql > restored_counts.txt
+
+      - name: Compare row counts
+        run: |
+          if diff -u live_counts.txt restored_counts.txt; then
+            echo "Restore matches the live database: $(wc -l < live_counts.txt) tables."
+          else
+            echo "::error::The restored database differs from the live one."; exit 1
+          fi
+
+      - name: Encrypt
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          day=$(TZ=Africa/Harare date +%F)
+          echo "DAY=$day" >> "$GITHUB_ENV"
+          tar -C backup -cz . | gpg --batch --yes --symmetric --cipher-algo AES256 \
+            --passphrase-fd 3 -o "backup-$day.tar.gpg" 3<<< "$BACKUP_PASSPHRASE"
+          rm -rf backup
+          ls -la "backup-$day.tar.gpg"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backup-${{ env.DAY }}
+          path: backup-${{ env.DAY }}.tar.gpg
+          retention-days: 90
+          compression-level: 0

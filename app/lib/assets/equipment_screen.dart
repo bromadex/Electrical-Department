@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../data/import_sheet.dart';
 import '../data/local_db.dart';
 import '../data/site_data.dart';
+import '../services/core_providers.dart';
 import '../services/session_controller.dart';
 import '../theme/tokens.dart';
 import '../tools/tools_repository.dart';
@@ -248,6 +250,62 @@ class _EquipmentScreenState extends ConsumerState<EquipmentScreen> {
         title: Text(seesTools ? 'Equipment & tools' : 'Equipment'),
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
         actions: [
+          if (onTools && canTool)
+            IconButton(
+              tooltip: 'Import tools from Excel',
+              icon: const Icon(CupertinoIcons.arrow_down_doc),
+              onPressed: () => showFormSheet<void>(
+                context,
+                ImportSheet(
+                  title: 'Import tools',
+                  help:
+                      'The first row names the columns. Each row becomes a '
+                      'tool with the next T- code; a serial number already '
+                      'in the register is skipped.',
+                  fields: const [
+                    (
+                      key: 'name',
+                      label: 'Name',
+                      aliases: ['tool', 'description'],
+                    ),
+                    (key: 'kind', label: 'Type', aliases: ['kind', 'category']),
+                    (
+                      key: 'serial_no',
+                      label: 'Serial number',
+                      aliases: ['serial', 'sn', 's/n'],
+                    ),
+                    (
+                      key: 'calibration_due',
+                      label: 'Calibration due',
+                      aliases: ['calibration', 'cal due', 'next calibration'],
+                    ),
+                  ],
+                  required: const ['name'],
+                  onImport: (rows) async {
+                    final r = await ref
+                        .read(supabaseProvider)
+                        .rpc(
+                          'fn_import_tools',
+                          params: {
+                            'p_site': site.id,
+                            'p_rows': [
+                              for (final r in rows)
+                                {
+                                  ...r,
+                                  'calibration_due': importDate(
+                                    r['calibration_due'],
+                                  ),
+                                },
+                            ],
+                          },
+                        );
+                    await ref.read(toolsSyncProvider.notifier).refresh();
+                    return '${r['created']} added, ${r['skipped']} skipped '
+                        '(serial already there)';
+                  },
+                ),
+              ),
+            ),
           if (onTools)
             IconButton(
               tooltip: 'Tool stats',

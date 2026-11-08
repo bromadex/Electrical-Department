@@ -14,6 +14,7 @@ import '../ui/motion.dart';
 import '../ui/surfaces.dart';
 import '../v2/site_filter.dart';
 import '../widgets/app_back_button.dart';
+import 'stock_stats_screen.dart';
 import 'store_repository.dart';
 
 /// The electrical store at the current site: stock on hand with search,
@@ -56,11 +57,23 @@ class _StoreScreenState extends ConsumerState<StoreScreen> {
         title: Text('Inventory · ${site?.code ?? ''}'),
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
         actions: [
+          IconButton(
+            tooltip: 'Inventory stats',
+            icon: const Icon(CupertinoIcons.chart_bar_alt_fill),
+            onPressed: () => context.push('/inventory/stats'),
+          ),
           if (canAdd)
             IconButton(
               tooltip: 'Count stock',
               icon: const Icon(CupertinoIcons.number_square),
               onPressed: () => context.push('/inventory/count'),
+            ),
+          if (canAdd && site != null)
+            IconButton(
+              tooltip: 'Import from Excel',
+              icon: const Icon(CupertinoIcons.arrow_down_doc),
+              onPressed: () =>
+                  showFormSheet<void>(context, itemsImportSheet(ref, site.id)),
             ),
         ],
       ),

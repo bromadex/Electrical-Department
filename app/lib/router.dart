@@ -1,4 +1,7 @@
+import 'admin/permissions_screen.dart';
 import 'procurement/materials_screen.dart';
+import 'reports/reports_archive_screen.dart';
+import 'store/stock_stats_screen.dart';
 import 'projects/calendar_screen.dart';
 import 'projects/projects_screen.dart';
 import 'projects/roster_screen.dart';
@@ -137,6 +140,18 @@ GoRouter buildRouter(WidgetRef ref) {
       ),
       GoRoute(path: '/store', redirect: (_, _) => '/inventory'),
       GoRoute(
+        path: '/inventory/stats',
+        builder: (_, _) => const StockStatsScreen(),
+      ),
+      GoRoute(
+        path: '/admin/permissions',
+        builder: (_, _) => const PermissionsScreen(),
+      ),
+      GoRoute(
+        path: '/reports/archive',
+        builder: (_, _) => const ReportsArchiveScreen(),
+      ),
+      GoRoute(
         path: '/inventory/count',
         builder: (_, _) => const StoreCountScreen(),
       ),
@@ -172,7 +187,12 @@ GoRouter buildRouter(WidgetRef ref) {
         path: '/meetings/:id',
         builder: (_, s) => MeetingScreen(id: s.pathParameters['id']!),
       ),
-      GoRoute(path: '/reports', builder: (_, _) => const DailyReportScreen()),
+      GoRoute(
+        path: '/reports',
+        builder: (_, s) => DailyReportScreen(
+          day: DateTime.tryParse(s.uri.queryParameters['date'] ?? ''),
+        ),
+      ),
       GoRoute(
         path: '/admin/activity',
         builder: (_, _) => const ActivityScreen(),

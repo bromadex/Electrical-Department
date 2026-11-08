@@ -25,14 +25,17 @@ enum _Range { day, week, month }
 /// The daily report (R-): the day's figures, everyone's update with photos,
 /// supervisor approval, PDF to share; plus week and month totals.
 class DailyReportScreen extends ConsumerStatefulWidget {
-  const DailyReportScreen({super.key});
+  const DailyReportScreen({super.key, this.day});
+
+  /// The day to open (from the archive); today if null.
+  final DateTime? day;
 
   @override
   ConsumerState<DailyReportScreen> createState() => _DailyReportScreenState();
 }
 
 class _DailyReportScreenState extends ConsumerState<DailyReportScreen> {
-  DateTime _day = DateTime.now();
+  late DateTime _day = widget.day ?? DateTime.now();
   _Range _range = _Range.day;
 
   bool get _isToday {
@@ -56,6 +59,11 @@ class _DailyReportScreenState extends ConsumerState<DailyReportScreen> {
         title: Text('Daily report · ${site?.code ?? ''}'),
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
         actions: [
+          IconButton(
+            tooltip: 'Archive and search',
+            icon: const Icon(CupertinoIcons.archivebox),
+            onPressed: () => context.push('/reports/archive'),
+          ),
           if (_range == _Range.day && day.value != null)
             IconButton(
               tooltip: 'Share as PDF',

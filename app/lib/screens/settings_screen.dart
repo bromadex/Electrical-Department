@@ -252,6 +252,12 @@ class SettingsScreen extends ConsumerWidget {
                             ),
                           if (admin) ...[
                             _Row(
+                              icon: CupertinoIcons.lock_shield,
+                              title: 'Roles and permissions',
+                              subtitle: 'What each role may do',
+                              onTap: () => context.push('/admin/permissions'),
+                            ),
+                            _Row(
                               icon: CupertinoIcons.slider_horizontal_3,
                               title: 'Job card settings',
                               subtitle: 'Priorities, numbering, categories',
