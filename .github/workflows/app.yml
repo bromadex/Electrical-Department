@@ -89,6 +89,7 @@ jobs:
           flutter pub get
           flutter build web --release \
             --dart-define=FLAVOR=$([ "$PROD" = true ] && echo prod || echo preview) \
+            --dart-define=APP_VERSION="web-${GITHUB_SHA::7}" \
             --dart-define=SUPABASE_URL="$SUPABASE_URL" \
             --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
 
@@ -185,17 +186,32 @@ jobs:
             --build-name="$name" \
             --build-number="$GITHUB_RUN_NUMBER" \
             --dart-define=FLAVOR=prod \
+            --dart-define=APP_VERSION="$name" \
             --dart-define=SUPABASE_URL="$SUPABASE_URL" \
             --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
           mv build/app/outputs/flutter-apk/app-prod-release.apk \
              "build/bravura-electrical-${VERSION:-main}.apk"
+          # The Play Store takes an app bundle; build one with each release.
+          if [ -n "$VERSION" ]; then
+            flutter build appbundle --release --flavor prod \
+              --build-name="$name" \
+              --build-number="$GITHUB_RUN_NUMBER" \
+              --dart-define=FLAVOR=prod \
+              --dart-define=APP_VERSION="$name" \
+              --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+              --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
+            mv build/app/outputs/bundle/prodRelease/app-prod-release.aab \
+               "build/bravura-electrical-${VERSION}.aab"
+          fi
 
       - uses: softprops/action-gh-release@v2
         if: env.VERSION != ''
         with:
           tag_name: ${{ env.VERSION }}
           target_commitish: ${{ github.sha }}
-          files: app/build/bravura-electrical-${{ env.VERSION }}.apk
+          files: |
+            app/build/bravura-electrical-${{ env.VERSION }}.apk
+            app/build/bravura-electrical-${{ env.VERSION }}.aab
 
       - name: Firebase App Distribution
         if: env.VERSION != ''

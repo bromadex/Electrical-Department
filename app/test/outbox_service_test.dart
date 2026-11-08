@@ -46,13 +46,68 @@ void main() {
 
     var pending = await rows();
     expect(pending, hasLength(1));
-    expect(pending.single.tries, greaterThanOrEqualTo(1));
+    expect(pending.single.tries, 0, reason: 'no signal never uses up a try');
     expect(pending.single.lastError, contains('NETWORK'));
 
     failWith = null;
-    await outbox.flush();
+    await outbox.flush(force: true);
     expect(calls, hasLength(1));
     expect(await rows(), isEmpty);
+    expect(outbox.waitUntil, isNull, reason: 'sending again resets the wait');
+  });
+
+  test('a long time without signal never drops queued work', () async {
+    failWith = Exception('offline');
+    await outbox.enqueue('fn_mark_read', {'p_ids': null});
+    for (var i = 0; i < 3 * OutboxService.maxTries; i++) {
+      await outbox.flush(force: true);
+    }
+    expect((await rows()).single.tries, 0);
+    expect(await outbox.watchFailed().first, isEmpty);
+    expect(await outbox.watchPending().first, 1);
+  });
+
+  test('after a failure for lack of signal, sending waits', () async {
+    failWith = Exception('offline');
+    await outbox.enqueue('fn_mark_read', {'p_ids': null});
+    await outbox.flush();
+    final wait = outbox.waitUntil!;
+    expect(wait.difference(DateTime.now()).inSeconds, inInclusiveRange(25, 30));
+
+    failWith = null;
+    await outbox.flush();
+    expect(calls, isEmpty, reason: 'the 30-second timer does not hammer');
+    await outbox.flush(force: true);
+    expect(calls, hasLength(1), reason: 'Send now goes straight away');
+  });
+
+  test('the wait doubles, up to ten minutes', () async {
+    failWith = Exception('offline');
+    await outbox.enqueue('fn_mark_read', {'p_ids': null});
+    Duration left() => outbox.waitUntil!.difference(DateTime.now());
+    await outbox.flush(force: true);
+    expect(left().inSeconds, inInclusiveRange(25, 30));
+    await outbox.flush(force: true);
+    expect(left().inSeconds, inInclusiveRange(55, 60));
+    for (var i = 0; i < 12; i++) {
+      await outbox.flush(force: true);
+    }
+    expect(left().inMinutes, inInclusiveRange(9, 10));
+  });
+
+  test('work given up for lack of signal comes back', () async {
+    await outbox.enqueue('fn_mark_read', {'p_ids': null}, flushNow: false);
+    await (db.update(db.outbox)).write(
+      const OutboxCompanion(
+        tries: Value(OutboxService.maxTries),
+        lastError: Value('NETWORK: Could not reach the server.'),
+      ),
+    );
+    expect(await outbox.watchFailed().first, hasLength(1));
+    expect(await outbox.reviveOfflineFailures(), 1);
+    expect(await outbox.watchFailed().first, isEmpty);
+    await outbox.flush(force: true);
+    expect(calls, hasLength(1));
   });
 
   test('stops retrying when the server rejects the call', () async {
@@ -72,6 +127,14 @@ void main() {
     failWith = null;
     await outbox.flush();
     expect(calls, isEmpty);
+    expect(
+      await outbox.reviveOfflineFailures(),
+      0,
+      reason: 'a refusal from the server is not brought back',
+    );
+
+    await outbox.retry(failed.single.clientRef);
+    expect(calls, hasLength(1), reason: 'Try again sends it once more');
   });
 
   test('rejects actions that are not in API.md', () {

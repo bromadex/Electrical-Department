@@ -65,7 +65,7 @@ class AuthUserIdNotifier extends Notifier<String?> {
   /// device (a shared phone must not keep getting the last person's jobs),
   /// then signs out.
   Future<void> signOut() async {
-    await ref.read(outboxProvider).flush();
+    await ref.read(outboxProvider).flush(force: true);
     await ref.read(pushProvider.notifier).forgetDevice();
     await ref.read(supabaseProvider).auth.signOut();
   }
@@ -74,13 +74,20 @@ class AuthUserIdNotifier extends Notifier<String?> {
 /// Keeps data fresh while the app runs: retries the outbox every 30 seconds
 /// and refreshes everything when the app comes back to the foreground.
 final syncProvider = Provider<void>((ref) {
-  void flush() => unawaited(ref.read(outboxProvider).flush());
+  void flush({bool force = false}) =>
+      unawaited(ref.read(outboxProvider).flush(force: force));
 
+  // Work that gave up for lack of signal (older versions counted that as a
+  // failure) goes back in the queue.
+  unawaited(
+    ref.read(outboxProvider).reviveOfflineFailures().then((_) => flush()),
+  );
+  unawaited(ref.read(localDbProvider).pruneJson());
   final timer = Timer.periodic(const Duration(seconds: 30), (_) => flush());
   final lifecycle = AppLifecycleListener(
     onResume: () {
       if (ref.read(authUserIdProvider) == null) return;
-      flush();
+      flush(force: true);
       unawaited(ref.read(sessionProvider.notifier).refresh());
       unawaited(ref.read(notificationsProvider.notifier).refresh());
     },

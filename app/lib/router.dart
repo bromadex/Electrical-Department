@@ -1,4 +1,6 @@
+import 'admin/errors_screen.dart';
 import 'admin/permissions_screen.dart';
+import 'screens/outbox_screen.dart';
 import 'procurement/materials_screen.dart';
 import 'reports/reports_archive_screen.dart';
 import 'store/stock_stats_screen.dart';
@@ -96,6 +98,11 @@ GoRouter buildRouter(WidgetRef ref) {
       GoRoute(path: '/today', redirect: (_, _) => '/home'),
       GoRoute(path: '/board', redirect: (_, _) => '/jobs'),
       GoRoute(path: '/inventory', builder: (_, _) => const StoreScreen()),
+      GoRoute(path: '/outbox', builder: (_, _) => const OutboxScreen()),
+      GoRoute(
+        path: '/admin/errors',
+        builder: (_, _) => const AppErrorsScreen(),
+      ),
       GoRoute(path: '/projects', builder: (_, _) => const ProjectsScreen()),
       GoRoute(
         path: '/projects/:id',

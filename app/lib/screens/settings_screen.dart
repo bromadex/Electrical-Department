@@ -252,6 +252,12 @@ class SettingsScreen extends ConsumerWidget {
                             ),
                           if (admin) ...[
                             _Row(
+                              icon: CupertinoIcons.exclamationmark_bubble,
+                              title: 'App errors',
+                              subtitle: 'What went wrong on phones',
+                              onTap: () => context.push('/admin/errors'),
+                            ),
+                            _Row(
                               icon: CupertinoIcons.lock_shield,
                               title: 'Roles and permissions',
                               subtitle: 'What each role may do',
@@ -360,14 +366,14 @@ class _Waiting extends ConsumerWidget {
           title: n == 0 ? 'Everything is sent' : '$n waiting to send',
           subtitle: n == 0
               ? 'Changes made offline send when you are back online'
-              : 'Tap to try now',
+              : 'Tap to see them or send now',
           trailing: n == 0
               ? const Icon(
                   CupertinoIcons.checkmark_circle_fill,
                   color: BrandColors.success,
                 )
               : null,
-          onTap: n == 0 ? null : () => unawaited(outbox.flush()),
+          onTap: () => context.push('/outbox'),
         );
       },
     );

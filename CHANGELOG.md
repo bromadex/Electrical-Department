@@ -1,5 +1,21 @@
 # What's new
 
+## 8 November 2026, evening
+
+### Work done without signal is never lost (issue #17)
+- Before, a phone without signal for about two and a half minutes gave up
+  on changes waiting to send. Now no signal never counts as a failure: the
+  app waits a little longer each time and sends as soon as it can. Changes
+  an older version gave up on come back by themselves.
+- **Settings → Waiting to send** shows everything not yet on the server,
+  with **Try again** and **Discard** for anything the server refused, and
+  **Send now**.
+- **App errors** (Settings → Admin): errors on people's phones are reported
+  and grouped, so they can be fixed.
+- Faster lookups: every link between tables now has an index.
+- Releases now also build the bundle the Play Store needs; the privacy
+  policy is published with the web app.
+
 ## 8 November 2026, afternoon
 
 ### Smaller things

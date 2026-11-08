@@ -12,6 +12,12 @@ class Env {
   /// `dev` or `prod`. Dev builds show a DEV ribbon.
   static const flavor = String.fromEnvironment('FLAVOR', defaultValue: 'dev');
 
+  /// The release (e.g. 0.1.3), set by the build; "dev" for local builds.
+  static const appVersion = String.fromEnvironment(
+    'APP_VERSION',
+    defaultValue: 'dev',
+  );
+
   static bool get isProd => flavor == 'prod';
 
   static bool get hasSupabase =>

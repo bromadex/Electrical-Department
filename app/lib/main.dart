@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
@@ -14,6 +15,7 @@ import 'data/local_db.dart';
 import 'router.dart';
 import 'screens/setup_required_screen.dart';
 import 'services/core_providers.dart';
+import 'services/error_reporter.dart';
 import 'services/incoming_calls.dart';
 import 'services/push_service.dart';
 import 'theme/app_theme.dart';
@@ -43,6 +45,17 @@ Future<void> main() async {
   if (PushSupport.ready && IncomingCalls.supported) {
     FirebaseMessaging.onBackgroundMessage(firebaseBackgroundMessage);
   }
+  // Errors go to the admins' App errors screen as well as the console.
+  final reporter = ErrorReporter(Supabase.instance.client);
+  final showError = FlutterError.onError;
+  FlutterError.onError = (details) {
+    showError?.call(details);
+    reporter.report(details.exception, details.stack);
+  };
+  PlatformDispatcher.instance.onError = (error, stack) {
+    reporter.report(error, stack);
+    return false;
+  };
   runApp(
     ProviderScope(
       overrides: [
@@ -73,6 +86,8 @@ class _ElectricalDepartmentAppState
   @override
   void initState() {
     super.initState();
+    ErrorReporter.currentRoute = () =>
+        _router.routerDelegate.currentConfiguration.uri.toString();
     if (PushSupport.ready) {
       // A tapped push opens its job or chat, whether the app was in the
       // background or closed.

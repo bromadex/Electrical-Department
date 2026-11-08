@@ -74,8 +74,33 @@ class OutboxService {
     'fn_mark_conversation_read': false,
   };
 
-  /// Entries that failed this many times stop retrying and keep their error.
+  /// Entries the server failed this many times stop retrying and keep their
+  /// error. No signal never counts: those wait and retry, however long.
   static const maxTries = 5;
+
+  /// After a failure for lack of signal, sending waits this long, doubling
+  /// each time up to [maxBackoff], so a phone out of signal is not kept busy.
+  static const firstBackoff = Duration(seconds: 30);
+  static const maxBackoff = Duration(minutes: 10);
+
+  DateTime? _waitUntil;
+  int _offlineFailures = 0;
+
+  /// The current wait after failures for lack of signal (for tests and the
+  /// outbox screen); null when sending is not held back.
+  DateTime? get waitUntil => _waitUntil;
+
+  void _offline() {
+    _offlineFailures++;
+    var wait = firstBackoff * (1 << (_offlineFailures - 1).clamp(0, 10));
+    if (wait > maxBackoff) wait = maxBackoff;
+    _waitUntil = DateTime.now().add(wait);
+  }
+
+  void _online() {
+    _offlineFailures = 0;
+    _waitUntil = null;
+  }
 
   final LocalDb _db;
   final RpcCall _rpc;
@@ -107,6 +132,10 @@ class OutboxService {
     return ref;
   }
 
+  /// Files waiting to upload may take up this much of the phone; beyond it
+  /// new files are refused until some have sent.
+  static const maxPendingBytes = 300 * 1024 * 1024;
+
   /// Saves a file to upload before the actions that refer to it.
   Future<void> enqueueUpload({
     required String id,
@@ -114,8 +143,19 @@ class OutboxService {
     required String path,
     required Uint8List bytes,
     String contentType = 'image/jpeg',
-  }) {
-    return _db
+  }) async {
+    final size = _db.pendingUploads.bytes.length.sum();
+    final waiting = await (_db.selectOnly(
+      _db.pendingUploads,
+    )..addColumns([size])).map((r) => r.read(size) ?? 0).getSingle();
+    if (waiting + bytes.length > maxPendingBytes) {
+      throw const AppError(
+        'INVALID',
+        'Too many files are waiting for signal on this phone (300 MB). '
+            'Send them first, then add more.',
+      );
+    }
+    await _db
         .into(_db.pendingUploads)
         .insert(
           PendingUploadsCompanion.insert(
@@ -173,10 +213,85 @@ class OutboxService {
   }
 
   /// Sends waiting uploads and entries oldest first. Stops at the first
-  /// network error so later actions never overtake earlier ones.
-  Future<void> flush() => _flushing ??= _flush().whenComplete(() {
-    _flushing = null;
-  });
+  /// network error so later actions never overtake earlier ones. After a
+  /// failure for lack of signal it waits (see [firstBackoff]) unless [force]
+  /// (someone tapped "Send now").
+  Future<void> flush({bool force = false}) {
+    if (!force && _waitUntil != null && DateTime.now().isBefore(_waitUntil!)) {
+      return _flushing ?? Future.value();
+    }
+    return _flushing ??= _flush().whenComplete(() {
+      _flushing = null;
+    });
+  }
+
+  /// Entries and uploads that gave up for lack of signal (before signal
+  /// stopped counting as a failure) go back in the queue. Run at start-up.
+  Future<int> reviveOfflineFailures() async {
+    final a =
+        await (_db.update(_db.outbox)
+              ..where((o) => o.tries.isBiggerOrEqualValue(maxTries))
+              ..where((o) => o.lastError.like('${AppError.network}%')))
+            .write(const OutboxCompanion(tries: Value(0)));
+    final b =
+        await (_db.update(_db.pendingUploads)
+              ..where((u) => u.tries.isBiggerOrEqualValue(maxTries))
+              ..where((u) => u.lastError.like('${AppError.network}%')))
+            .write(const PendingUploadsCompanion(tries: Value(0)));
+    return a + b;
+  }
+
+  /// Tries a failed entry again.
+  Future<void> retry(String clientRef) async {
+    await (_db.update(_db.outbox)..where((o) => o.clientRef.equals(clientRef)))
+        .write(const OutboxCompanion(tries: Value(0)));
+    await flush(force: true);
+  }
+
+  /// Every action waiting or failed, oldest first.
+  Stream<List<OutboxEntry>> watchAll() {
+    return (_db.select(_db.outbox)..orderBy([
+          (_) => OrderingTerm.asc(const CustomExpression<int>('rowid')),
+        ]))
+        .watch();
+  }
+
+  /// Uploads waiting or failed, without their bytes: id, path, size, tries
+  /// and last error.
+  Stream<List<({String id, String path, int size, int tries, String? error})>>
+  watchAllUploads() {
+    final size = _db.pendingUploads.bytes.length;
+    final q = _db.selectOnly(_db.pendingUploads)
+      ..addColumns([
+        _db.pendingUploads.id,
+        _db.pendingUploads.path,
+        size,
+        _db.pendingUploads.tries,
+        _db.pendingUploads.lastError,
+      ]);
+    return q
+        .map(
+          (r) => (
+            id: r.read(_db.pendingUploads.id)!,
+            path: r.read(_db.pendingUploads.path)!,
+            size: r.read(size) ?? 0,
+            tries: r.read(_db.pendingUploads.tries) ?? 0,
+            error: r.read(_db.pendingUploads.lastError),
+          ),
+        )
+        .watch();
+  }
+
+  Future<void> retryUpload(String id) async {
+    await (_db.update(_db.pendingUploads)..where((u) => u.id.equals(id))).write(
+      const PendingUploadsCompanion(tries: Value(0)),
+    );
+    await flush(force: true);
+  }
+
+  Future<void> discardUpload(String id) {
+    return (_db.delete(_db.pendingUploads)..where((u) => u.id.equals(id))).go();
+  }
 
   /// Completes when nothing is waiting (or sending has stopped on an error).
   Future<bool> get isEmpty async {
@@ -202,16 +317,19 @@ class OutboxService {
           await (_db.delete(
             _db.pendingUploads,
           )..where((x) => x.id.equals(u.id))).go();
+          _online();
         } catch (e) {
           final error = AppError.from(e);
           await (_db.update(
             _db.pendingUploads,
           )..where((x) => x.id.equals(u.id))).write(
             PendingUploadsCompanion(
-              tries: Value(error.isRetryable ? u.tries + 1 : maxTries),
+              // No signal does not use up a try; the rest of the queue waits.
+              tries: Value(error.isRetryable ? u.tries : maxTries),
               lastError: Value(error.toString()),
             ),
           );
+          if (error.isRetryable) _offline();
           return;
         }
       }
@@ -236,17 +354,22 @@ class OutboxService {
       try {
         await _rpc(entry.action, params);
         await dismiss(entry.clientRef);
+        _online();
       } catch (e) {
         final error = AppError.from(e);
         await (_db.update(
           _db.outbox,
         )..where((o) => o.clientRef.equals(entry.clientRef))).write(
           OutboxCompanion(
-            tries: Value(error.isRetryable ? entry.tries + 1 : maxTries),
+            // No signal does not use up a try: it waits and retries.
+            tries: Value(error.isRetryable ? entry.tries : maxTries),
             lastError: Value(error.toString()),
           ),
         );
-        if (error.isRetryable) return;
+        if (error.isRetryable) {
+          _offline();
+          return;
+        }
       }
     }
   }

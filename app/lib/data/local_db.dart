@@ -231,6 +231,16 @@ extension JsonCache on LocalDb {
         CachedJsonData(key: key, json: json, savedAt: DateTime.now()),
       );
 
+  /// Drops cached lists not refreshed for [olderThan] (sites or screens no
+  /// longer used), so the cache does not grow for ever.
+  Future<int> pruneJson({Duration olderThan = const Duration(days: 60)}) =>
+      (delete(cachedJson)..where(
+            (c) => c.savedAt.isSmallerThanValue(
+              DateTime.now().subtract(olderThan),
+            ),
+          ))
+          .go();
+
   Future<String?> readJson(String key) async => (await (select(
     cachedJson,
   )..where((c) => c.key.equals(key))).getSingleOrNull())?.json;

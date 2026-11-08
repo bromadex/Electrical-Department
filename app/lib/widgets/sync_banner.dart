@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../data/local_db.dart';
 import '../services/core_providers.dart';
@@ -63,7 +64,7 @@ class _SyncBannerState extends ConsumerState<SyncBanner> {
                       ? '1 change waiting to sync'
                       : '$pending changes waiting to sync',
                   action: 'Sync now',
-                  onAction: _outbox.flush,
+                  onAction: () => _outbox.flush(force: true),
                 ),
               for (final entry in failed)
                 _Toast(
@@ -71,8 +72,8 @@ class _SyncBannerState extends ConsumerState<SyncBanner> {
                   icon: Icons.error_outline_rounded,
                   color: scheme.error,
                   text: 'Not saved: ${entry.lastError ?? 'unknown error'}',
-                  action: 'Dismiss',
-                  onAction: () => _outbox.dismiss(entry.clientRef),
+                  action: 'Review',
+                  onAction: () => GoRouter.of(context).push('/outbox'),
                 ),
             ],
           );
