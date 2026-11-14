@@ -160,7 +160,7 @@ def architecture():
     d.add(String(W / 2, 224, "Supabase (the server)", fontName="Inter-ExtraBold", fontSize=9.5,
                  fillColor=MAROON, textAnchor="middle"))
     box(d, 20, 150, 102, 62, "Sign-in", ["accounts, sessions", "password reset"], fill=colors.white)
-    box(d, 130, 150, 102, 62, "Database", ["every record,", "rules on every row,", "39 migrations"],
+    box(d, 130, 150, 102, 62, "Database", ["every record,", "rules on every row,", "42 migrations"],
         fill=colors.white)
     box(d, 240, 150, 102, 62, "Functions", ["fn_* do every change", "and check permission"],
         fill=colors.white)
@@ -343,7 +343,7 @@ table([
     ["Flutter app", "Screens on phones and browsers", "Code in <i>app/</i>. Keeps a local database "
                                                       "(drift) for offline use and an outbox of "
                                                       "changes waiting to send."],
-    ["Supabase database", "All records and the rules", "PostgreSQL. 39 numbered migrations in "
+    ["Supabase database", "All records and the rules", "PostgreSQL. 42 numbered migrations in "
                                                        "<i>supabase/migrations</i>; every table has "
                                                        "row-level security; changes go through "
                                                        "fn_* functions."],
@@ -408,6 +408,8 @@ table([
              "the site, shortcuts."],
     ["Jobs", "The job card list with status chips, search and filters; <i>My jobs</i>; statistics."],
     ["Chat", "Group and direct chats, calls, meetings."],
+    ["Search", "The search button on every tab finds job cards, equipment, tools, documents, inventory, "
+               "projects, requests and purchases by code or name."],
     ["Menu", "Every other screen: Requests, Checklists, Daily report, Equipment &amp; tools, Inventory, "
              "Materials, Projects, Calendar, Roster, Documents, Reminders, Notifications, statistics."],
     ["+ New", "The quick-create sheet: report a fault (job card) or request work, my jobs, today's "
@@ -521,6 +523,8 @@ table([
 ], [26, 22, 122])
 bullets([
     "When an item falls below its level, the store and supervisors are alerted.",
+    "Stock on approved material requests not yet issued is <b>reserved</b>; each item shows how much is "
+    "reserved and how much is free.",
     "The list is saved on the phone; without signal it shows the saved stock with the time it was "
     "saved. Movements made offline are sent later.",
     "<b>Import from Excel</b>: load items with opening stock from a spreadsheet.",
@@ -629,6 +633,8 @@ table([
     ["Tool stats", "Losses, late returns, damage and repairs, calibration, per person and company."],
     ["Inventory stats", "Most used items, stock per project, job cards using the most stock, "
                         "corrections, low stock, open requests and purchases, project status."],
+    ["Equipment", "Each asset's faults in 30 and 90 days, time out of service, and a Repeat faults "
+                  "sign; Job statistics lists repeat faults and downtime."],
     ["Home", "The day's open, critical, overdue and closed-today counts, and what needs you."],
 ], [36, 134])
 p("Each works for one site or <i>All my sites</i>, over a chosen period.")
@@ -639,6 +645,8 @@ p("Mine sites often have weak or no signal, so the app is built to keep working.
 h2("What works offline")
 bullets([
     "Viewing what was last loaded: job cards, tools, equipment, people, inventory, checklists.",
+    "Settings → Waiting to send shows when something last reached the server and how long the "
+    "oldest unsent change has waited.",
     "Doing work: job card notes, work-log entries and photos, checklists, daily report updates, tool "
     "issue forms and returns, inventory movements and counts, material requests, projects, rosters, "
     "document uploads, chat messages, reminders.",
@@ -686,8 +694,11 @@ bullets([
     "expire.",
     "<b>History</b>: nothing is deleted; records are archived and every change is in the activity log.",
     "<b>Backups</b>: every night at 00:20 Harare the live database is copied, restored into a test "
-    "database and compared table by table (so the backup is known to work), encrypted with a passphrase "
-    "and kept 90 days. Photos and document files in storage are not in this backup.",
+    "database and compared table by table, row counts and a checksum of every value (so the backup is "
+    "known to work), encrypted with a passphrase and kept 90 days. Photos and documents are copied, "
+    "encrypted, to storage of your choice once set up (docs/backup-files.md).",
+    "<b>Permissions audit</b>: nobody signed out can touch any table, nothing can be written past the "
+    "app's checks, and the last admin cannot be removed; tests keep it so.",
     "<b>Secrets</b> (keys, passwords) live only in GitHub and Supabase settings, never in the code.",
     "<b>Privacy</b>: the privacy policy is published at /privacy.html on the web app.",
 ])
@@ -698,8 +709,8 @@ table([
     ["Step", "What happens"],
     ["1. A change", "Code is changed in the repository (GitHub). Database changes are a new numbered "
                     "migration with a test; old migrations are never edited."],
-    ["2. Checks", "GitHub checks every push: code format, analysis, app tests (79), and every database "
-                  "test against a throwaway copy of the database (659 checks)."],
+    ["2. Checks", "GitHub checks every push: code format, analysis, app tests (82), and every database "
+                  "test against a throwaway copy of the database (688 checks)."],
     ["3. Deploy", "On main: the migrations are applied to the live database, and the web app is "
                   "built and published on Vercel within minutes."],
     ["4. Android", "Every push builds an APK. A release (run by hand with a version like v0.1.3) builds "
@@ -727,7 +738,7 @@ p("Everything planned has been built. These steps need a person with a phone, an
   "secret:")
 table([
     ["Item", "Why it matters"],
-    ["Release v0.1.4 to phones", "Phones are on 27 October's version and miss three weeks of work, "
+    ["Release to phones", "Phones are on 27 October's version and miss three weeks of work, "
                                  "including the offline and sign-out fixes."],
     ["BACKUP_PASSPHRASE secret in GitHub", "Without it the nightly backup stops rather than keep an "
                                            "unencrypted copy."],

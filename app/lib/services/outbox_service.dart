@@ -100,6 +100,38 @@ class OutboxService {
   void _online() {
     _offlineFailures = 0;
     _waitUntil = null;
+    // Kept on the device so "Last sent" survives a restart; not awaited, a
+    // missed write only shows an older time.
+    unawaited(
+      _db
+          .saveJson(lastSentKey, DateTime.now().toIso8601String())
+          .catchError((_) {}),
+    );
+  }
+
+  static const lastSentKey = 'outbox_last_sent';
+
+  /// When something last reached the server from this device, and how long
+  /// the oldest unsent change or file has waited (issue #36): a technician
+  /// should never think something reached the office when it is still only
+  /// on the phone.
+  Future<({DateTime? lastSent, DateTime? oldestWaiting})> syncStatus() async {
+    final last = DateTime.tryParse(await _db.readJson(lastSentKey) ?? '');
+    final a =
+        await (_db.select(_db.outbox)
+              ..orderBy([(o) => OrderingTerm.asc(o.createdAt)])
+              ..limit(1))
+            .getSingleOrNull();
+    final b =
+        await (_db.select(_db.pendingUploads)
+              ..orderBy([(u) => OrderingTerm.asc(u.createdAt)])
+              ..limit(1))
+            .getSingleOrNull();
+    final oldest = <DateTime>[
+      if (a != null) a.createdAt,
+      if (b != null) b.createdAt,
+    ]..sort();
+    return (lastSent: last, oldestWaiting: oldest.firstOrNull);
   }
 
   final LocalDb _db;

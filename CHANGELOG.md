@@ -1,5 +1,38 @@
 # What's new
 
+## 14 November 2026
+
+### Safer permissions (issue #35)
+- A permission audit found one hole: anyone signed in could trigger the
+  standby reminders early. Closed. Nobody signed out can touch any table,
+  and nothing can be written directly that should go through the app's
+  checks; a test keeps it so.
+- The last admin can no longer be removed or deactivated, and the Admin role
+  always keeps user management, so nobody can lock the department out.
+
+### Equipment history (issue #33)
+- Each piece of equipment shows its faults in 30 and 90 days, how long it
+  was out of service, and a **Repeat faults** sign at 3 or more in 30 days.
+- Job statistics has a **Repeat faults and downtime** panel.
+
+### Reserved stock (issue #34)
+- Stock on approved material requests not yet issued counts as reserved;
+  an item shows how much is reserved and how much is free. A project's BOQ
+  counts only stock not reserved for someone else.
+
+### Search and sync (issue #36)
+- A **search** button on every tab finds job cards, equipment, tools,
+  documents, inventory, projects, material requests and purchases by code or
+  name.
+- **Waiting to send** shows when something last reached the server and how
+  long the oldest unsent change has waited.
+
+### Backups (issue #31)
+- The nightly restore test now compares a checksum of every table's values,
+  not just row counts.
+- Uploaded files can be copied, encrypted, every night to Google Drive or
+  other free storage once set up (docs/backup-files.md).
+
 ## 8 November 2026, night
 
 ### Stock take

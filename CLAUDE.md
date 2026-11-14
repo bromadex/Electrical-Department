@@ -30,6 +30,8 @@ in `API.md`.
   `flutter analyze` and `flutter test` in `app/`; database changes come with
   a test in `supabase/tests/`.
 - Migrations are numbered and never edited once on `main`; add a new one.
+- New tables and views: revoke writes from `authenticated` unless a policy
+  allows them, and everything from `anon` (test 0040 checks).
 - Give every new foreign key an index (test 0038 checks); queued calls must
   treat no signal as "wait", never as a failure (`OutboxService`).
 - Calls queued offline must be on the outbox allow-list

@@ -10,6 +10,7 @@ import 'projects/roster_screen.dart';
 import 'tools/tool_stats_screen.dart';
 import 'store/store_count_screen.dart';
 import 'store/store_counts_screen.dart';
+import 'search/search_screen.dart';
 import 'store/store_screen.dart';
 
 import 'package:flutter/cupertino.dart';
@@ -271,6 +272,7 @@ GoRouter buildRouter(WidgetRef ref) {
         path: '/assets/:id',
         builder: (_, s) => AssetDetailScreen(id: s.pathParameters['id']!),
       ),
+      GoRoute(path: '/search', builder: (_, _) => const SearchScreen()),
       GoRoute(
         path: '/notifications',
         builder: (_, _) => const NotificationsScreen(),

@@ -46,3 +46,28 @@ class NotificationsButton extends ConsumerWidget {
     );
   }
 }
+
+/// Opens the search across every record (job cards, equipment, tools,
+/// documents, inventory, projects, requests, purchases).
+class SearchButton extends StatelessWidget {
+  const SearchButton({super.key, this.glass = false});
+
+  final bool glass;
+
+  @override
+  Widget build(BuildContext context) {
+    const icon = Icon(Icons.search_rounded);
+    if (glass) {
+      return GlassIconButton(
+        tooltip: 'Search',
+        onPressed: () => context.push('/search'),
+        icon: icon,
+      );
+    }
+    return IconButton(
+      tooltip: 'Search',
+      onPressed: () => context.push('/search'),
+      icon: icon,
+    );
+  }
+}

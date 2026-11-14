@@ -89,6 +89,10 @@ class OutboxScreen extends ConsumerWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
+                          _SyncStatus(
+                            key: ValueKey(uploads.length + actions.length),
+                          ),
+                          const SizedBox(height: Space.sm),
                           if (uploads.isEmpty && actions.isEmpty)
                             const EmptyState(
                               icon: CupertinoIcons.checkmark_circle,
@@ -238,6 +242,54 @@ class _Row extends StatelessWidget {
               ],
             )
           : null,
+    );
+  }
+}
+
+/// "Last sent 10:42 · oldest waiting 3 hours".
+class _SyncStatus extends ConsumerWidget {
+  const _SyncStatus({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    return FutureBuilder(
+      future: ref.read(outboxProvider).syncStatus(),
+      builder: (context, snap) {
+        final s = snap.data;
+        if (s == null) return const SizedBox.shrink();
+        String when(DateTime t) {
+          final now = DateTime.now();
+          final time = TimeOfDay.fromDateTime(t).format(context);
+          if (now.difference(t).inHours < 20 && now.day == t.day) return time;
+          return '${MaterialLocalizations.of(context).formatShortDate(t)} $time';
+        }
+
+        String age(DateTime t) {
+          final d = DateTime.now().difference(t);
+          if (d.inMinutes < 1) return 'just now';
+          if (d.inMinutes < 60) return '${d.inMinutes} min';
+          if (d.inHours < 48) return '${d.inHours} h';
+          return '${d.inDays} days';
+        }
+
+        return Text(
+          [
+            s.lastSent == null
+                ? 'Nothing sent from this device yet'
+                : 'Last sent ${when(s.lastSent!)}',
+            if (s.oldestWaiting != null)
+              'oldest waiting ${age(s.oldestWaiting!)}',
+          ].join(' · '),
+          style: theme.textTheme.labelLarge?.copyWith(
+            color:
+                s.oldestWaiting != null &&
+                    DateTime.now().difference(s.oldestWaiting!).inHours >= 4
+                ? Colors.orange
+                : null,
+          ),
+        );
+      },
     );
   }
 }

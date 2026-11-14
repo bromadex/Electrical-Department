@@ -1,22 +1,29 @@
 name: Database backup
 
 # Every night the live database is dumped, encrypted and kept for 90 days as
-# a workflow artifact, then restored into a throwaway database and the row
-# counts compared, so each backup is known to restore (issue #16).
+# a workflow artifact, then restored into a throwaway database and every
+# table's row count and checksum of its values compared, so each backup is
+# known to restore (issues #16, #31). A second job copies the uploaded files
+# (photos, documents, certificates) to storage you choose; see
+# docs/backup-files.md.
 #
 # Required repo secrets:
 #   SUPABASE_DB_URL     the same connection string the Supabase workflow uses
 #   BACKUP_PASSPHRASE   a long passphrase; backups are encrypted with it
 #                       (gpg, AES-256). Keep it somewhere safe outside GitHub:
 #                       without it a backup cannot be opened.
+# Optional, for the files:
+#   RCLONE_CONFIG       an rclone config with remotes "supabase" (Supabase
+#                       Storage over S3) and "files" (an encrypted remote
+#                       wherever the copies go); docs/backup-files.md
 #
 # Restore by hand: download the artifact, then
 #   gpg --decrypt backup-<date>.tar.gpg | tar -xz
 #   psql "$DB_URL" -f roles.sql; psql "$DB_URL" -f schema.sql
 #   psql "$DB_URL" -c "set session_replication_role = replica" \
 #     -f auth_storage_data.sql -f data.sql
-# Files in Supabase Storage (photos, documents) are not in the database and
-# are not in this backup.
+# Files in Supabase Storage (photos, documents) are not in the database;
+# the "files" job below copies them when RCLONE_CONFIG is set.
 
 on:
   schedule:
@@ -28,6 +35,8 @@ permissions:
 
 env:
   SUPABASE_CLI_VERSION: 2.122.0
+  # Timestamps print the same on both sides of the checksum comparison.
+  PGTZ: UTC
 
 concurrency:
   group: database-backup
@@ -91,10 +100,10 @@ jobs:
             -f backup/data.sql
           psql "$DB" -At -f scripts/backup_row_counts.sql > restored_counts.txt
 
-      - name: Compare row counts
+      - name: Compare row counts and checksums
         run: |
           if diff -u live_counts.txt restored_counts.txt; then
-            echo "Restore matches the live database: $(wc -l < live_counts.txt) tables."
+            echo "Restore matches the live database, row for row: $(wc -l < live_counts.txt) tables."
           else
             echo "::error::The restored database differs from the live one."; exit 1
           fi
@@ -116,3 +125,40 @@ jobs:
           path: backup-${{ env.DAY }}.tar.gpg
           retention-days: 90
           compression-level: 0
+
+  files:
+    name: Copy uploaded files
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Check the files destination is set up
+        id: setup
+        env:
+          RCLONE_CONFIG_TEXT: ${{ secrets.RCLONE_CONFIG }}
+        run: |
+          if [ -z "$RCLONE_CONFIG_TEXT" ]; then
+            echo "::warning::RCLONE_CONFIG is not set, so uploaded files are not backed up. See docs/backup-files.md."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          mkdir -p ~/.config/rclone
+          printf '%s\n' "$RCLONE_CONFIG_TEXT" > ~/.config/rclone/rclone.conf
+          chmod 600 ~/.config/rclone/rclone.conf
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+
+      - name: Install rclone
+        if: steps.setup.outputs.ready == 'true'
+        run: sudo apt-get update -q && sudo apt-get install -y -q rclone
+
+      - name: Copy new and changed files
+        if: steps.setup.outputs.ready == 'true'
+        run: |
+          # Each bucket is copied into the encrypted "files" remote. Only new
+          # or changed files travel; nothing is deleted at the destination,
+          # so a file removed by mistake can still be got back.
+          for bucket in $(rclone lsf --dirs-only supabase: | tr -d /); do
+            echo "== $bucket"
+            rclone copy "supabase:$bucket" "files:$bucket" \
+              --transfers 8 --checkers 16 --stats-one-line --stats 60s
+          done
+          rclone size files:

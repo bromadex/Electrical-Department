@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../assets/equipment_history.dart';
 import '../../services/session_controller.dart';
 import '../../ui/surfaces.dart';
 import '../jobcards/repository.dart' show jobCardsLiveProvider;
@@ -570,6 +571,17 @@ class _Charts extends ConsumerWidget {
                 items: [
                   for (final (label, n) in d.byEquipment) BarItem(label, n),
                 ],
+              ),
+            ),
+            Panel(
+              title: 'Repeat faults and downtime',
+              subtitle:
+                  'Equipment faults in this period; the repeat sign marks '
+                  '$repeatFaultThreshold or more in 30 days',
+              icon: Icons.repeat_rounded,
+              child: RepeatFaultsList(
+                site: ref.watch(siteFilterProvider),
+                days: range.to.difference(range.from).inDays.clamp(1, 3650),
               ),
             ),
             Panel(

@@ -16,6 +16,7 @@ import '../ui/charts.dart' show GlassSegmented;
 import '../ui/record_hero.dart';
 import '../ui/surfaces.dart';
 import 'assets_screen.dart';
+import 'equipment_history.dart';
 import '../widgets/app_back_button.dart';
 
 /// One piece of equipment: the shared record header, quick actions, then
@@ -134,6 +135,11 @@ class _AssetDetailScreenState extends ConsumerState<AssetDetailScreen> {
                               ),
                             ],
                           ).entrance(context),
+                          const SizedBox(height: Space.sm),
+                          AssetHistoryStrip(
+                            assetId: asset.id,
+                            siteId: asset.siteId,
+                          ),
                           const SizedBox(height: Space.sm),
                           QuickActions(
                             actions: [

@@ -528,3 +528,24 @@ final stockCountLinesProvider = FutureProvider.autoDispose
       );
       return lines;
     });
+
+/// Stock on hand, reserved for approved requests not yet issued, and free
+/// (store_item_availability).
+final itemAvailabilityProvider = FutureProvider.autoDispose
+    .family<({double onHand, double reserved, double available})?, String>((
+      ref,
+      itemId,
+    ) async {
+      final r = await ref
+          .watch(supabaseProvider)
+          .from('store_item_availability')
+          .select('on_hand, reserved, available')
+          .eq('item_id', itemId)
+          .maybeSingle();
+      if (r == null) return null;
+      return (
+        onHand: (r['on_hand'] as num).toDouble(),
+        reserved: (r['reserved'] as num).toDouble(),
+        available: (r['available'] as num).toDouble(),
+      );
+    });

@@ -612,6 +612,19 @@ seeded rules, each notice once per job, rule and deadline). Bucket `job-files`
 - **App:** Settings → *Waiting to send* and the sync banner's *Review* open `/outbox`: files and changes waiting, with Try again and Discard for failed ones.
 - **Releases** build a signed `.aab` for the Play Store next to the APK. The privacy policy is `app/web/privacy.html` (published at `/privacy.html`). Play listing and data-safety answers: `docs/play-store.md`. Offline test plan: `docs/offline-test-plan.md`.
 
+## 22. Permission hardening (migration 0040, issue #35)
+
+- Signed-out users (`anon`) hold no rights on any public table; signed-in users hold insert, update or delete only where a row-level policy allows that command (`areas`, `client_errors`, `device_tokens`, `notifications`, `profiles`, `role_permissions`, `roles`, `sites`, `user_roles`). **A migration that adds a table or view revokes the rest** (`revoke insert, update, delete … from authenticated; revoke all … from anon`); test 0040 fails otherwise.
+- Functions the scheduler runs are not callable from the app (`fn_send_standby_reminders` was).
+- The last active admin cannot lose the Admin role or be deactivated, and the Admin role keeps `admin.users` (`INVALID:` errors).
+
+## 23. Equipment history, reserved stock, search (migrations 0041 and 0042, issues #33, #34, #36)
+
+- `fn_equipment_history(p_site, p_days default 90)` → rows `(asset_id, site_id, tag, name, faults, faults_30, last_fault_at, down_hours, down_now)` for equipment with job cards, `assets.view`; faults are corrective, emergency and reactive job cards; `down_hours` is the time job cards with `equipment_state = 'out_of_service'` were open in the period, overlaps once. Repeat faults: 3 or more in 30 days (app constant). Shown on the asset page and in Job statistics.
+- View `store_item_availability (item_id, site_id, on_hand, reserved, available)`: reserved is what approved and part-issued material requests still have to get. `boq_status.in_stock` now counts only stock not reserved for another project's or job's request.
+- `fn_search_records(p_query)` also returns `doc:`, `item:`, `project:`, `mr:` and `po:` links (each by its view permission), exact code first, up to 30. The app's `/search` screen (search button on every tab) and # in chat use it.
+- The outbox keeps when something last reached the server (`outbox_last_sent` in the local JSON cache); Settings → Waiting to send shows it with the age of the oldest unsent change.
+
 ## 6. Feature sections (filled in as features are built)
 
 - 7. Jobs board — Clement, phase 1 (done, see above)

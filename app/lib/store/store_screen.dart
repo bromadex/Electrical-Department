@@ -433,6 +433,7 @@ class StoreItemScreen extends ConsumerWidget {
                                       ),
                                     ],
                                   ),
+                                  _Reserved(itemId: i.id, unit: i.unit),
                                   if (i.minLevel > 0)
                                     Text(
                                       i.low
@@ -1035,6 +1036,27 @@ class _ItemFormState extends ConsumerState<ItemForm> {
             ),
         ],
       ),
+    );
+  }
+}
+
+/// Stock reserved for approved material requests not yet issued, and what
+/// is left for anything else (issue #34). Shown only when some is reserved.
+class _Reserved extends ConsumerWidget {
+  const _Reserved({required this.itemId, required this.unit});
+
+  final String itemId;
+  final String unit;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final a = ref.watch(itemAvailabilityProvider(itemId)).value;
+    if (a == null || a.reserved <= 0) return const SizedBox.shrink();
+    return Text(
+      '${qtyText(a.reserved)} $unit reserved for approved requests · '
+      '${qtyText(a.available)} $unit free',
+      style: Theme.of(context).textTheme.labelMedium
+          ?.copyWith(color: BrandColors.info),
     );
   }
 }
