@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
@@ -10,16 +8,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:livekit_client/livekit_client.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../data/site_data.dart';
 import '../services/core_providers.dart';
-import '../services/incoming_calls.dart';
 import '../theme/tokens.dart';
 import '../ui/bits.dart';
 import '../meetings/captions.dart';
 import '../meetings/meetings_repository.dart';
+import 'call_controller.dart';
 import 'chat_repository.dart';
 
 /// The call stage is always dark, like a phone's own call screen, so faces
@@ -56,413 +52,59 @@ class CallScreen extends ConsumerStatefulWidget {
   ConsumerState<CallScreen> createState() => _CallScreenState();
 }
 
-enum _Stage { ready, connecting, inCall }
-
 class _CallScreenState extends ConsumerState<CallScreen> {
-  Room? _room;
-  _Stage _stage = _Stage.ready;
-  String? _error;
-  String? _title;
-
-  /// When someone else first joined (the call timer runs from here, as on
-  /// WhatsApp); null while calling or ringing.
-  DateTime? _since;
-
-  /// When you connected (how long it has been ringing).
-  DateTime? _dialedAt;
-
-  /// The other phone reported that it is ringing (calls.rang_at, set by the
-  /// push-received function); until then the caller sees "Calling…".
-  bool _rang = false;
-  bool _checkingRang = false;
-  Timer? _clock;
+  late final CallController _call = ref.read(callControllerProvider);
   String? _pinned;
-  bool _front = true;
   bool _chatOpen = true;
 
-  /// Reaction bar open, and the emoji floating up the screen.
+  /// Reaction bar open.
   bool _reactOpen = false;
-  final _floating = <_Floating>[];
-  EventsListener<RoomEvent>? _events;
 
-  /// This call's record on our server, kept alive by [_beat].
-  String? _callId;
-  Timer? _beat;
-
-  /// You started the call and nobody else has come yet.
-  bool _waiting = false;
-
-  /// How long a direct call rings before it gives up.
-  static const _ringFor = Duration(seconds: 45);
-
-  /// Kept from the start: leaving runs in dispose, when ref is gone.
-  late final SupabaseClient _db;
-
-  /// Android's "call in progress" notification, which keeps the call going
-  /// when the app is minimised; hanging up there leaves the call.
-  String? _ongoing;
-  StreamSubscription<String>? _hungUp;
-
-  /// Loudspeaker (true) or earpiece; null in the browser.
-  bool? _speaker;
-
-  /// Live captions while a meeting is on in this chat (see captions.dart).
-  CaptionSender? _captions;
-  bool _captionsOff = false;
+  /// This screen was showing the call; when it ends (hung up here, on the
+  /// notification, or no answer) the screen closes.
+  bool _wasIn = false;
 
   @override
   void initState() {
     super.initState();
-    _db = ref.read(supabaseProvider);
-    if (widget.join) _join(video: widget.video);
+    _call.addListener(_changed);
+    _wasIn = _call.inCallFor(widget.conversationId);
+    if (_call.conversationId != widget.conversationId) _call.reset();
+    if (widget.join && !_wasIn) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _call.join(
+          widget.conversationId,
+          video: widget.video,
+          ringId: widget.ringId,
+        ),
+      );
+    }
   }
 
   @override
   void dispose() {
-    _clock?.cancel();
-    _endCall();
-    _stopCaptions();
-    _hungUp?.cancel();
-    final room = _room;
-    if (room != null) {
-      room.removeListener(_changed);
-      unawaited(_events?.dispose());
-      unawaited(room.disconnect().then((_) => room.dispose()));
-    }
+    _call.removeListener(_changed);
     super.dispose();
   }
 
   void _changed() {
-    if (mounted) setState(() {});
-  }
-
-  void _stopCaptions() {
-    final c = _captions;
-    _captions = null;
-    if (c != null) unawaited(c.stop());
-    unawaited(WakelockPlus.disable().catchError((_) {}));
-  }
-
-  /// Starts or stops this person's captions to match the meeting.
-  void _syncCaptions(Meeting? meeting) {
-    final want = meeting != null && !_captionsOff && _room != null;
-    if (want && _captions?.meetingId != meeting.id) {
-      _captions?.stop();
-      final sender = CaptionSender(
-        client: _db,
-        meetingId: meeting.id,
-        micOn: () => _room?.localParticipant?.isMicrophoneEnabled() ?? false,
-        onProblem: (msg) {
-          _snack(msg);
-          if (mounted) setState(() => _captionsOff = true);
-        },
-      );
-      _captions = sender;
-      unawaited(sender.start());
-      // Captions stop if the phone sleeps, so keep the screen on.
-      unawaited(WakelockPlus.enable().catchError((_) {}));
-    } else if (!want && _captions != null) {
-      _stopCaptions();
-    }
-  }
-
-  /// Tells our server you left; the last one out ends the call.
-  void _endCall() {
-    _beat?.cancel();
-    final ongoing = _ongoing;
-    _ongoing = null;
-    if (ongoing != null) unawaited(IncomingCalls.end(ongoing));
-    final id = _callId;
-    _callId = null;
-    if (id == null) return;
-    unawaited(
-      _db
-          .rpc('fn_leave_call', params: {'p_call': id})
-          .then((_) {}, onError: (_) {}),
-    );
-  }
-
-  void _tick() {
-    final room = _room;
-    if (room == null) return;
-    if (room.remoteParticipants.isNotEmpty) {
-      _waiting = false;
-      _since ??= DateTime.now();
-    }
-    if (_waiting && !_rang) unawaited(_checkRang());
-    final since = _dialedAt;
-    if (_waiting &&
-        since != null &&
-        DateTime.now().difference(since) > _ringFor) {
-      final chats = ref.read(conversationsProvider).value ?? const [];
-      final direct = chats
-          .where((c) => c.id == widget.conversationId)
-          .firstOrNull
-          ?.isDirect;
-      if (direct ?? false) {
-        _waiting = false;
-        _snack('No answer. They will see a missed call.');
-        unawaited(_leave());
-        return;
-      }
-    }
-    _changed();
-  }
-
-  /// Every other second while calling: is the other phone ringing yet?
-  Future<void> _checkRang() async {
-    final id = _callId;
-    if (id == null || _checkingRang) return;
-    if ((DateTime.now().second % 2) != 0) return;
-    _checkingRang = true;
-    try {
-      final row = await _db
-          .from('calls')
-          .select('rang_at, answered_at')
-          .eq('id', id)
-          .maybeSingle();
-      if (row != null &&
-          (row['rang_at'] != null || row['answered_at'] != null) &&
-          mounted) {
-        setState(() => _rang = true);
-      }
-    } catch (_) {
-      // No signal: keep showing "Calling…".
-    } finally {
-      _checkingRang = false;
-    }
-  }
-
-  Future<void> _join({bool video = false}) async {
-    setState(() {
-      _stage = _Stage.connecting;
-      _error = null;
-    });
-
-    // 1. The call pass from our server (checks you are in this chat).
-    final Map<String, dynamic> data;
-    try {
-      final res = await ref
-          .read(supabaseProvider)
-          .functions
-          .invoke(
-            'livekit-token',
-            body: {'conversation_id': widget.conversationId, 'video': video},
-          );
-      data = Map<String, dynamic>.from(res.data as Map);
-    } on FunctionException catch (e) {
-      final details = e.details;
-      final msg = details is Map ? '${details['error'] ?? ''}' : '$details';
-      return _fail(
-        msg.contains('UNAVAILABLE')
-            ? 'Calls are not set up yet.'
-            : msg.isNotEmpty
-            ? msg.replaceFirst(RegExp(r'^[A-Z_]+: '), '')
-            : 'Could not get a pass for this call (${e.status}).',
-      );
-    } catch (e) {
-      return _fail('Could not reach the server. Check your signal. ($e)');
-    }
-
-    // 2. The call server (LiveKit).
-    final room = Room(
-      roomOptions: const RoomOptions(adaptiveStream: true, dynacast: true),
-    );
-    _callId = data['call_id'] as String?;
-    try {
-      await room.connect(data['url'] as String, data['token'] as String);
-    } catch (e) {
-      await room.dispose();
-      _endCall();
-      return _fail('Could not connect to the call server. ($e)');
-    }
-    if (!mounted) {
-      await room.disconnect();
+    if (!mounted) return;
+    final inNow = _call.inCallFor(widget.conversationId);
+    if (_wasIn && !inNow) {
+      _wasIn = false;
+      if (ModalRoute.of(context)?.isCurrent ?? false) _close();
       return;
     }
-    room.addListener(_changed);
-    _events = room.createListener()
-      ..on<DataReceivedEvent>((e) {
-        if (e.topic != 'reaction') return;
-        try {
-          final m = jsonDecode(utf8.decode(e.data)) as Map;
-          _float('${m['e']}', e.participant?.name);
-        } catch (_) {}
-      });
-    // You started it, or it is a direct call nobody else is in yet: it is
-    // calling the other person.
-    final direct =
-        (ref.read(conversationsProvider).value ?? const [])
-            .where((c) => c.id == widget.conversationId)
-            .firstOrNull
-            ?.isDirect ??
-        false;
-    _waiting =
-        (data['new_call'] == true || direct) && room.remoteParticipants.isEmpty;
-    _clock = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
-    _beat = Timer.periodic(const Duration(seconds: 30), (_) {
-      final id = _callId;
-      if (id == null) return;
-      unawaited(
-        _db
-            .rpc('fn_call_heartbeat', params: {'p_call': id})
-            .then((_) {}, onError: (_) {}),
-      );
-    });
-    HapticFeedback.mediumImpact();
-    unawaited(_startOngoing(data['title'] as String?, video));
-    if (!kIsWeb) unawaited(_setSpeaker(video));
-    setState(() {
-      _room = room;
-      _title = data['title'] as String?;
-      _dialedAt = DateTime.now();
-      _since = room.remoteParticipants.isEmpty ? null : DateTime.now();
-      _stage = _Stage.inCall;
-    });
-
-    // 3. Microphone (and camera for a video call). If the browser or phone
-    // blocks them you stay in the call, muted.
-    try {
-      await room.localParticipant?.setMicrophoneEnabled(true);
-      if (video) await room.localParticipant?.setCameraEnabled(true);
-    } catch (_) {
-      _snack(
-        'Your microphone or camera is blocked. Allow it for this app and '
-        'tap the button again.',
-      );
-    }
-    _changed();
-  }
-
-  Future<void> _startOngoing(String? title, bool video) async {
-    if (!IncomingCalls.supported) return;
-    final ring = widget.ringId;
-    if (ring != null) {
-      _ongoing = ring;
-      await IncomingCalls.connected(ring);
-    } else {
-      _ongoing = await IncomingCalls.startOngoing(
-        id: _callId ?? 'chat-${widget.conversationId}',
-        title: title ?? 'Call',
-        video: video,
-      );
-    }
-    _hungUp ??= IncomingCalls.hungUp.listen((id) {
-      if (id == _ongoing && _stage == _Stage.inCall) {
-        _ongoing = null;
-        unawaited(_leave());
-      }
-    });
-  }
-
-  Future<void> _setSpeaker(bool on) async {
-    try {
-      await AudioManager.instance.setSpeakerOutputPreferred(on);
-      if (mounted) setState(() => _speaker = on);
-    } catch (_) {
-      _snack('Could not switch the speaker.');
-    }
-  }
-
-  void _fail(String message) {
-    if (!mounted) return;
-    setState(() {
-      _stage = _Stage.ready;
-      _error = message;
-    });
-  }
-
-  void _snack(String text) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(duration: const Duration(seconds: 6), content: Text(text)),
-    );
+    _wasIn = inNow;
+    setState(() {});
   }
 
   void _close() => context.canPop()
       ? context.pop()
       : context.go('/chat/${widget.conversationId}');
 
-  Future<void> _leave() async {
-    HapticFeedback.heavyImpact();
-    _clock?.cancel();
-    _endCall();
-    _stopCaptions();
-    await _room?.disconnect();
-    if (mounted) _close();
-  }
-
-  Future<void> _toggleMic() async {
-    final local = _room?.localParticipant;
-    if (local == null) return;
-    try {
-      await local.setMicrophoneEnabled(!local.isMicrophoneEnabled());
-    } catch (_) {
-      _snack('Your microphone is blocked. Allow it for this app.');
-    }
-    _changed();
-  }
-
-  Future<void> _toggleCamera() async {
-    final local = _room?.localParticipant;
-    if (local == null) return;
-    try {
-      await local.setCameraEnabled(!local.isCameraEnabled());
-    } catch (_) {
-      _snack('Your camera is blocked. Allow it for this app.');
-    }
-    _changed();
-  }
-
-  Future<void> _flip() async {
-    final pub = _room?.localParticipant?.videoTrackPublications.firstOrNull;
-    final track = pub?.track;
-    if (track is! LocalVideoTrack) return;
-    _front = !_front;
-    await track.setCameraPosition(
-      _front ? CameraPosition.front : CameraPosition.back,
-    );
-    _changed();
-  }
-
-  /// Shows an emoji floating up the screen for a few seconds.
-  void _float(String emoji, String? from) {
-    if (!mounted) return;
-    final f = _Floating(
-      emoji,
-      from,
-      0.15 + math.Random().nextDouble() * 0.7,
-      DateTime.now().microsecondsSinceEpoch,
-    );
-    setState(() => _floating.add(f));
-    Timer(const Duration(milliseconds: 2600), () {
-      if (mounted) setState(() => _floating.remove(f));
-    });
-  }
-
-  /// Sends a reaction to everyone in the call (nothing is stored).
-  Future<void> _react(String emoji) async {
-    HapticFeedback.selectionClick();
-    _float(emoji, null);
-    try {
-      await _room?.localParticipant?.publishData(
-        utf8.encode(jsonEncode({'e': emoji})),
-        reliable: true,
-        topic: 'reaction',
-      );
-    } catch (_) {}
-  }
-
-  Future<void> _toggleShare() async {
-    final local = _room?.localParticipant;
-    if (local == null) return;
-    try {
-      await local.setScreenShareEnabled(!local.isScreenShareEnabled());
-    } catch (_) {
-      _snack('Could not share your screen.');
-    }
-    _changed();
-  }
+  /// Back or ⌄: the call keeps going, with the bar at the top of the app.
+  void _minimise() => _close();
 
   /// Who fills the stage: the pinned person, else someone sharing their
   /// screen, else whoever is talking, else the first other person, else you.
@@ -485,12 +127,14 @@ class _CallScreenState extends ConsumerState<CallScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final call = _call;
     final chats = ref.watch(conversationsProvider).value ?? const [];
     final chat = chats.where((c) => c.id == widget.conversationId).firstOrNull;
+    final mine = call.conversationId == widget.conversationId;
     // The chat's own name (for a direct chat, the other person); the
     // server's title is a fallback before the chat list loads.
-    final title = chat?.title ?? _title ?? 'Call';
-    final room = _room;
+    final title = chat?.title ?? (mine ? call.serverTitle : null) ?? 'Call';
+    final room = call.inCallFor(widget.conversationId) ? call.room : null;
     final wide = MediaQuery.sizeOf(context).width >= 1000;
     // A meeting on now in this chat: captions run while you are in the call.
     final meeting =
@@ -498,19 +142,22 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                 const <Meeting>[])
             .where((m) => m.open)
             .firstOrNull;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _syncCaptions(meeting);
-    });
+    if (room != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) call.syncCaptions(meeting);
+      });
+    }
 
     final Widget body;
-    if (_stage != _Stage.inCall || room == null) {
+    if (room == null) {
       body = _Ringing(
         title: title,
         isGroup: !(chat?.isDirect ?? true),
-        connecting: _stage == _Stage.connecting,
-        error: _error,
-        onJoin: () => _join(),
-        onJoinVideo: () => _join(video: true),
+        connecting: mine && call.stage == CallStage.connecting,
+        error: mine ? call.error : null,
+        otherCall: call.active && !mine,
+        onJoin: () => call.join(widget.conversationId),
+        onJoinVideo: () => call.join(widget.conversationId, video: true),
         onBack: _close,
       );
     } else {
@@ -521,6 +168,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
         for (final p in room.remoteParticipants.values)
           if (p != focus) p,
       ];
+      final hands = call.hands;
       final stage = Stack(
         fit: StackFit.expand,
         children: [
@@ -551,7 +199,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
           IgnorePointer(
             child: Stack(
               children: [
-                for (final f in _floating)
+                for (final f in call.floating)
                   _FloatingEmoji(key: ValueKey(f.id), floating: f),
               ],
             ),
@@ -565,13 +213,26 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                     title: title,
                     subtitle: everyone.length > 1
                         ? '${everyone.length} in the call'
-                        : _waiting
-                        ? (_rang ? 'Ringing…' : 'Calling…')
+                        : call.waiting
+                        ? (call.rang ? 'Ringing…' : 'Calling…')
                         : 'Waiting for others to join',
                     // The timer starts when someone answers.
-                    time: _since == null ? null : _elapsed(),
-                    onBack: _leave,
+                    time: call.elapsed,
+                    onBack: _minimise,
                   ),
+                  if (call.sharing)
+                    Padding(
+                      padding: const EdgeInsets.only(top: Space.sm),
+                      child: _SharingBar(onStop: call.toggleShare),
+                    ),
+                  if (hands.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: Space.sm),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: _HandsPill(hands: hands),
+                      ),
+                    ),
                   const SizedBox(height: Space.sm),
                   Align(
                     alignment: Alignment.topRight,
@@ -614,7 +275,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                     ),
                   ],
                   const SizedBox(height: Space.md),
-                  if (meeting != null && !_captionsOff)
+                  if (meeting != null && !call.captionsOff)
                     _CaptionsOverlay(meetingId: meeting.id),
                   if (_reactOpen)
                     Padding(
@@ -634,11 +295,10 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                               '😂',
                               '❤️',
                               '🔥',
-                              '✋',
                             ])
                               InkWell(
                                 customBorder: const CircleBorder(),
-                                onTap: () => _react(e),
+                                onTap: () => call.react(e),
                                 child: Padding(
                                   padding: const EdgeInsets.all(6),
                                   child: Text(
@@ -654,23 +314,24 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                   _Dock(
                     local: local,
                     canFlip: !kIsWeb && (local?.isCameraEnabled() ?? false),
-                    canShare: kIsWeb && wide,
+                    canShare: call.canShare && (wide || !kIsWeb),
+                    handUp: call.handUp,
+                    onHand: call.toggleHand,
                     reactOpen: _reactOpen,
-                    captions: meeting == null ? null : !_captionsOff,
-                    onCaptions: () =>
-                        setState(() => _captionsOff = !_captionsOff),
-                    onShare: _toggleShare,
+                    captions: meeting == null ? null : !call.captionsOff,
+                    onCaptions: () => call.setCaptionsOff(!call.captionsOff),
+                    onShare: call.toggleShare,
                     onReact: () => setState(() => _reactOpen = !_reactOpen),
                     chatOpen: wide && _chatOpen,
-                    speaker: _speaker,
-                    onSpeaker: () => _setSpeaker(!(_speaker ?? false)),
-                    onMic: _toggleMic,
-                    onCamera: _toggleCamera,
-                    onFlip: _flip,
+                    speaker: call.speaker,
+                    onSpeaker: () => call.setSpeaker(!(call.speaker ?? false)),
+                    onMic: call.toggleMic,
+                    onCamera: call.toggleCamera,
+                    onFlip: call.flip,
                     onChat: () => wide
                         ? setState(() => _chatOpen = !_chatOpen)
                         : _openChatSheet(everyone),
-                    onLeave: _leave,
+                    onLeave: call.leave,
                   ),
                 ],
               ),
@@ -734,15 +395,72 @@ class _CallScreenState extends ConsumerState<CallScreen> {
       ),
     );
   }
+}
 
-  String _elapsed() {
-    final s = _since;
-    if (s == null) return '0:00';
-    final d = DateTime.now().difference(s);
-    final sec = (d.inSeconds % 60).toString().padLeft(2, '0');
-    return d.inHours > 0
-        ? '${d.inHours}:${(d.inMinutes % 60).toString().padLeft(2, '0')}:$sec'
-        : '${d.inMinutes}:$sec';
+/// "You are sharing your screen · Stop", while this phone shares.
+class _SharingBar extends StatelessWidget {
+  const _SharingBar({required this.onStop});
+
+  final VoidCallback onStop;
+
+  @override
+  Widget build(BuildContext context) {
+    return _Frost(
+      radius: 99,
+      padding: const EdgeInsets.fromLTRB(14, 4, 4, 4),
+      child: Row(
+        children: [
+          const Icon(
+            CupertinoIcons.rectangle_on_rectangle_angled,
+            color: _live,
+            size: 18,
+          ),
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Text(
+              'You are sharing your screen',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: onStop,
+            style: TextButton.styleFrom(
+              backgroundColor: _hangUp,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Stop'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Raised hands, first raised first.
+class _HandsPill extends StatelessWidget {
+  const _HandsPill({required this.hands});
+
+  final List<Participant> hands;
+
+  @override
+  Widget build(BuildContext context) {
+    String name(Participant p) => p is LocalParticipant
+        ? 'You'
+        : (p.name.isNotEmpty ? p.name.split(' ').first : 'Someone');
+    return _Frost(
+      radius: 99,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      child: Text(
+        '✋ ${hands.map(name).join(', ')}',
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
   }
 }
 
@@ -757,12 +475,16 @@ class _Ringing extends StatefulWidget {
     required this.onJoin,
     required this.onJoinVideo,
     required this.onBack,
+    this.otherCall = false,
   });
 
   final String title;
   final bool isGroup;
   final bool connecting;
   final String? error;
+
+  /// You are in a call in another chat; joining this one ends it.
+  final bool otherCall;
   final VoidCallback onJoin;
   final VoidCallback onJoinVideo;
   final VoidCallback onBack;
@@ -867,6 +589,16 @@ class _RingingState extends State<_Ringing>
               color: Colors.white.withValues(alpha: 0.7),
             ),
           ),
+          if (widget.otherCall)
+            Padding(
+              padding: const EdgeInsets.only(top: Space.sm),
+              child: Text(
+                'Joining ends your other call.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: Colors.white.withValues(alpha: 0.7),
+                ),
+              ),
+            ),
           if (widget.error != null)
             Padding(
               padding: const EdgeInsets.fromLTRB(
@@ -1035,11 +767,19 @@ class _Face extends StatelessWidget {
         final speaking = p.isSpeaking;
         final muted = !p.isMicrophoneEnabled();
 
+        final hand = CallController.handOf(p) != null;
         final picture = video != null
-            ? VideoTrackRenderer(
-                video,
-                fit: showScreen ? VideoViewFit.contain : VideoViewFit.cover,
-              )
+            ? showScreen
+                  // A shared screen: pinch to zoom and drag to look around
+                  // (drawings, PLC screens, photos).
+                  ? InteractiveViewer(
+                      maxScale: 5,
+                      child: VideoTrackRenderer(
+                        video,
+                        fit: VideoViewFit.contain,
+                      ),
+                    )
+                  : VideoTrackRenderer(video, fit: VideoViewFit.cover)
             : DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -1091,6 +831,11 @@ class _Face extends StatelessWidget {
                   bottom: 6,
                   child: Row(
                     children: [
+                      if (hand)
+                        const Padding(
+                          padding: EdgeInsets.only(right: 3),
+                          child: Text('✋', style: TextStyle(fontSize: 12)),
+                        ),
                       if (muted)
                         const Padding(
                           padding: EdgeInsets.only(right: 3),
@@ -1191,7 +936,7 @@ class _TopBar extends StatelessWidget {
           icon: CupertinoIcons.chevron_down,
           onTap: onBack,
           size: 44,
-          tooltip: 'Leave call',
+          tooltip: 'Minimise (the call keeps going)',
         ),
         const SizedBox(width: Space.sm),
         Expanded(
@@ -1257,6 +1002,8 @@ class _Dock extends StatelessWidget {
     required this.local,
     required this.canFlip,
     required this.canShare,
+    required this.handUp,
+    required this.onHand,
     required this.reactOpen,
     required this.onShare,
     required this.onReact,
@@ -1275,8 +1022,10 @@ class _Dock extends StatelessWidget {
   final LocalParticipant? local;
   final bool canFlip;
 
-  /// Screen sharing: computers (browser) only.
+  /// Screen sharing: Android phones and computers (browser).
   final bool canShare;
+  final bool handUp;
+  final VoidCallback onHand;
   final bool reactOpen;
   final VoidCallback onShare;
   final VoidCallback onReact;
@@ -1383,6 +1132,13 @@ class _Dock extends StatelessWidget {
               ),
               const SizedBox(width: 10),
             ],
+            _GlassButton(
+              icon: CupertinoIcons.hand_raised_fill,
+              tooltip: handUp ? 'Lower your hand' : 'Raise your hand',
+              off: handUp,
+              onTap: onHand,
+            ),
+            const SizedBox(width: 10),
             _GlassButton(
               icon: CupertinoIcons.smiley,
               tooltip: 'React',
@@ -1725,22 +1481,11 @@ class _CallSideState extends ConsumerState<_CallSide> {
   }
 }
 
-class _Floating {
-  _Floating(this.emoji, this.from, this.x, this.id);
-
-  final String emoji;
-  final String? from;
-
-  /// Where across the screen it rises, 0–1.
-  final double x;
-  final int id;
-}
-
 /// One reaction drifting up and fading out.
 class _FloatingEmoji extends StatelessWidget {
   const _FloatingEmoji({super.key, required this.floating});
 
-  final _Floating floating;
+  final FloatingReaction floating;
 
   @override
   Widget build(BuildContext context) {

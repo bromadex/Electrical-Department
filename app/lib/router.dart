@@ -24,6 +24,7 @@ import 'admin/users_screen.dart';
 import 'assets/asset_detail_screen.dart';
 import 'assets/equipment_screen.dart';
 import 'chat/call_screen.dart';
+import 'chat/calls_screen.dart';
 import 'chat/chat_list_screen.dart';
 import 'chat/conversation_screen.dart';
 import 'checklists/checklist_run_screen.dart';
@@ -195,6 +196,7 @@ GoRouter buildRouter(WidgetRef ref) {
       ),
       ...jobCardRoutes,
       jobCardDetailRoute,
+      GoRoute(path: '/calls', builder: (_, _) => const CallsScreen()),
       GoRoute(
         path: '/chat/:id/call',
         builder: (_, s) => CallScreen(

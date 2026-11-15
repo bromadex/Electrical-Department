@@ -146,6 +146,8 @@ Deno.serve(async (req) => {
       canPublish: true,
       canSubscribe: true,
       canPublishData: true,
+      // Raise hand is a participant attribute the app sets itself.
+      canUpdateOwnMetadata: true,
     },
   }, apiSecret);
 

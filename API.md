@@ -465,6 +465,22 @@ hangs up in the app. `conversation_calls` (0017) is no longer written.
 
 - **Calling, ringing, timer (migration 0043):** `calls.rang_at` is set when the callee's Android phone shows the incoming call: the app posts `{notification_id}` (the call alert's id, which only that phone received) to the `call-ringing` edge function (renamed `push-received` in 0044; `verify_jwt = false`, works from the background without a sign-in), which runs `fn_call_rang` (service role only). The caller's screen shows "Calling…" until then, "Ringing…" after, and starts the call timer only when someone joins. Browsers don't ring, so a call to someone on the web shows "Calling…" until they join.
 
+- **Calls list, minimised calls, screen sharing, raise hand (migration 0045):**
+  `fn_my_calls(p_limit default 100)` lists calls in the caller's chats (since they joined
+  each chat), newest first: `call_id, conversation_id, title, is_direct, other_user_id,
+  video, direction` (outgoing = you started it, incoming = you joined, missed),
+  `started_by, started_at, answered_at, ended_at, seconds` (from answer to end) and `live`.
+  `fn_missed_call_count()` counts missed calls since `fn_calls_seen()` (opening the calls
+  list; stored in `call_log_seen`, read-only to the app). App: `/calls`, from the phone
+  button in Chat, with a missed-call badge. The call itself lives in an app-wide
+  `CallController`, so back or ⌄ minimises it with a green "Tap to return to call" bar
+  on every screen; only the red button, the notification's Hang up or no answer end it.
+  Android phones can share their screen (screen-capture permission, then a
+  `mediaProjection` foreground service from `flutter_background` while sharing); viewers
+  can pinch-zoom a shared screen. Raise hand is the LiveKit participant attribute `hand`
+  (milliseconds when raised, `0` when lowered; `livekit-token` grants
+  `canUpdateOwnMetadata`), shown on tiles and in order of raising.
+
 ## 16c. Meetings (migration 0022)
 
 Meetings live inside group chats. Someone with `meetings.manage` schedules one from a chat

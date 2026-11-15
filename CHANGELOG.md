@@ -2,6 +2,20 @@
 
 ## 15 November 2026
 
+### Calls (Phase 2, first half)
+- **Back no longer hangs up.** Back or ⌄ minimises the call; a green
+  **Tap to return to call** bar with the time, mute and hang up stays at the
+  top of every screen. Only the red button ends the call.
+- **Share your screen from an Android phone** in any call or meeting
+  (Android asks for permission; a notification shows while sharing, with a
+  "You are sharing your screen · Stop" bar). Viewers can pinch to zoom and
+  drag around a shared screen.
+- **Raise hand ✋** in calls and meetings; hands show on people's pictures
+  and at the top in the order they went up.
+- **Calls list:** the phone button in Chat lists incoming, outgoing and
+  missed calls with time and length; tap to call back. A red badge counts
+  missed calls (migration 0045).
+
 ### Chat works like WhatsApp (Phase 1)
 - **Ticks** on your messages: a clock while waiting for signal, one tick
   sent, two grey ticks when it is on everyone's phone, two blue ticks when

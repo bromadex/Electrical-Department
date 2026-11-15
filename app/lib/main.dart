@@ -12,6 +12,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'config/env.dart';
 import 'data/local_db.dart';
+import 'chat/call_bar.dart';
+import 'chat/call_controller.dart';
 import 'router.dart';
 import 'screens/setup_required_screen.dart';
 import 'services/core_providers.dart';
@@ -134,12 +136,17 @@ class _ElectricalDepartmentAppState
       // Acceptance test builds run as if the device asked for reduced motion:
       // the moving wallpaper behind the glass is redrawn every frame, which a
       // headless browser without a graphics card cannot keep up with.
-      builder: const bool.fromEnvironment('E2E')
-          ? (context, child) => MediaQuery(
-              data: MediaQuery.of(context).copyWith(disableAnimations: true),
-              child: child!,
-            )
-          : null,
+      scaffoldMessengerKey: appMessenger,
+      // The "return to call" bar while a call is minimised.
+      builder: (context, child) {
+        final app = CallBar(router: _router, child: child!);
+        return const bool.fromEnvironment('E2E')
+            ? MediaQuery(
+                data: MediaQuery.of(context).copyWith(disableAnimations: true),
+                child: app,
+              )
+            : app;
+      },
     );
   }
 }

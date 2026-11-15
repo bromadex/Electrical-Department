@@ -139,7 +139,7 @@ Goal: someone used to WhatsApp finds nothing missing in everyday chatting.
 
 ---
 
-## Phase 2: calls and meetings
+## Phase 2: calls and meetings (2.1 without picture-in-picture, 2.2, 2.3 and 2.7 done 15 November 2026, not yet released; 2.4–2.6 and picture-in-picture later)
 
 Goal: calls behave like WhatsApp, and meetings can show a screen from a
 phone.

@@ -16,6 +16,7 @@ import '../ui/bits.dart';
 import '../ui/motion.dart';
 import '../ui/page.dart';
 import '../ui/surfaces.dart';
+import 'calls_screen.dart';
 import 'chat_repository.dart';
 import 'conversation_screen.dart';
 import 'presence.dart';
@@ -168,6 +169,16 @@ class _ChatListState extends ConsumerState<_ChatList> {
               ),
             ),
             if (canChat) ...[
+              const SizedBox(width: Space.xs),
+              Badge(
+                isLabelVisible: (ref.watch(missedCallsProvider).value ?? 0) > 0,
+                label: Text('${ref.watch(missedCallsProvider).value ?? 0}'),
+                child: IconButton.filledTonal(
+                  tooltip: 'Calls',
+                  onPressed: () => context.push('/calls'),
+                  icon: const Icon(CupertinoIcons.phone),
+                ),
+              ),
               const SizedBox(width: Space.xs),
               IconButton.filledTonal(
                 tooltip: 'New chat',
