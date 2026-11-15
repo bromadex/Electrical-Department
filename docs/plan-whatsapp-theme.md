@@ -35,7 +35,7 @@ menu bar has room for work screens.
   working; the old `/chat` address opens the chat list.
 - The green "Tap to return to call" bar stays as it is.
 
-## Phase B: Chat theme foundation
+## Phase B: Chat theme foundation (done 15 November 2026, not yet released; chat follows the phone's light or dark)
 
 Goal: one place that holds WhatsApp's look so every chat screen matches.
 

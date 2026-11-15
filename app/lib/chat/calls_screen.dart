@@ -9,10 +9,10 @@ import '../data/app_error.dart';
 import '../services/core_providers.dart';
 import '../theme/tokens.dart';
 import '../ui/bits.dart';
-import '../ui/surfaces.dart';
 import '../widgets/app_back_button.dart';
 import 'chat_list_screen.dart' show ChatGroupAvatar;
 import 'chat_repository.dart';
+import 'wallpaper.dart';
 
 /// One call in the calls list (fn_my_calls, migration 0045).
 class CallLogEntry {
@@ -135,14 +135,12 @@ class _CallsScreenState extends ConsumerState<CallsScreen> {
         c.id: c,
     };
     return Scaffold(
-      backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         leading: const AppBackButton(fallback: '/chat'),
         title: const Text('Calls'),
-        flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
       ),
-      body: MeshBackground(
+      body: ChatPlain(
         child: RefreshIndicator(
           edgeOffset: top,
           onRefresh: () => ref.refresh(myCallsProvider.future),

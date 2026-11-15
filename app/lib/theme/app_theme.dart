@@ -7,26 +7,187 @@ import 'tokens.dart';
 export 'tokens.dart' show BrandColors, ChatColors;
 
 class AppTheme {
-  /// Chat screens only: the app's theme with WhatsApp green instead of
-  /// burgundy for buttons, selection, links and badges.
-  static ThemeData chat(ThemeData base) {
-    final dark = base.brightness == Brightness.dark;
+  /// Chat screens only (docs/plan-whatsapp-theme.md, Phase B): WhatsApp
+  /// for iPhone's look, light or dark as the phone is set (like WhatsApp),
+  /// whatever the rest of the app uses. White or true-black lists, green
+  /// buttons and selection, iOS blue links, WhatsApp's type sizes and
+  /// outline icons.
+  static ThemeData chat(Brightness brightness) {
+    final dark = brightness == Brightness.dark;
+    final base = _build(brightness);
+    final green = dark ? ChatColors.greenLight : ChatColors.green;
+    final fg = dark ? ChatColors.textDark : ChatColors.text;
+    final sub = dark ? ChatColors.subtextDark : ChatColors.subtext;
+    final bg = dark ? ChatColors.listDark : ChatColors.list;
+    final grouped = dark ? ChatColors.groupedDark : ChatColors.grouped;
+    final divider = dark ? ChatColors.dividerDark : ChatColors.divider;
     final c = base.colorScheme.copyWith(
-      primary: dark ? ChatColors.greenLight : ChatColors.green,
-      onPrimary: dark ? const Color(0xFF0B141A) : Colors.white,
-      primaryContainer: dark
-          ? ChatColors.bubbleMineDark
-          : ChatColors.bubbleMine,
-      onPrimaryContainer: dark ? ChatColors.textDark : ChatColors.text,
+      primary: green,
+      onPrimary: dark ? Colors.black : Colors.white,
+      primaryContainer: dark ? ChatColors.chipDark : ChatColors.chip,
+      onPrimaryContainer: dark ? ChatColors.chipTextDark : ChatColors.chipText,
       secondary: dark ? ChatColors.blueLight : ChatColors.blue,
+      onSecondary: Colors.white,
       tertiary: ChatColors.greenBright,
+      surface: bg,
+      onSurface: fg,
+      onSurfaceVariant: sub,
+      surfaceContainerLowest: bg,
+      surfaceContainerLow: grouped,
+      surfaceContainer: grouped,
+      surfaceContainerHigh: dark ? ChatColors.selectedDark : ChatColors.field,
+      surfaceContainerHighest: dark
+          ? ChatColors.selectedDark
+          : ChatColors.selected,
+      outline: sub,
+      outlineVariant: divider,
+      inverseSurface: fg,
+      onInverseSurface: bg,
+    );
+    final t = base.textTheme;
+    final text = t.copyWith(
+      // The large "Chats" title.
+      headlineLarge: t.headlineLarge?.copyWith(
+        fontSize: 34,
+        fontWeight: FontWeight.w800,
+        letterSpacing: -0.8,
+        color: fg,
+      ),
+      // Screen titles in the bar.
+      titleLarge: t.titleLarge?.copyWith(
+        fontSize: 17,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.2,
+        color: fg,
+      ),
+      // Names in the chat list.
+      titleMedium: t.titleMedium?.copyWith(
+        fontSize: 17,
+        fontWeight: FontWeight.w600,
+        letterSpacing: -0.2,
+        color: fg,
+      ),
+      titleSmall: t.titleSmall?.copyWith(
+        fontSize: 15,
+        fontWeight: FontWeight.w600,
+        color: fg,
+      ),
+      // Message text.
+      bodyLarge: t.bodyLarge?.copyWith(fontSize: 17, height: 1.3, color: fg),
+      // Previews and message text in bubbles.
+      bodyMedium: t.bodyMedium?.copyWith(
+        fontSize: 15.5,
+        height: 1.3,
+        color: fg,
+      ),
+      bodySmall: t.bodySmall?.copyWith(fontSize: 13, color: sub),
+      // Times, ticks, small labels.
+      labelSmall: t.labelSmall?.copyWith(fontSize: 11.5, color: sub),
+      labelMedium: t.labelMedium?.copyWith(fontSize: 13, color: sub),
     );
     return base.copyWith(
       colorScheme: c,
+      textTheme: text,
+      scaffoldBackgroundColor: bg,
+      canvasColor: bg,
+      dividerColor: divider,
+      dividerTheme: DividerThemeData(color: divider, thickness: 0.6, space: 1),
+      iconTheme: IconThemeData(color: green, size: 24),
+      appBarTheme: AppBarTheme(
+        backgroundColor: bg,
+        surfaceTintColor: Colors.transparent,
+        foregroundColor: fg,
+        elevation: 0,
+        scrolledUnderElevation: 0.5,
+        centerTitle: false,
+        titleTextStyle: text.titleLarge,
+        iconTheme: IconThemeData(color: green),
+        actionsIconTheme: IconThemeData(color: green),
+      ),
+      listTileTheme: ListTileThemeData(
+        iconColor: green,
+        textColor: fg,
+        titleTextStyle: text.titleMedium,
+        subtitleTextStyle: text.bodyMedium?.copyWith(color: sub),
+        selectedTileColor: dark ? ChatColors.selectedDark : ChatColors.selected,
+      ),
+      chipTheme: base.chipTheme.copyWith(
+        backgroundColor: grouped,
+        selectedColor: dark ? ChatColors.chipDark : ChatColors.chip,
+        labelStyle: text.bodyMedium?.copyWith(
+          fontWeight: FontWeight.w600,
+          color: sub,
+        ),
+        secondaryLabelStyle: text.bodyMedium?.copyWith(
+          fontWeight: FontWeight.w600,
+          color: dark ? ChatColors.chipTextDark : ChatColors.chipText,
+        ),
+        side: BorderSide.none,
+        shape: const StadiumBorder(),
+        showCheckmark: false,
+      ),
+      inputDecorationTheme: base.inputDecorationTheme.copyWith(
+        filled: true,
+        fillColor: dark ? ChatColors.fieldDark : ChatColors.field,
+        hintStyle: text.bodyMedium?.copyWith(color: sub),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: green, width: 1.2),
+        ),
+      ),
+      badgeTheme: BadgeThemeData(
+        backgroundColor: green,
+        textColor: dark ? Colors.black : Colors.white,
+      ),
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: green,
+        foregroundColor: dark ? Colors.black : Colors.white,
+        shape: const CircleBorder(),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: green,
+          foregroundColor: dark ? Colors.black : Colors.white,
+          shape: const StadiumBorder(),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(foregroundColor: green),
+      ),
+      checkboxTheme: CheckboxThemeData(
+        fillColor: WidgetStateProperty.resolveWith(
+          (s) => s.contains(WidgetState.selected) ? green : null,
+        ),
+        shape: const CircleBorder(),
+      ),
+      switchTheme: SwitchThemeData(
+        trackColor: WidgetStateProperty.resolveWith(
+          (s) => s.contains(WidgetState.selected) ? green : null,
+        ),
+      ),
+      progressIndicatorTheme: ProgressIndicatorThemeData(color: green),
+      bottomSheetTheme: base.bottomSheetTheme.copyWith(
+        backgroundColor: dark ? ChatColors.groupedDark : Colors.white,
+        modalBackgroundColor: dark ? ChatColors.groupedDark : Colors.white,
+      ),
+      popupMenuTheme: base.popupMenuTheme.copyWith(
+        color: dark ? ChatColors.groupedDark : Colors.white,
+      ),
+      dialogTheme: base.dialogTheme.copyWith(
+        backgroundColor: dark ? ChatColors.groupedDark : Colors.white,
+      ),
       textSelectionTheme: TextSelectionThemeData(
-        cursorColor: c.primary,
-        selectionHandleColor: c.primary,
-        selectionColor: c.primary.withValues(alpha: 0.3),
+        cursorColor: green,
+        selectionHandleColor: green,
+        selectionColor: green.withValues(alpha: 0.3),
       ),
     );
   }

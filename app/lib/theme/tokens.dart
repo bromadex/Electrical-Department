@@ -150,6 +150,33 @@ class ChatColors {
   /// Links and read ticks.
   static const blue = Color(0xFF007AFF);
   static const blueLight = Color(0xFF53BDEB);
+
+  /// Lists and bars: white, or true black as on iPhone.
+  static const list = Colors.white;
+  static const listDark = Colors.black;
+
+  /// Grouped backgrounds, search fields and sheets.
+  static const grouped = Color(0xFFF2F2F7);
+  static const groupedDark = Color(0xFF1C1C1E);
+  static const field = Color(0xFFEFEFF0);
+  static const fieldDark = Color(0xFF1C1C1E);
+
+  /// Selected filter chip: light green with dark green text.
+  static const chip = Color(0xFFD9FDD3);
+  static const chipText = Color(0xFF0E7A43);
+  static const chipDark = Color(0xFF103529);
+  static const chipTextDark = Color(0xFFD9FDD3);
+
+  /// Thin lines between chats.
+  static const divider = Color(0xFFE9EDEF);
+  static const dividerDark = Color(0xFF222D34);
+
+  /// Grey text in the dark theme.
+  static const subtextDark = Color(0xFF8696A0);
+
+  /// The selected chat (computers) and pressed rows.
+  static const selected = Color(0xFFF0F2F5);
+  static const selectedDark = Color(0xFF2A3942);
 }
 
 /// Screen widths where the layout changes.

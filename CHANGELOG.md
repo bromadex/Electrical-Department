@@ -2,6 +2,13 @@
 
 ## 15 November 2026
 
+### Chat colours and type like WhatsApp
+- Chat follows the phone's light or dark setting, as WhatsApp does: white
+  or true-black lists and bars, WhatsApp's greens for buttons, chips and
+  badges, iOS blue links, grey secondary text, and WhatsApp's text sizes.
+  Chats, calls, group info and starred messages use it; the rest of the
+  app keeps its own setting and the burgundy glass.
+
 ### Chat behind a floating button
 - Chat is no longer a tab. A green chat button sits bottom right on every
   screen, with a red badge counting chats with unread messages; tap it for

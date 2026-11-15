@@ -196,7 +196,10 @@ GoRouter buildRouter(WidgetRef ref) {
       ),
       ...jobCardRoutes,
       jobCardDetailRoute,
-      GoRoute(path: '/calls', builder: (_, _) => const CallsScreen()),
+      GoRoute(
+        path: '/calls',
+        builder: (_, _) => const ChatThemed(child: CallsScreen()),
+      ),
       // The chat list, opened from the floating chat button.
       GoRoute(path: '/chat', builder: (_, _) => const ChatHomeScreen()),
       GoRoute(

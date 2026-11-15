@@ -28,8 +28,8 @@ in `API.md`.
   In the dark theme all transparency is white or black at low opacity over
   the brand colours; only status colours (green, amber, red) add other
   hues. Chat screens alone are WhatsApp for iPhone green (`ChatColors`,
-  `AppTheme.chat`, `ChatThemed` in `app/lib/chat/wallpaper.dart`): flat
-  bubbles on the doodle wallpaper.
+  `AppTheme.chat`, `ChatThemed` in `app/lib/chat/wallpaper.dart`), light
+  or dark as the phone is set: flat bubbles on the doodle wallpaper.
 - Pushed screens use `AppBackButton` (`app/lib/widgets/app_back_button.dart`).
 - Before pushing: `dart format --set-exit-if-changed lib test`,
   `flutter analyze` and `flutter test` in `app/`; database changes come with

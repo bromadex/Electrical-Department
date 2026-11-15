@@ -19,6 +19,7 @@ import '../widgets/app_back_button.dart';
 import 'chat_list_screen.dart' show ChatGroupAvatar;
 import 'chat_media.dart';
 import 'chat_repository.dart';
+import 'wallpaper.dart';
 import 'chat_video.dart';
 import 'downloads.dart';
 
@@ -235,14 +236,12 @@ class _GroupInfoScreenState extends ConsumerState<GroupInfoScreen> {
     final thread = ref.watch(chatThreadProvider(widget.id));
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         leading: AppBackButton(fallback: '/chat/${widget.id}'),
         title: Text(chat?.isDirect ?? false ? 'Chat info' : 'Group info'),
-        flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
       ),
-      body: MeshBackground(
+      body: ChatPlain(
         child: chat == null
             ? const Center(child: CircularProgressIndicator())
             : ListView(
@@ -700,16 +699,14 @@ class StarredScreen extends ConsumerWidget {
         c.id: c.title,
     };
     return Scaffold(
-      backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         leading: AppBackButton(
           fallback: conversationId == null ? '/chat' : '/chat/$conversationId',
         ),
         title: const Text('Starred messages'),
-        flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
       ),
-      body: MeshBackground(
+      body: ChatPlain(
         child: list.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(

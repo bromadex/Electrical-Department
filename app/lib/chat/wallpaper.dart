@@ -91,14 +91,31 @@ class _Doodles extends CustomPainter {
   bool shouldRepaint(_Doodles old) => old.color != color;
 }
 
-/// Chat screens in WhatsApp green (buttons, links, selection); the rest of
-/// the app stays burgundy.
+/// Chat screens in WhatsApp's look (AppTheme.chat): light or dark as the
+/// phone is set; the rest of the app stays burgundy liquid glass.
 class ChatThemed extends StatelessWidget {
   const ChatThemed({super.key, required this.child});
 
   final Widget child;
 
   @override
-  Widget build(BuildContext context) =>
-      Theme(data: AppTheme.chat(Theme.of(context)), child: child);
+  Widget build(BuildContext context) => Theme(
+    // Light or dark as the phone is set, like WhatsApp.
+    data: AppTheme.chat(MediaQuery.platformBrightnessOf(context)),
+    child: child,
+  );
+}
+
+/// The plain chat background (white or true black) for chat pages without
+/// the wallpaper, such as group info.
+class ChatPlain extends StatelessWidget {
+  const ChatPlain({super.key, this.child});
+
+  final Widget? child;
+
+  @override
+  Widget build(BuildContext context) => ColoredBox(
+    color: Theme.of(context).scaffoldBackgroundColor,
+    child: child,
+  );
 }

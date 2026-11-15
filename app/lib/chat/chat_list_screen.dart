@@ -63,12 +63,8 @@ class ChatHomeScreen extends StatelessWidget {
         appBar: AppBar(
           leading: const AppBackButton(fallback: '/home'),
           title: const Text('Chats'),
-          flexibleSpace: const GlassSurface(
-            radius: 0,
-            child: SizedBox.expand(),
-          ),
         ),
-        body: const MeshBackground(child: ChatListScreen()),
+        body: const ChatListScreen(),
       ),
     );
   }
