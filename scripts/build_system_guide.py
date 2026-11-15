@@ -263,7 +263,7 @@ def cover(canvas, doc):
         y -= 15
     canvas.setFont("Inter", 9)
     canvas.setFillColor(ROSE)
-    canvas.drawString(22 * mm, 22 * mm, "Version as of 8 November 2026  ·  web app and Android app v0.1.x")
+    canvas.drawString(22 * mm, 22 * mm, "Version as of 15 November 2026  ·  web app and Android app v0.1.x")
     canvas.restoreState()
 
 
@@ -407,7 +407,8 @@ table([
     ["Home", "Greeting, <i>Needs you</i> (critical, overdue, waiting for you), the day's numbers for "
              "the site, shortcuts."],
     ["Jobs", "The job card list with status chips, search and filters; <i>My jobs</i>; statistics."],
-    ["Chat", "Group and direct chats, calls, meetings."],
+    ["Chat", "Group and direct chats; the phone button opens the calls list (missed calls badge), "
+             "the star opens starred messages."],
     ["Search", "The search button on every tab finds job cards, equipment, tools, documents, inventory, "
                "projects, requests and purchases by code or name."],
     ["Menu", "Every other screen: Requests, Checklists, Daily report, Equipment &amp; tools, Inventory, "
@@ -602,15 +603,80 @@ bullets([
 
 # 11 ------------------------------------------------------------------------
 h1("Chat, calls and meetings")
+p("Chat, calls and meetings work like WhatsApp and Zoom, built for site work: weak signal, phones "
+  "and computers, and records like job cards that can be shared into a chat.")
+h2("Chats")
 bullets([
-    "<b>Chats</b>: every site has a group, the department has one, and anyone can start a direct chat. "
-    "Messages, photos, voice notes, files, replies, reactions, @mentions, pins; documents and records "
-    "(type #) shared as cards that open them. Messages sent offline go when there is signal.",
-    "<b>Calls</b>: voice or video in any chat, with screen sharing and speaker on phones; incoming calls "
-    "ring the phone.",
-    "<b>Meetings (M-)</b>: scheduled from a group chat with an agenda; everyone in the chat is invited and "
-    "reminded 15 minutes before, and joins through the chat's call. Minutes hold a summary, decisions "
-    "and actions with owners and dates. Automatic transcription waits for its service key.",
+    "<b>Who</b>: every site has a group (members follow roles), the department has one, owners and "
+    "supervisors make other groups, and anyone can start a direct chat.",
+    "<b>Ticks</b> on your messages: a clock while waiting for signal, one tick on the server, two grey "
+    "ticks when on everyone's phone, two blue ticks when everyone has read it. Long-press → <i>Info</i> "
+    "shows who has it and who read it, with times.",
+    "<b>Voice notes</b>: hold the microphone to record, slide left to cancel, slide up to lock and record "
+    "hands free with pause. Play at 1×, 1.5× or 2× and drag the waveform to skip.",
+    "<b>Photos and videos</b>: pick several photos with a caption each; they are made smaller unless "
+    "<i>HD</i> is on. Videos up to 2 minutes are made smaller on phones. The chat's own camera takes a "
+    "photo with a tap and a video with a hold, with flash, flip and a strip of recent photos. Tap a photo "
+    "for full screen: zoom, swipe, share or save, forward, go to the message.",
+    "<b>Files</b> download with a progress ring (cancel any time) and open from the phone afterwards "
+    "without downloading again.",
+    "<b>Messages</b>: reply (swipe), react, @mention, tag a record with #, forward to several chats "
+    "(marked <i>Forwarded</i>), star (per chat and across chats), edit your own text for 15 minutes "
+    "(shows <i>edited</i>), delete for yourself or for everyone, and select several to copy, forward or "
+    "delete.",
+    "<b>Finding things</b>: search in a chat marks the words and steps up and down through the matches; "
+    "the down-arrow button jumps to the newest message with a count of new ones; the date shows while "
+    "scrolling; tapping a reply jumps to the original; a chat opens at the first unread message.",
+    "<b>Your list</b>: pin chats, mute for 8 hours, a week or always (no push or sound, the unread count "
+    "stays, mentions still alert), and archive chats until a new message comes. Direct chats show "
+    "<i>Online</i> or <i>Last seen today at 14:05</i>.",
+    "<b>Group info</b> (tap the name): picture, name and description (owners and supervisors edit), "
+    "members with add and remove, shared media, files and links, starred messages, mute, archive and "
+    "leave.",
+    "Messages sent offline go when there is signal. Forwarding files, editing, starring and group changes "
+    "need signal.",
+])
+h2("Calls")
+bullets([
+    "Voice or video in any chat. Incoming calls ring the phone even when the app is closed. The caller "
+    "sees <i>Calling…</i>, then <i>Ringing…</i> when the other phone rings; the timer starts when "
+    "someone answers. A direct call that nobody answers stops after 45 seconds and shows a missed call.",
+    "<b>Before joining</b> (from a notification or a meeting): camera preview, microphone level, join "
+    "muted or with the camera off, loudspeaker or earpiece.",
+    "<b>Back keeps the call</b>: back or the down arrow minimises it, and a green <i>Tap to return to "
+    "call</i> bar with the time, mute and hang up stays on every screen. Leaving the app shows the call "
+    "in a small picture-in-picture window on Android. Only the red button ends the call.",
+    "<b>In the call</b>: speaker view or grid view (everyone in tiles, swipe for more), your own picture "
+    "dragged to any corner, reactions, raise hand (shown in the order raised), chat beside the call, "
+    "and a signal warning on people with a poor connection.",
+    "<b>Screen sharing</b> from Android phones and computers; viewers pinch to zoom a shared screen "
+    "(drawings, PLC screens, photos).",
+    "<b>Saving data</b>: video quality Auto, Low or Audio only; poor signal offers audio only.",
+    "<b>Add people</b> rings others in the chat to join a running call.",
+    "<b>Chair controls</b> (the More button, three dots): the meeting's chair, or whoever started a group call, can "
+    "mute one person or everyone, lower hands, remove someone and end the call for everyone. Muted "
+    "people are told and can unmute themselves.",
+    "<b>Guests by link</b>: the chair shares a link that works for 2 hours to 3 days. A contractor or "
+    "client opens it in a browser without an account, gives their name and waits; someone running the "
+    "call lets them in or turns them away. Guests see only that call.",
+    "<b>Calls list</b>: incoming, outgoing and missed calls across chats with time and length; tap to "
+    "call back. A badge counts missed calls.",
+])
+h2("Meetings (M-)")
+bullets([
+    "Scheduled from a group chat with an agenda; everyone in the chat is invited and reminded 15 minutes "
+    "before, and joins through the chat's call. <b>Menu → Meetings</b> lists upcoming and past meetings "
+    "from all chats.",
+    "<b>Live captions</b>: what each person says appears with their name during the meeting and on the "
+    "meeting's <i>Said</i> tab (free Groq transcription).",
+    "<b>Minutes</b> follow the department's paper format: meeting type, venue, chair and minute-taker, "
+    "attendance with positions, site updates, executive summary, numbered actions with who and when, "
+    "project status, next meeting's agenda, and prepared, reviewed and approved by. The AI drafts them "
+    "from the captions; the chair checks, previews the PDF and publishes them to the chat.",
+    "<b>Talking time</b> per person, worked out from the captions, shows under <i>Present</i> and in the "
+    "minutes PDF.",
+    "<b>Recording</b>: the chair can record a meeting's sound and play it later, once the storage keys "
+    "are set.",
 ])
 
 # 12 ------------------------------------------------------------------------
@@ -673,7 +739,9 @@ bullets([
 h1("Administration")
 table([
     ["Screen (Settings → Admin)", "What admins do"],
-    ["People", "Create accounts, activate or deactivate, roles (at all sites or one), reset passwords."],
+    ["People", "Create accounts, activate or deactivate, roles (at all sites or one), reset passwords. "
+               "A password an admin sets is temporary: at first sign-in the person must choose their "
+               "own (8+ characters, letters and a number)."],
     ["Roles and permissions", "Switch what each role may do. The Admin role always keeps user "
                               "management."],
     ["Sites and areas", "Add and rename sites and their areas."],
@@ -709,8 +777,8 @@ table([
     ["Step", "What happens"],
     ["1. A change", "Code is changed in the repository (GitHub). Database changes are a new numbered "
                     "migration with a test; old migrations are never edited."],
-    ["2. Checks", "GitHub checks every push: code format, analysis, app tests (82), and every database "
-                  "test against a throwaway copy of the database (688 checks)."],
+    ["2. Checks", "GitHub checks every push: code format, analysis, app tests, and every database "
+                  "test against a throwaway copy of the database."],
     ["3. Deploy", "On main: the migrations are applied to the live database, and the web app is "
                   "built and published on Vercel within minutes."],
     ["4. Android", "Every push builds an APK. A release (run by hand with a version like v0.1.3) builds "
@@ -734,17 +802,16 @@ table([
 
 # 19 ------------------------------------------------------------------------
 h1("Still waiting on people")
-p("Everything planned has been built. These steps need a person with a phone, an account or a "
-  "secret:")
+p("These steps need a person with a phone, an account or a secret:")
 table([
     ["Item", "Why it matters"],
-    ["Release to phones", "Phones are on 27 October's version and miss three weeks of work, "
-                                 "including the offline and sign-out fixes."],
-    ["BACKUP_PASSPHRASE secret in GitHub", "Without it the nightly backup stops rather than keep an "
-                                           "unencrypted copy."],
-    ["Firebase App Distribution role", "So testers receive new APKs automatically."],
-    ["Transcription key (Groq)", "For automatic meeting transcription."],
-    ["Phone testing", "Run docs/offline-test-plan.md on an Android phone."],
+    ["Release v0.1.5 to phones", "Phones are on v0.1.4 and miss temporary passwords, Calling then "
+                                 "Ringing, the new minutes and everything in chat, calls and meetings."],
+    ["Phone testing", "Screen sharing, picture-in-picture, the camera, video, downloads and minimising "
+                      "calls can only be proven on a real phone."],
+    ["RCLONE_CONFIG secret in GitHub", "So photos and documents are copied off Supabase every night."],
+    ["MEETING_S3_* secrets in Supabase", "Turns on meeting recording (Storage → S3 connection)."],
+    ["Claude key (optional)", "Better meeting minutes than the free Groq model (issue #37)."],
     ["Play Store account (optional)", "A one-time 25 US dollars; the bundle, policy and listing are "
                                       "ready."],
 ], [60, 110])
