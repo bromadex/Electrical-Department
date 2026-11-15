@@ -2,6 +2,26 @@
 
 ## 15 November 2026
 
+### Chat works like WhatsApp (Phase 1)
+- **Ticks** on your messages: a clock while waiting for signal, one tick
+  sent, two grey ticks when it is on everyone's phone, two blue ticks when
+  everyone has read it. **Info** (long press your message) shows who has it
+  and who read it, with times (migration 0044).
+- **Voice notes:** hold the mic to record, slide left to cancel, slide up to
+  lock and record hands free with pause; a tap also records hands free.
+  Playback at 1×, 1.5× or 2× and tap or drag the waveform to skip.
+- **Photos:** pick several at once, add a caption to each, remove any before
+  sending. Photos are made smaller to save data unless **HD** is on. Tap a
+  photo to open it full screen: zoom, swipe through the chat's photos,
+  share or save, forward, or go to the message.
+- **Forward** messages to one or more chats (marked "Forwarded"), **delete
+  for me** (others still see them), and **select** several messages to copy,
+  forward or delete at once. "Unsend" is now "Delete for everyone".
+- **Moving around:** a button to jump to the newest message with a count of
+  new ones, the date shown while you scroll, tapping a reply jumps to the
+  original, and a chat opens at the first unread message.
+- A full emoji keyboard with search and recent emojis.
+
 ### Temporary passwords
 - A password an admin sets (new account or reset) is temporary: at first
   sign-in the person must choose their own (8+ characters, letters and a
@@ -11,7 +31,7 @@
 - A direct call shows **Calling…** until the other phone actually rings,
   then **Ringing…**; the timer starts only when they answer.
 - The other phone reports that it is ringing as soon as the incoming call
-  shows, even when the app is closed (migration 0043, `call-ringing`).
+  shows, even when the app is closed (migration 0043, now the `push-received` function).
 
 ### Minutes in the department's format
 - Meeting minutes now follow the department's paper minutes: meeting type,

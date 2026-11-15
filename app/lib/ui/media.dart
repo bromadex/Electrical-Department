@@ -33,10 +33,15 @@ class JobPhoto {
 class PhotoPicking {
   static final _picker = ImagePicker();
 
+  /// [original]: full size (up to 4096 px) for screens that shrink photos
+  /// themselves (chat, with its HD option); otherwise 1600 px.
   static Future<List<Uint8List>> pick(
     BuildContext context, {
     bool multiple = true,
+    bool original = false,
   }) async {
+    final side = original ? 4096.0 : 1600.0;
+    final quality = original ? 92 : 80;
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
       builder: (context) => SafeArea(
@@ -65,17 +70,17 @@ class PhotoPicking {
       final List<XFile> files;
       if (source == ImageSource.gallery && multiple) {
         files = await _picker.pickMultiImage(
-          maxWidth: 1600,
-          maxHeight: 1600,
-          imageQuality: 80,
-          limit: 6,
+          maxWidth: side,
+          maxHeight: side,
+          imageQuality: quality,
+          limit: original ? 30 : 6,
         );
       } else {
         final f = await _picker.pickImage(
           source: source,
-          maxWidth: 1600,
-          maxHeight: 1600,
-          imageQuality: 80,
+          maxWidth: side,
+          maxHeight: side,
+          imageQuality: quality,
         );
         files = f == null ? const [] : [f];
       }

@@ -72,7 +72,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   DateTime? _dialedAt;
 
   /// The other phone reported that it is ringing (calls.rang_at, set by the
-  /// call-ringing function); until then the caller sees "Calling…".
+  /// push-received function); until then the caller sees "Calling…".
   bool _rang = false;
   bool _checkingRang = false;
   Timer? _clock;

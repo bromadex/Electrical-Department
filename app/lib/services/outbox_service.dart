@@ -72,6 +72,7 @@ class OutboxService {
     'fn_react': false,
     'fn_unsend_message': false,
     'fn_mark_conversation_read': false,
+    'fn_hide_messages': false,
   };
 
   /// Entries the server failed this many times stop retrying and keep their

@@ -67,6 +67,7 @@ class ChatMessage {
     this.durationMs,
     this.archived = false,
     this.pending = false,
+    this.forwarded = false,
     this.bytes,
   });
 
@@ -83,6 +84,7 @@ class ChatMessage {
       attachmentSize = (j['attachment_size'] as num?)?.toInt(),
       durationMs = (j['duration_ms'] as num?)?.toInt(),
       archived = j['is_archived'] as bool? ?? false,
+      forwarded = j['forwarded'] as bool? ?? false,
       createdAt = DateTime.parse(j['created_at'] as String).toLocal(),
       pending = false,
       bytes = null;
@@ -105,6 +107,9 @@ class ChatMessage {
 
   /// Sent from this phone and still in the outbox.
   final bool pending;
+
+  /// Copied from another chat ("Forwarded").
+  final bool forwarded;
 
   /// The photo's bytes while it waits to upload.
   final Uint8List? bytes;
@@ -160,7 +165,11 @@ class ConversationsNotifier extends AsyncNotifier<List<Conversation>> {
           event: PostgresChangeEvent.insert,
           schema: 'public',
           table: 'messages',
-          callback: (_) => _soon(),
+          callback: (p) {
+            _soon();
+            // It reached this phone: two grey ticks for the sender.
+            if (p.newRecord['author_id'] != userId) _deliveredSoon();
+          },
         )
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
@@ -182,9 +191,28 @@ class ConversationsNotifier extends AsyncNotifier<List<Conversation>> {
         .subscribe();
     ref.onDispose(() {
       _debounce?.cancel();
+      _delivered?.cancel();
       unawaited(client.removeChannel(channel));
     });
+    // Whatever arrived while the app was closed has now reached the phone.
+    _deliveredSoon();
     return _load();
+  }
+
+  Timer? _delivered;
+
+  /// Marks every chat's new messages delivered (fn_mark_delivered); best
+  /// effort, and batched when several messages arrive together.
+  void _deliveredSoon() {
+    _delivered?.cancel();
+    _delivered = Timer(const Duration(seconds: 1), () {
+      unawaited(
+        ref
+            .read(supabaseProvider)
+            .rpc('fn_mark_delivered')
+            .then((_) {}, onError: (_) {}),
+      );
+    });
   }
 
   /// From the server, kept on the device; the kept copy when offline.
@@ -275,11 +303,28 @@ final chatUnreadProvider = Provider<int>(
       0,
 );
 
+/// Where one of your messages has got to (API.md 16, receipts): how many
+/// people should get it, how many have it, how many have read it.
+typedef Ticks = ({int recipients, int delivered, int read});
+
+/// The tick to show on your own message.
+enum TickState { pending, sent, delivered, read }
+
+TickState tickState({required bool pending, Ticks? ticks}) {
+  if (pending) return TickState.pending;
+  if (ticks == null || ticks.recipients == 0) return TickState.sent;
+  if (ticks.read >= ticks.recipients) return TickState.read;
+  if (ticks.delivered >= ticks.recipients) return TickState.delivered;
+  return TickState.sent;
+}
+
 class ChatThread {
   const ChatThread({
     this.messages = const [],
     this.reactions = const {},
     this.photoUrls = const {},
+    this.ticks = const {},
+    this.hidden = const {},
     this.loading = true,
     this.error,
   });
@@ -290,19 +335,37 @@ class ChatThread {
   /// message id → emoji → who reacted.
   final Map<String, Map<String, List<String>>> reactions;
   final Map<String, String> photoUrls;
+
+  /// Your own messages' ticks, by message id.
+  final Map<String, Ticks> ticks;
+
+  /// Messages you deleted for yourself.
+  final Set<String> hidden;
   final bool loading;
   final Object? error;
+
+  /// The messages to show: without those deleted for you.
+  List<ChatMessage> get visible => hidden.isEmpty
+      ? messages
+      : [
+          for (final m in messages)
+            if (!hidden.contains(m.id)) m,
+        ];
 
   ChatThread copyWith({
     List<ChatMessage>? messages,
     Map<String, Map<String, List<String>>>? reactions,
     Map<String, String>? photoUrls,
+    Map<String, Ticks>? ticks,
+    Set<String>? hidden,
     bool? loading,
     Object? error,
   }) => ChatThread(
     messages: messages ?? this.messages,
     reactions: reactions ?? this.reactions,
     photoUrls: photoUrls ?? this.photoUrls,
+    ticks: ticks ?? this.ticks,
+    hidden: hidden ?? this.hidden,
     loading: loading ?? this.loading,
     error: error,
   );
@@ -346,8 +409,22 @@ class ChatThreadNotifier extends Notifier<ChatThread> {
             }
           },
         )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'message_receipts',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'conversation_id',
+            value: id,
+          ),
+          callback: (_) => _ticksSoon(),
+        )
         .subscribe();
-    ref.onDispose(() => unawaited(client.removeChannel(channel)));
+    ref.onDispose(() {
+      _ticksTimer?.cancel();
+      unawaited(client.removeChannel(channel));
+    });
     Future.microtask(load);
     return const ChatThread();
   }
@@ -380,7 +457,12 @@ class ChatThreadNotifier extends Notifier<ChatThread> {
         local.saveJson('thread:$id', jsonEncode(rows.take(50).toList())),
       );
       final server = _show(rows);
-      await Future.wait([_signPhotos(server), _loadReactions()]);
+      await Future.wait([
+        _signPhotos(server),
+        _loadReactions(),
+        loadTicks(),
+        _loadHidden(),
+      ]);
     } catch (e) {
       if (!ref.mounted) return;
       // Keep showing the kept copy; only say so when there is none.
@@ -407,6 +489,55 @@ class ChatThreadNotifier extends Notifier<ChatThread> {
     return server;
   }
 
+  Timer? _ticksTimer;
+
+  void _ticksSoon() {
+    _ticksTimer?.cancel();
+    _ticksTimer = Timer(const Duration(milliseconds: 600), loadTicks);
+  }
+
+  /// Your own messages' ticks (fn_message_ticks).
+  Future<void> loadTicks() async {
+    try {
+      final rows = await _db.rpc(
+        'fn_message_ticks',
+        params: {'p_conversation': id},
+      ) as List;
+      if (!ref.mounted) return;
+      state = state.copyWith(
+        ticks: {
+          for (final r in rows)
+            (r as Map)['message_id'] as String: (
+              recipients: (r['recipients'] as num).toInt(),
+              delivered: (r['delivered'] as num).toInt(),
+              read: (r['read'] as num).toInt(),
+            ),
+        },
+      );
+    } catch (_) {}
+  }
+
+  Future<void> _loadHidden() async {
+    try {
+      final rows = await _db
+          .from('message_hidden')
+          .select('message_id')
+          .eq('conversation_id', id);
+      if (!ref.mounted) return;
+      state = state.copyWith(
+        hidden: {
+          ...state.hidden,
+          for (final r in rows) r['message_id'] as String,
+        },
+      );
+    } catch (_) {}
+  }
+
+  /// Hides messages for you at once (the server is told through the outbox).
+  void hideForMe(Iterable<String> ids) {
+    state = state.copyWith(hidden: {...state.hidden, ...ids});
+  }
+
   void _received(ChatMessage m) {
     if (!ref.mounted) return;
     final list = [...state.messages];
@@ -418,6 +549,8 @@ class ChatThreadNotifier extends Notifier<ChatThread> {
     }
     state = state.copyWith(messages: list);
     unawaited(_signPhotos([m]));
+    // Your own message reached the server: its ticks start counting.
+    if (m.authorId == ref.read(authUserIdProvider)) _ticksSoon();
   }
 
   Future<void> _signPhotos(List<ChatMessage> list) async {
@@ -725,6 +858,72 @@ class ChatActions {
     await _ref.read(outboxProvider).enqueue('fn_unsend_message', {
       'p_message': messageId,
     });
+  }
+
+  /// Deletes messages for you only (queued, so it works without signal).
+  Future<void> hideForMe(String conversationId, List<String> messageIds) async {
+    _ref
+        .read(chatThreadProvider(conversationId).notifier)
+        .hideForMe(messageIds);
+    await _ref.read(outboxProvider).enqueue('fn_hide_messages', {
+      'p_messages': messageIds,
+    });
+  }
+
+  /// Forwards messages into other chats, oldest first (online only: files
+  /// are copied into each chat's folder first). Returns how many were sent.
+  Future<int> forward(
+    List<ChatMessage> messages,
+    List<String> conversationIds,
+  ) async {
+    final db = _ref.read(supabaseProvider);
+    final sorted = [...messages]
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    var sent = 0;
+    for (final target in conversationIds) {
+      for (final m in sorted) {
+        if (m.pending || m.kind == 'system') continue;
+        final id = _uuid.v4();
+        String? path;
+        final from = m.attachmentPath;
+        if (from != null && {'photo', 'voice', 'file'}.contains(m.kind)) {
+          path = '$target/$id/${from.split('/').last}';
+          await db.storage.from('chat-files').copy(from, path);
+        }
+        await db.rpc(
+          'fn_forward_message',
+          params: {
+            'p_client_ref': id,
+            'p_message': m.id,
+            'p_conversation': target,
+            'p_attachment_path': path,
+          },
+        );
+        sent++;
+      }
+    }
+    unawaited(_ref.read(conversationsProvider.notifier).refresh());
+    return sent;
+  }
+
+  /// Who should get a message, when it reached them and when they read it.
+  Future<List<({String name, DateTime? delivered, DateTime? read})>>
+  messageInfo(String messageId) async {
+    final rows =
+        await _ref
+                .read(supabaseProvider)
+                .rpc('fn_message_info', params: {'p_message': messageId})
+            as List;
+    DateTime? t(Object? v) =>
+        v == null ? null : DateTime.parse(v as String).toLocal();
+    return [
+      for (final r in rows)
+        (
+          name: (r as Map)['full_name'] as String,
+          delivered: t(r['delivered_at']),
+          read: t(r['read_at']),
+        ),
+    ];
   }
 
   Future<void> markRead(String conversationId) async {

@@ -43,6 +43,9 @@ dependencies:
   flutter_webrtc: ^1.6.3
   wakelock_plus: ^1.8.0
   flutter_callkit_incoming: ^3.1.6
+  emoji_picker_flutter: ^4.5.4
+  image: ^4.13.1
+  share_plus: ^13.3.1
 dev_dependencies:
   flutter_test:
     sdk: flutter

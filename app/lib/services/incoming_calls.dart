@@ -19,6 +19,13 @@ import '../config/firebase_config.dart';
 /// Runs in the background, also when the app is closed.
 @pragma('vm:entry-point')
 Future<void> firebaseBackgroundMessage(RemoteMessage message) async {
+  // A chat alert: tell the sender it reached this phone (two grey ticks).
+  if (const {'chat', 'mentioned'}.contains(message.data['type'])) {
+    await IncomingCalls.reportReceived(
+      '${message.data['notification_id'] ?? ''}',
+    );
+    return;
+  }
   if (message.data['kind'] != 'call') return;
   final options = FirebaseConfig.options;
   if (options != null && Firebase.apps.isEmpty) {
@@ -99,19 +106,19 @@ class IncomingCalls {
         ),
       ),
     );
-    unawaited(reportRinging('${data['notification_id'] ?? ''}'));
+    unawaited(reportReceived('${data['notification_id'] ?? ''}'));
   }
 
-  /// Tells the caller's screen that this phone is ringing ("Calling…"
-  /// becomes "Ringing…"). Works without a sign-in, from the background:
-  /// the call alert's id is the proof. Best effort; a failure only leaves
-  /// the caller seeing "Calling…".
-  static Future<void> reportRinging(String notificationId) async {
+  /// Tells the server a push reached this phone: a call shows "Ringing…"
+  /// to the caller instead of "Calling…", a chat message gets two grey
+  /// ticks. Works without a sign-in, from the background: the alert's id
+  /// is the proof (push-received). Best effort.
+  static Future<void> reportReceived(String notificationId) async {
     if (notificationId.isEmpty || Env.supabaseUrl.isEmpty) return;
     final client = HttpClient()..connectionTimeout = const Duration(seconds: 8);
     try {
       final req = await client.postUrl(
-        Uri.parse('${Env.supabaseUrl}/functions/v1/call-ringing'),
+        Uri.parse('${Env.supabaseUrl}/functions/v1/push-received'),
       );
       req.headers
         ..contentType = ContentType.json
@@ -120,7 +127,7 @@ class IncomingCalls {
       await (await req.close().timeout(const Duration(seconds: 10)))
           .drain<void>();
     } catch (_) {
-      // No signal: the caller keeps seeing "Calling…".
+      // No signal: the sender keeps seeing one tick or "Calling…".
     } finally {
       client.close(force: true);
     }

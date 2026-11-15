@@ -397,9 +397,9 @@ verify_jwt = false
 [functions.push-send]
 verify_jwt = false
 
-# The callee's phone reports that a call is ringing, also from the
-# background where nobody is signed in; the call alert's id is the proof.
-[functions.call-ringing]
+# A phone reports that a push arrived (call ringing, chat delivered), also
+# from the background where nobody is signed in; the alert's id is the proof.
+[functions.push-received]
 verify_jwt = false
 
 [analytics]

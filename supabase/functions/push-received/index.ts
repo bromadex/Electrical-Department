@@ -1,9 +1,9 @@
-// The callee's phone says "my phone is ringing" (#calls). Android's
-// incoming-call screen sends { notification_id } as soon as it shows,
-// also from the background when the app is closed, where nobody is signed
-// in. The call alert's id reached only the callee's phone, so it is the
-// proof; fn_call_rang (service role only) marks the call as ringing, and
-// the caller's screen changes from "Calling…" to "Ringing…".
+// A push reached a phone. The app sends { notification_id } as soon as the
+// alert arrives, also from the background when the app is closed, where
+// nobody is signed in. The alert's id reached only that person's phone, so
+// it is the proof; fn_push_received (service role only) acts on it:
+//   * a call alert marks the call ringing ("Calling…" becomes "Ringing…");
+//   * a chat alert marks that chat's messages delivered (two grey ticks).
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
@@ -31,14 +31,14 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return reply(405, { error: "INVALID: Use POST" });
   const body = await req.json().catch(() => ({})) as Record<string, unknown>;
   const id = typeof body.notification_id === "string" ? body.notification_id : "";
-  if (!uuid.test(id)) return reply(400, { error: "INVALID: Unknown call" });
+  if (!uuid.test(id)) return reply(400, { error: "INVALID: Unknown alert" });
 
   const admin = createClient(
     Deno.env.get("SUPABASE_URL")!,
     projectKey("SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_SECRET_KEYS"),
     { auth: { persistSession: false } },
   );
-  const { data, error } = await admin.rpc("fn_call_rang", { p_notification: id });
+  const { data, error } = await admin.rpc("fn_push_received", { p_notification: id });
   if (error) return reply(500, { error: `FAILED: ${error.message}` });
-  return reply(200, { ringing: data === true });
+  return reply(200, { ok: data === true });
 });

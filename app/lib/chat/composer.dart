@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,16 +14,16 @@ import '../ui/surfaces.dart';
 import 'chat_repository.dart';
 import 'voice.dart';
 
-const _emoji = [
-  '👍', '✅', '🙏', '👌', '😂', '😊', '😅', '🔥', '⚡', '⚠️', //
-  '❤️', '👏', '💪', '🤝', '🙌', '😮', '😢', '🤔', '👀', '🎉', //
-  '🔧', '🔌', '💡', '🛠️', '📷', '📎', '📍', '⏰', '✔️', '❌', //
-];
+/// How a voice note is being recorded: holding the microphone (let go to
+/// send, slide left to cancel, slide up to lock), or locked (hands free,
+/// with pause, delete and send).
+enum _Rec { off, holding, locked }
 
-/// The message box: + (photo, file, a document, # record), emoji, text with
-/// @mentions,
-/// and one round button that is a microphone when the box is empty and
-/// Send when you type. Tapping the microphone records a voice note.
+/// The message box: + (photo, file, a document, # record), emoji keyboard,
+/// text with @mentions, and one round button that is a microphone when the
+/// box is empty and Send when you type. Voice notes as on WhatsApp: hold the
+/// microphone to record, slide left to cancel, slide up to lock; or tap it
+/// to record hands free.
 class ChatComposer extends ConsumerStatefulWidget {
   const ChatComposer({
     super.key,
@@ -64,8 +65,14 @@ class ChatComposer extends ConsumerStatefulWidget {
 class _ChatComposerState extends ConsumerState<ChatComposer> {
   final _recorder = VoiceRecorder();
   Timer? _tick;
-  bool _recording = false;
+  _Rec _rec = _Rec.off;
+  bool get _recording => _rec != _Rec.off;
   bool _emojiOpen = false;
+
+  /// How far the finger has slid while holding the microphone.
+  Offset _slide = Offset.zero;
+  final _levels = <double>[];
+  StreamSubscription<double>? _levelSub;
 
   /// "@Name" put in by the picker → that person's id.
   final _tagged = <String, String>{};
@@ -83,6 +90,7 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
   void dispose() {
     _text.removeListener(_changed);
     _tick?.cancel();
+    unawaited(_levelSub?.cancel());
     unawaited(_recorder.dispose());
     super.dispose();
   }
@@ -95,17 +103,6 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
     final m = RegExp(r'(?:^|\s)@([^\s@]*)$').firstMatch(upTo);
     final q = m?.group(1);
     if (mounted) setState(() => _mentionQuery = q);
-  }
-
-  void _insert(String s) {
-    final t = _text.text;
-    final sel = _text.selection;
-    final start = sel.isValid ? sel.start : t.length;
-    final end = sel.isValid ? sel.end : t.length;
-    _text.value = TextEditingValue(
-      text: t.replaceRange(start, end, s),
-      selection: TextSelection.collapsed(offset: start + s.length),
-    );
   }
 
   void _pickMention(String id, String name) {
@@ -136,38 +133,99 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
     widget.onSend(text, mentions.toSet().toList());
   }
 
-  Future<void> _record() async {
+  /// Starts a voice note: [locked] for hands free (a tap), otherwise while
+  /// the microphone is held.
+  Future<void> _record({required bool locked}) async {
     HapticFeedback.mediumImpact();
+    setState(() {
+      _rec = locked ? _Rec.locked : _Rec.holding;
+      _slide = Offset.zero;
+      _levels.clear();
+    });
     try {
       if (!await _recorder.start()) {
+        setState(() => _rec = _Rec.off);
         _snack('Allow the microphone to record voice notes.');
         return;
       }
     } catch (_) {
+      setState(() => _rec = _Rec.off);
       _snack('Could not start recording on this device.');
       return;
     }
-    setState(() => _recording = true);
+    // Let go before the microphone was ready: nothing to send.
+    if (_rec == _Rec.off) {
+      await _recorder.cancel();
+      return;
+    }
     _tick = Timer.periodic(
       const Duration(milliseconds: 250),
       (_) => setState(() {}),
     );
+    try {
+      _levelSub = _recorder.levels().listen((l) {
+        if (!mounted) return;
+        setState(() {
+          _levels.add(_recorder.paused ? 0.05 : l);
+          if (_levels.length > 120) _levels.removeAt(0);
+        });
+      });
+    } catch (_) {
+      // No levels on this device: no waveform, recording goes on.
+    }
   }
 
   Future<void> _stop({required bool send}) async {
     _tick?.cancel();
-    setState(() => _recording = false);
+    unawaited(_levelSub?.cancel());
+    _levelSub = null;
+    final wasRecording = _recording;
+    setState(() => _rec = _Rec.off);
+    if (!wasRecording) return;
     if (!send) {
+      HapticFeedback.selectionClick();
       await _recorder.cancel();
       return;
     }
     HapticFeedback.lightImpact();
     final note = await _recorder.stop();
     if (note == null) {
-      _snack('Too short. Tap the microphone, talk, then tap send.');
+      _snack('Hold the microphone and talk, or tap it for hands free.');
       return;
     }
     widget.onVoice(note);
+  }
+
+  Future<void> _togglePause() async {
+    try {
+      if (_recorder.paused) {
+        await _recorder.resume();
+      } else {
+        await _recorder.pause();
+      }
+    } catch (_) {
+      _snack('Pausing is not supported on this device.');
+    }
+    setState(() {});
+  }
+
+  /// Sliding while holding: far enough left cancels, far enough up locks.
+  void _held(LongPressMoveUpdateDetails d) {
+    if (_rec != _Rec.holding) return;
+    final o = d.offsetFromOrigin;
+    if (o.dx < -110) {
+      unawaited(_stop(send: false));
+      return;
+    }
+    if (o.dy < -80) {
+      HapticFeedback.mediumImpact();
+      setState(() {
+        _rec = _Rec.locked;
+        _slide = Offset.zero;
+      });
+      return;
+    }
+    setState(() => _slide = Offset(o.dx.clamp(-110.0, 0.0), o.dy));
   }
 
   void _snack(String text) {
@@ -309,68 +367,100 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
                     ],
                   ),
                 ),
-              if (_recording)
+              if (_rec == _Rec.locked)
                 _RecordingRow(
                   elapsed: _recorder.elapsed,
+                  paused: _recorder.paused,
+                  levels: _levels,
                   onCancel: () => _stop(send: false),
+                  onPause: _togglePause,
                   onSend: () => _stop(send: true),
                 )
               else
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    IconButton(
-                      tooltip: 'Attach',
-                      onPressed: _attach,
-                      icon: const Icon(CupertinoIcons.plus_circle),
-                    ),
-                    Expanded(
-                      child: TextField(
-                        controller: _text,
-                        focusNode: widget.focus,
-                        minLines: 1,
-                        maxLines: 5,
-                        textCapitalization: TextCapitalization.sentences,
-                        textInputAction: TextInputAction.send,
-                        onSubmitted: (_) => _send(),
-                        onTap: () {
-                          if (_emojiOpen) setState(() => _emojiOpen = false);
-                        },
-                        decoration: InputDecoration(
-                          hintText: 'Message',
-                          isDense: true,
-                          suffixIcon: IconButton(
-                            tooltip: 'Emoji',
-                            icon: Icon(
-                              _emojiOpen
-                                  ? CupertinoIcons.keyboard
-                                  : CupertinoIcons.smiley,
+                    if (_rec == _Rec.holding)
+                      Expanded(
+                        child: _HoldingRow(
+                          elapsed: _recorder.elapsed,
+                          slide: _slide,
+                        ),
+                      )
+                    else ...[
+                      IconButton(
+                        tooltip: 'Attach',
+                        onPressed: _attach,
+                        icon: const Icon(CupertinoIcons.plus_circle),
+                      ),
+                      Expanded(
+                        child: TextField(
+                          controller: _text,
+                          focusNode: widget.focus,
+                          minLines: 1,
+                          maxLines: 5,
+                          textCapitalization: TextCapitalization.sentences,
+                          textInputAction: TextInputAction.send,
+                          onSubmitted: (_) => _send(),
+                          onTap: () {
+                            if (_emojiOpen) setState(() => _emojiOpen = false);
+                          },
+                          decoration: InputDecoration(
+                            hintText: 'Message',
+                            isDense: true,
+                            suffixIcon: IconButton(
+                              tooltip: 'Emoji',
+                              icon: Icon(
+                                _emojiOpen
+                                    ? CupertinoIcons.keyboard
+                                    : CupertinoIcons.smiley,
+                              ),
+                              onPressed: () {
+                                setState(() => _emojiOpen = !_emojiOpen);
+                                if (_emojiOpen) {
+                                  widget.focus.unfocus();
+                                } else {
+                                  widget.focus.requestFocus();
+                                }
+                              },
                             ),
-                            onPressed: () {
-                              setState(() => _emojiOpen = !_emojiOpen);
-                              if (_emojiOpen) {
-                                widget.focus.unfocus();
-                              } else {
-                                widget.focus.requestFocus();
-                              }
-                            },
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 4),
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 160),
-                      transitionBuilder: (c, a) =>
-                          ScaleTransition(scale: a, child: c),
-                      child: IconButton.filled(
-                        key: ValueKey(empty),
-                        tooltip: empty ? 'Record a voice note' : 'Send',
-                        onPressed: empty ? _record : _send,
-                        icon: Icon(
-                          empty
-                              ? CupertinoIcons.mic_fill
-                              : CupertinoIcons.arrow_up,
+                      const SizedBox(width: 4),
+                    ],
+                    // Keyed, so holding it survives the row changing around it.
+                    KeyedSubtree(
+                      key: const ValueKey('mic'),
+                      child: GestureDetector(
+                        onLongPressStart: empty
+                            ? (_) => _record(locked: false)
+                            : null,
+                        onLongPressMoveUpdate: empty ? _held : null,
+                        onLongPressEnd: empty
+                            ? (_) {
+                                if (_rec == _Rec.holding) {
+                                  unawaited(_stop(send: true));
+                                }
+                              }
+                            : null,
+                        child: Transform.scale(
+                          scale: _rec == _Rec.holding ? 1.35 : 1,
+                          child: IconButton.filled(
+                            tooltip: empty
+                                ? 'Hold to record, tap for hands free'
+                                : 'Send',
+                            onPressed: _rec == _Rec.holding
+                                ? null
+                                : empty
+                                ? () => _record(locked: true)
+                                : _send,
+                            icon: Icon(
+                              empty
+                                  ? CupertinoIcons.mic_fill
+                                  : CupertinoIcons.arrow_up,
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -378,29 +468,32 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
                 ),
               if (_emojiOpen)
                 Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    Space.xs,
-                    Space.xs,
-                    Space.xs,
-                    bottom + Space.xs,
-                  ),
-                  child: Wrap(
-                    spacing: 2,
-                    runSpacing: 2,
-                    children: [
-                      for (final e in _emoji)
-                        InkWell(
-                          borderRadius: BorderRadius.circular(Radii.sm),
-                          onTap: () => _insert(e),
-                          child: Padding(
-                            padding: const EdgeInsets.all(6),
-                            child: Text(
-                              e,
-                              style: const TextStyle(fontSize: 26),
-                            ),
-                          ),
-                        ),
-                    ],
+                  padding: EdgeInsets.only(bottom: bottom),
+                  child: EmojiPicker(
+                    textEditingController: _text,
+                    config: Config(
+                      height: 280,
+                      emojiViewConfig: EmojiViewConfig(
+                        emojiSizeMax: 28,
+                        backgroundColor: Colors.transparent,
+                        columns: MediaQuery.sizeOf(context).width > 600
+                            ? 12
+                            : 8,
+                      ),
+                      categoryViewConfig: CategoryViewConfig(
+                        backgroundColor: Colors.transparent,
+                        indicatorColor: BrandColors.coral,
+                        iconColorSelected: BrandColors.coral,
+                        backspaceColor: BrandColors.coral,
+                        iconColor: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      bottomActionBarConfig: const BottomActionBarConfig(
+                        enabled: false,
+                      ),
+                      searchViewConfig: SearchViewConfig(
+                        backgroundColor: theme.colorScheme.surface,
+                      ),
+                    ),
                   ),
                 ),
             ],
@@ -411,20 +504,28 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
   }
 }
 
+/// Hands-free recording: delete, the live waveform and time, pause or
+/// resume, and send.
 class _RecordingRow extends StatelessWidget {
   const _RecordingRow({
     required this.elapsed,
+    required this.paused,
+    required this.levels,
     required this.onCancel,
+    required this.onPause,
     required this.onSend,
   });
 
   final Duration elapsed;
+  final bool paused;
+  final List<double> levels;
   final VoidCallback onCancel;
+  final VoidCallback onPause;
   final VoidCallback onSend;
 
   @override
   Widget build(BuildContext context) {
-    final on = elapsed.inMilliseconds ~/ 500 % 2 == 0;
+    final on = paused || elapsed.inMilliseconds ~/ 500 % 2 == 0;
     return Row(
       children: [
         IconButton(
@@ -435,8 +536,8 @@ class _RecordingRow extends StatelessWidget {
         AnimatedOpacity(
           duration: const Duration(milliseconds: 250),
           opacity: on ? 1 : 0.3,
-          child: const Icon(
-            CupertinoIcons.circle_fill,
+          child: Icon(
+            paused ? CupertinoIcons.pause_fill : CupertinoIcons.circle_fill,
             color: Colors.red,
             size: 12,
           ),
@@ -451,11 +552,21 @@ class _RecordingRow extends StatelessWidget {
         ),
         const SizedBox(width: Space.sm),
         Expanded(
-          child: Text(
-            'Recording… tap send when done',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodySmall,
+          child: levels.isEmpty
+              ? Text(
+                  paused ? 'Paused' : 'Recording…',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall,
+                )
+              : LiveWaveform(levels: levels, color: BrandColors.coral),
+        ),
+        IconButton(
+          tooltip: paused ? 'Carry on recording' : 'Pause',
+          onPressed: onPause,
+          icon: Icon(
+            paused ? CupertinoIcons.mic_fill : CupertinoIcons.pause_fill,
+            color: Colors.red,
           ),
         ),
         IconButton.filled(
@@ -464,6 +575,90 @@ class _RecordingRow extends StatelessWidget {
           icon: const Icon(CupertinoIcons.arrow_up),
         ),
       ],
+    );
+  }
+}
+
+/// While the microphone is held: the time and waveform, "‹ Slide to
+/// cancel" following the finger, and a lock to slide up to.
+class _HoldingRow extends StatelessWidget {
+  const _HoldingRow({required this.elapsed, required this.slide});
+
+  final Duration elapsed;
+  final Offset slide;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final on = elapsed.inMilliseconds ~/ 500 % 2 == 0;
+    // Fades as you near the cancel point.
+    final away = (slide.dx.abs() / 110).clamp(0.0, 1.0);
+    return SizedBox(
+      height: 48,
+      child: Row(
+        children: [
+          const SizedBox(width: Space.sm),
+          AnimatedOpacity(
+            duration: const Duration(milliseconds: 250),
+            opacity: on ? 1 : 0.3,
+            child: const Icon(
+              CupertinoIcons.mic_fill,
+              color: Colors.red,
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: Space.xs),
+          Text(
+            voiceLength(elapsed.inMilliseconds),
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              fontFeatures: [FontFeature.tabularFigures()],
+            ),
+          ),
+          const SizedBox(width: Space.sm),
+          Expanded(
+            child: Transform.translate(
+              offset: Offset(slide.dx, 0),
+              child: Opacity(
+                opacity: 1 - away * 0.8,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(CupertinoIcons.chevron_left, size: 14),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        'Slide to cancel',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                CupertinoIcons.lock,
+                size: 16,
+                color: slide.dy < -30
+                    ? BrandColors.coral
+                    : theme.colorScheme.onSurfaceVariant,
+              ),
+              Icon(
+                CupertinoIcons.chevron_up,
+                size: 12,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ],
+          ),
+          const SizedBox(width: Space.sm),
+        ],
+      ),
     );
   }
 }

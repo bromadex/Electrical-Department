@@ -21,6 +21,7 @@ import '../theme/tokens.dart';
 import '../ui/bits.dart';
 import '../ui/surfaces.dart';
 import 'chat_list_screen.dart';
+import 'chat_media.dart';
 import 'chat_repository.dart';
 import 'composer.dart';
 import 'voice.dart';
@@ -59,9 +60,31 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
   /// goes above the first message after it.
   DateTime? _readUpTo;
 
+  final _scroll = ScrollController();
+
+  /// Each message's place on screen, to jump to it (replies, unread).
+  final _keys = <String, GlobalKey>{};
+
+  /// A message just jumped to, highlighted for a moment.
+  String? _flash;
+
+  /// Messages picked with a long press (select mode).
+  final _selected = <String>{};
+
+  /// Scrolled up: the down-arrow button shows, with how many new messages
+  /// came in below.
+  bool _showDown = false;
+  int _newBelow = 0;
+
+  /// The date of the messages at the top while scrolling.
+  DateTime? _topDate;
+  Timer? _dateTimer;
+  bool _jumpedToUnread = false;
+
   @override
   void initState() {
     super.initState();
+    _scroll.addListener(_scrolled);
     final chats = ref.read(conversationsProvider).value ?? const [];
     final chat = chats.where((c) => c.id == widget.id).firstOrNull;
     if (chat != null && chat.unread > 0) _readUpTo = chat.lastReadAt;
@@ -75,9 +98,210 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     }
   }
 
+  void _scrolled() {
+    final up = _scroll.hasClients && _scroll.offset > 400;
+    if (up != _showDown) setState(() => _showDown = up);
+    if (_scroll.hasClients && _scroll.offset < 80 && _newBelow > 0) {
+      setState(() => _newBelow = 0);
+    }
+  }
+
+  /// The date of the topmost message on screen, for the floating chip.
+  void _updateTopDate(Map<String, ChatMessage> byId, double topInset) {
+    DateTime? best;
+    double bestTop = double.infinity;
+    for (final e in _keys.entries) {
+      final box = e.value.currentContext?.findRenderObject();
+      if (box is! RenderBox || !box.attached) continue;
+      final top = box.localToGlobal(Offset.zero).dy;
+      if (top + box.size.height < topInset) continue;
+      if (top < bestTop) {
+        bestTop = top;
+        best = byId[e.key]?.createdAt;
+      }
+    }
+    if (best != null && !DateUtils.isSameDay(best, _topDate)) {
+      setState(() => _topDate = best);
+    }
+    _dateTimer?.cancel();
+    _dateTimer = Timer(const Duration(milliseconds: 1500), () {
+      if (mounted) setState(() => _topDate = null);
+    });
+  }
+
+  /// Scrolls until a message is on screen, then highlights it. Messages far
+  /// up are not built yet, so it moves up a screen at a time to find them.
+  Future<void> _jumpTo(String id) async {
+    for (var i = 0; i < 40 && mounted; i++) {
+      final ctx = _keys[id]?.currentContext;
+      if (ctx != null && ctx.mounted) {
+        await Scrollable.ensureVisible(
+          ctx,
+          alignment: 0.4,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+        if (!mounted) return;
+        setState(() => _flash = id);
+        Timer(const Duration(milliseconds: 1400), () {
+          if (mounted && _flash == id) setState(() => _flash = null);
+        });
+        return;
+      }
+      if (!_scroll.hasClients) return;
+      final pos = _scroll.position;
+      if (pos.pixels >= pos.maxScrollExtent) return;
+      _scroll.jumpTo(
+        (pos.pixels + pos.viewportDimension * 0.8).clamp(
+          0.0,
+          pos.maxScrollExtent,
+        ),
+      );
+      await WidgetsBinding.instance.endOfFrame;
+    }
+  }
+
+  void _toBottom() {
+    if (!_scroll.hasClients) return;
+    _scroll.animateTo(
+      0,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
+    setState(() => _newBelow = 0);
+  }
+
+  void _toggleSelect(ChatMessage m) {
+    if (m.pending || m.kind == 'system') return;
+    HapticFeedback.selectionClick();
+    setState(() {
+      if (!_selected.remove(m.id)) _selected.add(m.id);
+    });
+  }
+
+  /// Forwards messages: pick chats, then send (online only).
+  Future<void> _forward(List<ChatMessage> messages) async {
+    if (messages.isEmpty) return;
+    final targets = await showFormSheet<List<String>>(
+      context,
+      _ForwardSheet(exclude: widget.id),
+    );
+    if (targets == null || targets.isEmpty || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(_selected.clear);
+    try {
+      await ref.read(chatActionsProvider).forward(messages, targets);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            targets.length == 1
+                ? 'Forwarded'
+                : 'Forwarded to ${targets.length} chats',
+          ),
+        ),
+      );
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            AppError.from(e).isRetryable
+                ? 'Forwarding needs signal. Try again when connected.'
+                : AppError.from(e).message,
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _deleteForMe(List<ChatMessage> messages) async {
+    if (messages.isEmpty) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (d) => AlertDialog(
+        title: Text(
+          messages.length == 1
+              ? 'Delete this message for you?'
+              : 'Delete ${messages.length} messages for you?',
+        ),
+        content: const Text('Others in the chat still see them.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(d, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(d, true),
+            child: const Text('Delete for me'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    setState(_selected.clear);
+    await ref.read(chatActionsProvider).hideForMe(widget.id, [
+      for (final m in messages) m.id,
+    ]);
+  }
+
+  /// Read by / delivered to, for one of your messages.
+  void _info(ChatMessage m) {
+    showFormSheet<void>(context, _MessageInfoSheet(message: m));
+  }
+
+  /// Several photos with captions, made smaller unless HD is chosen.
+  Future<void> _sendPhotos() async {
+    final picked = await PhotoPicking.pick(context, original: true);
+    if (picked.isEmpty || !mounted) return;
+    final chats = ref.read(conversationsProvider).value ?? const [];
+    final out = await Navigator.of(context).push<List<OutgoingPhoto>>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => PhotoSendPage(
+          photos: picked,
+          chatTitle: chats.where((c) => c.id == widget.id).firstOrNull?.title,
+        ),
+      ),
+    );
+    if (out == null || out.isEmpty) return;
+    final reply = _replyTo?.id;
+    setState(() => _replyTo = null);
+    for (final (i, p) in out.indexed) {
+      await ref
+          .read(chatActionsProvider)
+          .send(
+            widget.id,
+            photo: p.bytes,
+            text: p.caption.isEmpty ? null : p.caption,
+            replyTo: i == 0 ? reply : null,
+          );
+    }
+  }
+
+  void _openPhoto(ChatMessage m, List<ChatMessage> shown, ChatThread thread) {
+    final photos = [
+      for (final x in shown)
+        if (x.kind == 'photo') x,
+    ];
+    final at = photos.indexWhere((x) => x.id == m.id);
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ChatMediaViewer(
+          photos: photos,
+          urls: thread.photoUrls,
+          initial: at < 0 ? 0 : at,
+          names: ref.read(peopleProvider).value ?? const {},
+          onForward: (p) => _forward([p]),
+          onShowInChat: (p) => _jumpTo(p.id),
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _readTimer?.cancel();
+    _dateTimer?.cancel();
+    _scroll.dispose();
     _text.dispose();
     _focus.dispose();
     super.dispose();
@@ -137,17 +361,6 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
           replyTo: reply,
         );
     _text.clear();
-  }
-
-  Future<void> _sendPhoto() async {
-    final photos = await PhotoPicking.pick(context);
-    final reply = _replyTo?.id;
-    if (photos.isNotEmpty) setState(() => _replyTo = null);
-    for (final p in photos) {
-      await ref
-          .read(chatActionsProvider)
-          .send(widget.id, photo: p, replyTo: reply);
-    }
   }
 
   Future<void> _tagRecord() async {
@@ -252,11 +465,51 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                     );
                   },
                 ),
+              if (!m.pending)
+                ListTile(
+                  leading: const Icon(CupertinoIcons.arrowshape_turn_up_right),
+                  title: const Text('Forward'),
+                  onTap: () {
+                    Navigator.pop(sheet);
+                    unawaited(_forward([m]));
+                  },
+                ),
+              if (!m.pending)
+                ListTile(
+                  leading: const Icon(CupertinoIcons.checkmark_circle),
+                  title: const Text('Select'),
+                  subtitle: const Text(
+                    'Pick more messages to forward or delete',
+                  ),
+                  onTap: () {
+                    Navigator.pop(sheet);
+                    _toggleSelect(m);
+                  },
+                ),
+              if (mine && !m.pending)
+                ListTile(
+                  leading: const Icon(CupertinoIcons.info),
+                  title: const Text('Info'),
+                  subtitle: const Text('Who has it and who read it'),
+                  onTap: () {
+                    Navigator.pop(sheet);
+                    _info(m);
+                  },
+                ),
+              if (!m.pending)
+                ListTile(
+                  leading: const Icon(CupertinoIcons.delete_simple),
+                  title: const Text('Delete for me'),
+                  onTap: () {
+                    Navigator.pop(sheet);
+                    unawaited(_deleteForMe([m]));
+                  },
+                ),
               if (mine && !m.pending)
                 ListTile(
                   leading: const Icon(CupertinoIcons.trash, color: Colors.red),
                   title: const Text(
-                    'Unsend',
+                    'Delete for everyone',
                     style: TextStyle(color: Colors.red),
                   ),
                   onTap: () {
@@ -307,11 +560,21 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
         : '${chat.memberCount} members';
 
     ref.listen(chatThreadProvider(widget.id), (prev, next) {
-      if ((prev?.messages.length ?? 0) < next.messages.length) _markRead();
+      final before = prev?.messages.length ?? 0;
+      if (before < next.messages.length) {
+        _markRead();
+        final fromOthers = next.messages
+            .skip(before)
+            .where((m) => m.authorId != me && m.kind != 'system')
+            .length;
+        if (_showDown && fromOthers > 0) {
+          setState(() => _newBelow += fromOthers);
+        }
+      }
     });
 
     final shown = [
-      for (final m in thread.messages)
+      for (final m in thread.visible)
         if (!m.archived) m,
     ];
     final byId = {for (final m in shown) m.id: m};
@@ -327,290 +590,416 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
               )
               .firstOrNull
               ?.id;
+    if (!_jumpedToUnread && firstNew != null && !thread.loading) {
+      _jumpedToUnread = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _jumpTo(firstNew));
+    }
+    final selected = [
+      for (final m in shown)
+        if (_selected.contains(m.id)) m,
+    ];
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        titleSpacing: widget.embedded ? Space.md : 0,
-        automaticallyImplyLeading: false,
-        leading: widget.embedded
-            ? null
-            : const AppBackButton(fallback: '/chat'),
-        title: Row(
-          children: [
-            chat == null || chat.isDirect
-                ? OnlineAvatar(
-                    name: chat?.title ?? 'Chat',
-                    online: online,
-                    size: 36,
-                  )
-                : ChatGroupAvatar(chat: chat, size: 36),
-            const SizedBox(width: Space.sm),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    chat?.title ?? 'Chat',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleMedium,
-                  ),
-                  if (status != null)
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 200),
-                      child: Text(
-                        status,
-                        key: ValueKey(status),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: typing.isNotEmpty
-                              ? BrandColors.coral
-                              : online
-                              ? BrandColors.success
-                              : null,
-                          fontWeight: typing.isNotEmpty || online
-                              ? FontWeight.w600
-                              : null,
-                        ),
-                      ),
+    return PopScope(
+      canPop: _selected.isEmpty,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _selected.isNotEmpty) setState(_selected.clear);
+      },
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        extendBodyBehindAppBar: true,
+        appBar: selected.isNotEmpty
+            ? _SelectionBar(
+                count: selected.length,
+                canCopy: selected.every((m) => m.body != null),
+                onClose: () => setState(_selected.clear),
+                onCopy: () {
+                  Clipboard.setData(
+                    ClipboardData(
+                      text: [for (final m in selected) m.body ?? ''].join('\n'),
                     ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'Voice call',
-            icon: const Icon(CupertinoIcons.phone_fill),
-            onPressed: () => context.push('/chat/${widget.id}/call?join=1'),
-          ),
-          IconButton(
-            tooltip: 'Video call',
-            icon: const Icon(CupertinoIcons.video_camera_solid),
-            onPressed: () =>
-                context.push('/chat/${widget.id}/call?join=1&video=1'),
-          ),
-          if (chat != null)
-            PopupMenuButton<String>(
-              tooltip: 'More',
-              icon: const Icon(CupertinoIcons.ellipsis_vertical),
-              onSelected: (v) {
-                if (v == 'meeting') {
-                  showFormSheet(
-                    context,
-                    ScheduleMeetingSheet(conversationId: chat.id),
                   );
-                }
-                if (v == 'pin') {
-                  unawaited(
-                    ref.read(chatActionsProvider).pin(chat.id, !chat.pinned),
-                  );
-                }
-              },
-              itemBuilder: (_) => [
-                if (!chat.isDirect &&
-                    ref
-                        .read(sessionProvider)
-                        .can(
-                          'meetings.manage',
-                          siteId:
-                              chat.siteId ?? ref.read(currentSiteProvider)?.id,
-                        ))
-                  const PopupMenuItem(
-                    value: 'meeting',
-                    child: ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: Icon(CupertinoIcons.calendar_badge_plus),
-                      title: Text('Schedule a meeting'),
-                    ),
-                  ),
-                PopupMenuItem(
-                  value: 'pin',
-                  child: ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(
-                      chat.pinned
-                          ? CupertinoIcons.pin_slash
-                          : CupertinoIcons.pin,
-                    ),
-                    title: Text(chat.pinned ? 'Unpin chat' : 'Pin to the top'),
-                  ),
-                ),
-              ],
-            ),
-          const SizedBox(width: Space.xs),
-        ],
-        flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
-        bottom: live == null
-            ? null
-            : PreferredSize(
-                preferredSize: const Size.fromHeight(bannerHeight),
-                child: _LiveCallBanner(
-                  call: live,
-                  onJoin: () => context.push('/chat/${widget.id}/call?join=1'),
-                ),
-              ),
-      ),
-      body: MeshBackground(
-        child: Column(
-          children: [
-            Expanded(
-              child: thread.loading && shown.isEmpty
-                  ? const Center(child: CircularProgressIndicator())
-                  : thread.error != null && shown.isEmpty
-                  ? Padding(
-                      padding: EdgeInsets.only(top: top),
-                      child: EmptyState(
-                        icon: CupertinoIcons.wifi_slash,
-                        title: 'Could not load messages',
-                        message: AppError.from(thread.error!).isRetryable
-                            ? 'Messages load when you are connected.'
-                            : AppError.from(thread.error!).message,
-                      ),
-                    )
-                  : shown.isEmpty
-                  ? Padding(
-                      padding: EdgeInsets.only(top: top),
-                      child: const EmptyState(
-                        icon: CupertinoIcons.chat_bubble,
-                        title: 'No messages yet',
-                        message:
-                            'Say hello, share a photo, or tag a job with #.',
-                      ),
-                    )
-                  : LayoutBuilder(
-                      builder: (context, box) => ListView.builder(
-                        reverse: true,
-                        padding: EdgeInsets.fromLTRB(
-                          Space.sm + _side(box.maxWidth),
-                          Space.sm,
-                          Space.sm + _side(box.maxWidth),
-                          top + Space.sm,
-                        ),
-                        itemCount: shown.length,
-                        itemBuilder: (context, i) {
-                          final m = shown[shown.length - 1 - i];
-                          final prev = i == shown.length - 1
-                              ? null
-                              : shown[shown.length - 2 - i];
-                          final next = i == 0 ? null : shown[shown.length - i];
-                          final mine = m.authorId == me;
-                          final author = people[m.authorId];
-                          final newDay =
-                              prev == null ||
-                              !DateUtils.isSameDay(prev.createdAt, m.createdAt);
-                          final sameAuthor =
-                              !newDay &&
-                              prev.authorId == m.authorId &&
-                              m.createdAt.difference(prev.createdAt).inMinutes <
-                                  5;
-                          if (m.kind == 'system') {
-                            return Column(
-                              children: [
-                                if (newDay) _DaySeparator(m.createdAt),
-                                if (m.id == firstNew) const _NewMessagesLine(),
-                                _SystemRow(
-                                  message: m,
-                                  call: callsByMessage[m.id],
-                                  me: me,
+                  setState(_selected.clear);
+                  ScaffoldMessenger.of(context)
+                      .showSnackBar(const SnackBar(content: Text('Copied')));
+                },
+                onForward: () => _forward(selected),
+                onDelete: () => _deleteForMe(selected),
+              )
+            : AppBar(
+                titleSpacing: widget.embedded ? Space.md : 0,
+                automaticallyImplyLeading: false,
+                leading: widget.embedded
+                    ? null
+                    : const AppBackButton(fallback: '/chat'),
+                title: Row(
+                  children: [
+                    chat == null || chat.isDirect
+                        ? OnlineAvatar(
+                            name: chat?.title ?? 'Chat',
+                            online: online,
+                            size: 36,
+                          )
+                        : ChatGroupAvatar(chat: chat, size: 36),
+                    const SizedBox(width: Space.sm),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            chat?.title ?? 'Chat',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleMedium,
+                          ),
+                          if (status != null)
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 200),
+                              child: Text(
+                                status,
+                                key: ValueKey(status),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: typing.isNotEmpty
+                                      ? BrandColors.coral
+                                      : online
+                                      ? BrandColors.success
+                                      : null,
+                                  fontWeight: typing.isNotEmpty || online
+                                      ? FontWeight.w600
+                                      : null,
                                 ),
-                              ],
-                            );
-                          }
-                          // Groups: the avatar sits beside the last message
-                          // of each run from one person.
-                          final lastOfRun =
-                              next == null ||
-                              next.authorId != m.authorId ||
-                              !DateUtils.isSameDay(
-                                next.createdAt,
-                                m.createdAt,
-                              ) ||
-                              next.createdAt
-                                      .difference(m.createdAt)
-                                      .inMinutes >=
-                                  5;
-                          final bubble = _Bubble(
-                            message: m,
-                            mine: mine,
-                            author: (chat?.isDirect ?? false) || sameAuthor
-                                ? null
-                                : author ?? 'Someone',
-                            reply: m.replyTo == null ? null : byId[m.replyTo],
-                            replyAuthor: m.replyTo == null
-                                ? null
-                                : people[byId[m.replyTo]?.authorId],
-                            photoUrl: thread.photoUrls[m.attachmentPath],
-                            reactions: thread.reactions[m.id] ?? const {},
-                            me: me,
-                            tight: sameAuthor,
-                            onLongPress: () => _actions(m, mine, author),
-                            onReact: (e) =>
-                                ref.read(chatActionsProvider).react(m.id, e),
-                            onReply: () {
-                              setState(() => _replyTo = m);
-                              _focus.requestFocus();
-                            },
-                          );
-                          return Column(
-                            children: [
-                              if (newDay) _DaySeparator(m.createdAt),
-                              if (m.id == firstNew) const _NewMessagesLine(),
-                              if (group && !mine)
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    SizedBox(
-                                      width: 34,
-                                      child: lastOfRun
-                                          ? AppAvatar(
-                                              name: author ?? '?',
-                                              size: 28,
-                                            )
-                                          : null,
-                                    ),
-                                    Expanded(child: bubble),
-                                  ],
-                                )
-                              else
-                                bubble,
-                            ],
-                          );
-                        },
+                              ),
+                            ),
+                        ],
                       ),
                     ),
-            ),
-            ChatComposer(
-              conversationId: widget.id,
-              controller: _text,
-              focus: _focus,
-              replyTo: _replyTo,
-              replyAuthor: _replyTo == null
-                  ? null
-                  : _replyTo!.authorId == me
-                  ? 'yourself'
-                  : people[_replyTo!.authorId],
-              onCancelReply: () => setState(() => _replyTo = null),
-              onSend: _send,
-              onPhoto: _sendPhoto,
-              onFile: _sendFile,
-              onTag: _tagRecord,
-              onDocument:
-                  ref
-                      .watch(sessionProvider)
-                      .can(
-                        'docs.view',
-                        siteId: ref.watch(currentSiteProvider)?.id,
+                  ],
+                ),
+                actions: [
+                  IconButton(
+                    tooltip: 'Voice call',
+                    icon: const Icon(CupertinoIcons.phone_fill),
+                    onPressed: () =>
+                        context.push('/chat/${widget.id}/call?join=1'),
+                  ),
+                  IconButton(
+                    tooltip: 'Video call',
+                    icon: const Icon(CupertinoIcons.video_camera_solid),
+                    onPressed: () =>
+                        context.push('/chat/${widget.id}/call?join=1&video=1'),
+                  ),
+                  if (chat != null)
+                    PopupMenuButton<String>(
+                      tooltip: 'More',
+                      icon: const Icon(CupertinoIcons.ellipsis_vertical),
+                      onSelected: (v) {
+                        if (v == 'meeting') {
+                          showFormSheet(
+                            context,
+                            ScheduleMeetingSheet(conversationId: chat.id),
+                          );
+                        }
+                        if (v == 'pin') {
+                          unawaited(
+                            ref
+                                .read(chatActionsProvider)
+                                .pin(chat.id, !chat.pinned),
+                          );
+                        }
+                      },
+                      itemBuilder: (_) => [
+                        if (!chat.isDirect &&
+                            ref
+                                .read(sessionProvider)
+                                .can(
+                                  'meetings.manage',
+                                  siteId:
+                                      chat.siteId ??
+                                      ref.read(currentSiteProvider)?.id,
+                                ))
+                          const PopupMenuItem(
+                            value: 'meeting',
+                            child: ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              leading: Icon(CupertinoIcons.calendar_badge_plus),
+                              title: Text('Schedule a meeting'),
+                            ),
+                          ),
+                        PopupMenuItem(
+                          value: 'pin',
+                          child: ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: Icon(
+                              chat.pinned
+                                  ? CupertinoIcons.pin_slash
+                                  : CupertinoIcons.pin,
+                            ),
+                            title: Text(
+                              chat.pinned ? 'Unpin chat' : 'Pin to the top',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  const SizedBox(width: Space.xs),
+                ],
+                flexibleSpace: const GlassSurface(
+                  radius: 0,
+                  child: SizedBox.expand(),
+                ),
+                bottom: live == null
+                    ? null
+                    : PreferredSize(
+                        preferredSize: const Size.fromHeight(bannerHeight),
+                        child: _LiveCallBanner(
+                          call: live,
+                          onJoin: () =>
+                              context.push('/chat/${widget.id}/call?join=1'),
+                        ),
+                      ),
+              ),
+        body: MeshBackground(
+          child: Column(
+            children: [
+              Expanded(
+                child: thread.loading && shown.isEmpty
+                    ? const Center(child: CircularProgressIndicator())
+                    : thread.error != null && shown.isEmpty
+                    ? Padding(
+                        padding: EdgeInsets.only(top: top),
+                        child: EmptyState(
+                          icon: CupertinoIcons.wifi_slash,
+                          title: 'Could not load messages',
+                          message: AppError.from(thread.error!).isRetryable
+                              ? 'Messages load when you are connected.'
+                              : AppError.from(thread.error!).message,
+                        ),
                       )
-                  ? _shareDocument
-                  : null,
-              onVoice: _sendVoice,
-            ),
-          ],
+                    : shown.isEmpty
+                    ? Padding(
+                        padding: EdgeInsets.only(top: top),
+                        child: const EmptyState(
+                          icon: CupertinoIcons.chat_bubble,
+                          title: 'No messages yet',
+                          message:
+                              'Say hello, share a photo, or tag a job with #.',
+                        ),
+                      )
+                    : LayoutBuilder(
+                        builder: (context, box) => Stack(
+                          children: [
+                            NotificationListener<ScrollUpdateNotification>(
+                              onNotification: (n) {
+                                if (n.dragDetails != null ||
+                                    n.scrollDelta != null) {
+                                  _updateTopDate(byId, top);
+                                }
+                                return false;
+                              },
+                              child: ListView.builder(
+                                controller: _scroll,
+                                reverse: true,
+                                padding: EdgeInsets.fromLTRB(
+                                  Space.sm + _side(box.maxWidth),
+                                  Space.sm,
+                                  Space.sm + _side(box.maxWidth),
+                                  top + Space.sm,
+                                ),
+                                itemCount: shown.length,
+                                itemBuilder: (context, i) {
+                                  final m = shown[shown.length - 1 - i];
+                                  final prev = i == shown.length - 1
+                                      ? null
+                                      : shown[shown.length - 2 - i];
+                                  final next = i == 0
+                                      ? null
+                                      : shown[shown.length - i];
+                                  final mine = m.authorId == me;
+                                  final author = people[m.authorId];
+                                  final newDay =
+                                      prev == null ||
+                                      !DateUtils.isSameDay(
+                                        prev.createdAt,
+                                        m.createdAt,
+                                      );
+                                  final sameAuthor =
+                                      !newDay &&
+                                      prev.authorId == m.authorId &&
+                                      m.createdAt
+                                              .difference(prev.createdAt)
+                                              .inMinutes <
+                                          5;
+                                  if (m.kind == 'system') {
+                                    return Column(
+                                      children: [
+                                        if (newDay) _DaySeparator(m.createdAt),
+                                        if (m.id == firstNew)
+                                          const _NewMessagesLine(),
+                                        _SystemRow(
+                                          message: m,
+                                          call: callsByMessage[m.id],
+                                          me: me,
+                                        ),
+                                      ],
+                                    );
+                                  }
+                                  // Groups: the avatar sits beside the last message
+                                  // of each run from one person.
+                                  final lastOfRun =
+                                      next == null ||
+                                      next.authorId != m.authorId ||
+                                      !DateUtils.isSameDay(
+                                        next.createdAt,
+                                        m.createdAt,
+                                      ) ||
+                                      next.createdAt
+                                              .difference(m.createdAt)
+                                              .inMinutes >=
+                                          5;
+                                  final bubble = _Bubble(
+                                    message: m,
+                                    mine: mine,
+                                    author:
+                                        (chat?.isDirect ?? false) || sameAuthor
+                                        ? null
+                                        : author ?? 'Someone',
+                                    reply: m.replyTo == null
+                                        ? null
+                                        : byId[m.replyTo],
+                                    replyAuthor: m.replyTo == null
+                                        ? null
+                                        : people[byId[m.replyTo]?.authorId],
+                                    photoUrl:
+                                        thread.photoUrls[m.attachmentPath],
+                                    reactions:
+                                        thread.reactions[m.id] ?? const {},
+                                    me: me,
+                                    tight: sameAuthor,
+                                    tick: mine
+                                        ? tickState(
+                                            pending: m.pending,
+                                            ticks: thread.ticks[m.id],
+                                          )
+                                        : null,
+                                    selecting: _selected.isNotEmpty,
+                                    onTap: () => _toggleSelect(m),
+                                    onReplyTap: m.replyTo == null
+                                        ? null
+                                        : () => _jumpTo(m.replyTo!),
+                                    onPhotoTap: () =>
+                                        _openPhoto(m, shown, thread),
+                                    onLongPress: () => _selected.isNotEmpty
+                                        ? _toggleSelect(m)
+                                        : _actions(m, mine, author),
+                                    onReact: (e) => ref
+                                        .read(chatActionsProvider)
+                                        .react(m.id, e),
+                                    onReply: () {
+                                      setState(() => _replyTo = m);
+                                      _focus.requestFocus();
+                                    },
+                                  );
+                                  final picked = _selected.contains(m.id);
+                                  return Column(
+                                    key: _keys.putIfAbsent(m.id, GlobalKey.new),
+                                    children: [
+                                      if (newDay) _DaySeparator(m.createdAt),
+                                      if (m.id == firstNew)
+                                        const _NewMessagesLine(),
+                                      AnimatedContainer(
+                                        duration: const Duration(
+                                          milliseconds: 300,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: picked
+                                              ? BrandColors.info.withValues(
+                                                  alpha: 0.18,
+                                                )
+                                              : _flash == m.id
+                                              ? BrandColors.coral.withValues(
+                                                  alpha: 0.22,
+                                                )
+                                              : Colors.transparent,
+                                          borderRadius: BorderRadius.circular(
+                                            Radii.md,
+                                          ),
+                                        ),
+                                        child: group && !mine
+                                            ? Row(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.end,
+                                                children: [
+                                                  SizedBox(
+                                                    width: 34,
+                                                    child: lastOfRun
+                                                        ? AppAvatar(
+                                                            name: author ?? '?',
+                                                            size: 28,
+                                                          )
+                                                        : null,
+                                                  ),
+                                                  Expanded(child: bubble),
+                                                ],
+                                              )
+                                            : bubble,
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ),
+                            ),
+                            // The date of what is on screen, while scrolling.
+                            if (_topDate != null)
+                              Positioned(
+                                top: top + Space.xs,
+                                left: 0,
+                                right: 0,
+                                child: IgnorePointer(
+                                  child: _DaySeparator(_topDate!),
+                                ),
+                              ),
+                            if (_showDown)
+                              Positioned(
+                                right: Space.md,
+                                bottom: Space.md,
+                                child: _DownButton(
+                                  count: _newBelow,
+                                  onTap: _toBottom,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+              ),
+              ChatComposer(
+                conversationId: widget.id,
+                controller: _text,
+                focus: _focus,
+                replyTo: _replyTo,
+                replyAuthor: _replyTo == null
+                    ? null
+                    : _replyTo!.authorId == me
+                    ? 'yourself'
+                    : people[_replyTo!.authorId],
+                onCancelReply: () => setState(() => _replyTo = null),
+                onSend: _send,
+                onPhoto: _sendPhotos,
+                onFile: _sendFile,
+                onTag: _tagRecord,
+                onDocument:
+                    ref
+                        .watch(sessionProvider)
+                        .can(
+                          'docs.view',
+                          siteId: ref.watch(currentSiteProvider)?.id,
+                        )
+                    ? _shareDocument
+                    : null,
+                onVoice: _sendVoice,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -967,7 +1356,21 @@ class _Bubble extends StatelessWidget {
     required this.onLongPress,
     required this.onReact,
     required this.onReply,
+    this.tick,
+    this.selecting = false,
+    this.onTap,
+    this.onReplyTap,
+    this.onPhotoTap,
   });
+
+  /// Your own message's tick; null on others' messages.
+  final TickState? tick;
+
+  /// Select mode: a tap picks the message instead of opening it.
+  final bool selecting;
+  final VoidCallback? onTap;
+  final VoidCallback? onReplyTap;
+  final VoidCallback? onPhotoTap;
 
   final ChatMessage message;
   final bool mine;
@@ -1011,61 +1414,80 @@ class _Bubble extends StatelessWidget {
               ),
             ),
           ),
-        if (reply != null)
-          Container(
-            margin: const EdgeInsets.only(bottom: 6),
-            padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
-            decoration: BoxDecoration(
-              color: (mine ? Colors.white : BrandColors.maroon).withValues(
-                alpha: 0.12,
-              ),
-              borderRadius: BorderRadius.circular(8),
-              border: Border(
-                left: BorderSide(
-                  color: mine ? Colors.white : BrandColors.maroon,
-                  width: 3,
-                ),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        if (m.forwarded)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 2),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
+                Icon(
+                  CupertinoIcons.arrowshape_turn_up_right_fill,
+                  size: 12,
+                  color: sub,
+                ),
+                const SizedBox(width: 4),
                 Text(
-                  replyAuthor ?? 'Message',
+                  'Forwarded',
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: fg,
-                    fontWeight: FontWeight.w700,
+                    color: sub,
+                    fontStyle: FontStyle.italic,
                   ),
                 ),
-                Text(
-                  switch (reply!.kind) {
-                    'photo' => '📷 Photo',
-                    'voice' => '🎤 Voice note',
-                    'file' => '📎 ${reply!.attachmentName ?? 'File'}',
-                    _ => reply!.body ?? '',
-                  },
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(color: sub),
-                ),
               ],
+            ),
+          ),
+        if (reply != null)
+          GestureDetector(
+            onTap: selecting ? null : onReplyTap,
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 6),
+              padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+              decoration: BoxDecoration(
+                color: (mine ? Colors.white : BrandColors.maroon).withValues(
+                  alpha: 0.12,
+                ),
+                borderRadius: BorderRadius.circular(8),
+                border: Border(
+                  left: BorderSide(
+                    color: mine ? Colors.white : BrandColors.maroon,
+                    width: 3,
+                  ),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    replyAuthor ?? 'Message',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: fg,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  Text(
+                    switch (reply!.kind) {
+                      'photo' => '📷 Photo',
+                      'voice' => '🎤 Voice note',
+                      'file' => '📎 ${reply!.attachmentName ?? 'File'}',
+                      _ => reply!.body ?? '',
+                    },
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(color: sub),
+                  ),
+                ],
+              ),
             ),
           ),
         if (m.kind == 'photo')
           ClipRRect(
             borderRadius: BorderRadius.circular(Radii.md),
             child: GestureDetector(
-              onTap: photoUrl == null
+              onTap: selecting
+                  ? onTap
+                  : photoUrl == null && m.bytes == null
                   ? null
-                  : () => showPhoto(
-                      context,
-                      JobPhoto(
-                        id: m.id,
-                        kind: 'photo',
-                        path: m.attachmentPath ?? '',
-                        url: photoUrl,
-                      ),
-                    ),
+                  : onPhotoTap,
               child: SizedBox(
                 width: maxW - 24,
                 height: (maxW - 24) * 0.75,
@@ -1206,13 +1628,9 @@ class _Bubble extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(time, style: theme.textTheme.labelSmall?.copyWith(color: sub)),
-            if (mine) ...[
+            if (tick != null) ...[
               const SizedBox(width: 4),
-              Icon(
-                m.pending ? CupertinoIcons.clock : CupertinoIcons.checkmark_alt,
-                size: 12,
-                color: sub,
-              ),
+              _TickIcon(tick: tick!, color: sub),
             ],
           ],
         ),
@@ -1231,6 +1649,7 @@ class _Bubble extends StatelessWidget {
             _SwipeToReply(
               onReply: onReply,
               child: GestureDetector(
+                onTap: selecting ? onTap : null,
                 onLongPress: () {
                   HapticFeedback.mediumImpact();
                   onLongPress();
@@ -1501,3 +1920,329 @@ class _DocumentPickerState extends ConsumerState<_DocumentPicker> {
     );
   }
 }
+
+/// The tick on your own message: clock while it waits to send, one tick on
+/// the server, two grey ticks delivered to everyone, two blue ticks read
+/// by everyone.
+class _TickIcon extends StatelessWidget {
+  const _TickIcon({required this.tick, required this.color});
+
+  final TickState tick;
+  final Color color;
+
+  /// Readable on the burgundy bubble and in both themes.
+  static const readBlue = Color(0xFF7FD3FF);
+
+  @override
+  Widget build(BuildContext context) {
+    return switch (tick) {
+      TickState.pending => Icon(
+        CupertinoIcons.clock,
+        size: 12,
+        color: color,
+        semanticLabel: 'Waiting to send',
+      ),
+      TickState.sent => Icon(
+        Icons.done_rounded,
+        size: 15,
+        color: color,
+        semanticLabel: 'Sent',
+      ),
+      TickState.delivered => Icon(
+        Icons.done_all_rounded,
+        size: 15,
+        color: color,
+        semanticLabel: 'Delivered',
+      ),
+      TickState.read => const Icon(
+        Icons.done_all_rounded,
+        size: 15,
+        color: readBlue,
+        semanticLabel: 'Read',
+      ),
+    };
+  }
+}
+
+/// The top bar in select mode: how many, copy, forward, delete for me.
+class _SelectionBar extends StatelessWidget implements PreferredSizeWidget {
+  const _SelectionBar({
+    required this.count,
+    required this.canCopy,
+    required this.onClose,
+    required this.onCopy,
+    required this.onForward,
+    required this.onDelete,
+  });
+
+  final int count;
+  final bool canCopy;
+  final VoidCallback onClose;
+  final VoidCallback onCopy;
+  final VoidCallback onForward;
+  final VoidCallback onDelete;
+
+  @override
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+
+  @override
+  Widget build(BuildContext context) {
+    return AppBar(
+      leading: IconButton(
+        tooltip: 'Done',
+        onPressed: onClose,
+        icon: const Icon(CupertinoIcons.xmark),
+      ),
+      title: Text('$count selected'),
+      flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
+      actions: [
+        if (canCopy)
+          IconButton(
+            tooltip: 'Copy',
+            onPressed: onCopy,
+            icon: const Icon(CupertinoIcons.doc_on_doc),
+          ),
+        IconButton(
+          tooltip: 'Forward',
+          onPressed: onForward,
+          icon: const Icon(CupertinoIcons.arrowshape_turn_up_right),
+        ),
+        IconButton(
+          tooltip: 'Delete for me',
+          onPressed: onDelete,
+          icon: const Icon(CupertinoIcons.delete_simple),
+        ),
+        const SizedBox(width: Space.xs),
+      ],
+    );
+  }
+}
+
+/// The round "go to the newest message" button, with how many came in.
+class _DownButton extends StatelessWidget {
+  const _DownButton({required this.count, required this.onTap});
+
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Badge(
+      isLabelVisible: count > 0,
+      label: Text(count > 99 ? '99+' : '$count'),
+      backgroundColor: BrandColors.coral,
+      child: GlassSurface(
+        radius: 99,
+        padding: EdgeInsets.zero,
+        child: IconButton(
+          tooltip: 'Newest messages',
+          onPressed: onTap,
+          icon: const Icon(CupertinoIcons.chevron_down),
+        ),
+      ),
+    );
+  }
+}
+
+/// Pick chats to forward to: search, tick several, send.
+class _ForwardSheet extends ConsumerStatefulWidget {
+  const _ForwardSheet({required this.exclude});
+
+  final String exclude;
+
+  @override
+  ConsumerState<_ForwardSheet> createState() => _ForwardSheetState();
+}
+
+class _ForwardSheetState extends ConsumerState<_ForwardSheet> {
+  final _picked = <String>{};
+  String _q = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final chats = [
+      for (final c in ref.watch(conversationsProvider).value ?? const [])
+        if (c.id != widget.exclude &&
+            (_q.isEmpty || c.title.toLowerCase().contains(_q)))
+          c,
+    ];
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(Space.md, 0, Space.md, Space.md),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('Forward to', style: theme.textTheme.titleMedium),
+          const SizedBox(height: Space.sm),
+          CupertinoSearchTextField(
+            placeholder: 'Search chats',
+            onChanged: (v) => setState(() => _q = v.trim().toLowerCase()),
+          ),
+          const SizedBox(height: Space.sm),
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(context).height * 0.5,
+            ),
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                for (final c in chats)
+                  CheckboxListTile(
+                    value: _picked.contains(c.id),
+                    onChanged: (on) => setState(() {
+                      if (on ?? false) {
+                        _picked.add(c.id);
+                      } else {
+                        _picked.remove(c.id);
+                      }
+                    }),
+                    secondary: c.isDirect
+                        ? AppAvatar(name: c.title, size: 34)
+                        : ChatGroupAvatar(chat: c, size: 34),
+                    title: Text(c.title),
+                    subtitle: Text(c.isDirect ? 'Direct' : 'Group'),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: Space.sm),
+          FilledButton.icon(
+            onPressed: _picked.isEmpty
+                ? null
+                : () => Navigator.pop(context, _picked.toList()),
+            icon: const Icon(CupertinoIcons.arrowshape_turn_up_right),
+            label: Text(
+              _picked.isEmpty
+                  ? 'Pick chats'
+                  : 'Forward to ${_picked.length} '
+                        '${_picked.length == 1 ? 'chat' : 'chats'}',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Message info: who has your message and who read it, with times.
+class _MessageInfoSheet extends ConsumerWidget {
+  const _MessageInfoSheet({required this.message});
+
+  final ChatMessage message;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    String when(DateTime t) {
+      final now = DateTime.now();
+      final time = TimeOfDay.fromDateTime(t).format(context);
+      if (DateUtils.isSameDay(t, now)) return 'Today $time';
+      if (DateUtils.isSameDay(t, now.subtract(const Duration(days: 1)))) {
+        return 'Yesterday $time';
+      }
+      return '${MaterialLocalizations.of(context).formatShortDate(t)} $time';
+    }
+
+    return FutureBuilder<List<Seen>>(
+      future: ref.read(chatActionsProvider).messageInfo(message.id),
+      builder: (context, snap) {
+        final list = snap.data;
+        final read = [
+          for (final p in list ?? const <Seen>[])
+            if (p.read != null) p,
+        ];
+        final delivered = [
+          for (final p in list ?? const <Seen>[])
+            if (p.read == null && p.delivered != null) p,
+        ];
+        final waiting = [
+          for (final p in list ?? const <Seen>[])
+            if (p.delivered == null) p,
+        ];
+        Widget section(
+          String title,
+          IconData icon,
+          Color? color,
+          List<Seen> people,
+          DateTime? Function(Seen) at,
+        ) => Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: Space.sm, bottom: 4),
+              child: Row(
+                children: [
+                  Icon(icon, size: 16, color: color),
+                  const SizedBox(width: 6),
+                  Text(
+                    '$title · ${people.length}',
+                    style: theme.textTheme.titleSmall,
+                  ),
+                ],
+              ),
+            ),
+            for (final p in people)
+              ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: AppAvatar(name: p.name, size: 30),
+                title: Text(p.name),
+                trailing: at(p) == null
+                    ? null
+                    : Text(when(at(p)!), style: theme.textTheme.labelSmall),
+              ),
+          ],
+        );
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(Space.md, 0, Space.md, Space.md),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Message info', style: theme.textTheme.titleMedium),
+              if (snap.hasError)
+                const Padding(
+                  padding: EdgeInsets.all(Space.md),
+                  child: Text('Needs signal to load.'),
+                )
+              else if (list == null)
+                const Padding(
+                  padding: EdgeInsets.all(Space.lg),
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else ...[
+                if (read.isNotEmpty)
+                  section(
+                    'Read by',
+                    Icons.done_all_rounded,
+                    _TickIcon.readBlue,
+                    read,
+                    (p) => p.read,
+                  ),
+                if (delivered.isNotEmpty)
+                  section(
+                    'Delivered to',
+                    Icons.done_all_rounded,
+                    null,
+                    delivered,
+                    (p) => p.delivered,
+                  ),
+                if (waiting.isNotEmpty)
+                  section(
+                    'Not delivered yet',
+                    Icons.done_rounded,
+                    null,
+                    waiting,
+                    (_) => null,
+                  ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+typedef Seen = ({String name, DateTime? delivered, DateTime? read});

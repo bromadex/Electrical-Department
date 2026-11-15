@@ -413,6 +413,27 @@ triggers on `user_roles` and new sites).
 - App: `/chat` (two panes from 1000 px), `/chat/<id>`. Voice notes are AAC (phones) or
   Opus/WebM (browsers). The chat list and the latest 50 messages of each opened chat are
   kept on the device (`CachedJson`) for reading without signal.
+- **Ticks, delete for me, forward (migration 0044):** `message_receipts` (`message_id`,
+  `conversation_id`, `user_id`, `delivered_at`, `read_at`; members read, nobody writes
+  directly; in realtime). `fn_mark_delivered(p_conversation default null)` marks others'
+  messages (last 30 days) as on this phone: one chat, or all of the caller's chats. The
+  app calls it at start and when a message arrives while it runs. Opening a chat
+  (`fn_mark_conversation_read`) also marks its messages read. A chat or mention push that
+  reaches an Android phone in the background is reported to the `push-received` edge
+  function (`{notification_id}`, `verify_jwt = false`; the id is the proof) which runs
+  `fn_push_received` (service role only: chat alerts → delivered, call alerts →
+  `fn_call_rang`). `fn_message_ticks(p_conversation)` returns `message_id, recipients,
+  delivered, read` for the caller's own latest 200 messages (recipients = members who
+  had joined when it was sent, apart from the sender): one tick sent, two grey ticks on
+  every phone, two blue ticks read by all. `fn_message_info(p_message)` lists each
+  recipient with `delivered_at` and `read_at`. `message_hidden` +
+  `fn_hide_messages(p_messages uuid[])` (queued offline) hide messages for the caller
+  only. `fn_forward_message(p_client_ref, p_message, p_conversation, p_attachment_path)`
+  re-sends a message the caller can see into another chat with `messages.forwarded =
+  true`; for photos, voice notes and files the app first copies the file to
+  `<target chat>/<new message id>/<file>` (online only). The server sends one `chat`
+  push per chat until it is opened, so later messages get two ticks when the app opens
+  or receives them live.
 
 ## 16b. Calls (migration 0017)
 
@@ -442,7 +463,7 @@ A call nobody else answered is missed and the others get "Missed call from <name
 (live | missed | ended) and `in_call`. A direct call that rings 45 seconds with no answer
 hangs up in the app. `conversation_calls` (0017) is no longer written.
 
-- **Calling, ringing, timer (migration 0043):** `calls.rang_at` is set when the callee's Android phone shows the incoming call: the app posts `{notification_id}` (the call alert's id, which only that phone received) to the `call-ringing` edge function (`verify_jwt = false`, works from the background without a sign-in), which runs `fn_call_rang` (service role only). The caller's screen shows "Calling…" until then, "Ringing…" after, and starts the call timer only when someone joins. Browsers don't ring, so a call to someone on the web shows "Calling…" until they join.
+- **Calling, ringing, timer (migration 0043):** `calls.rang_at` is set when the callee's Android phone shows the incoming call: the app posts `{notification_id}` (the call alert's id, which only that phone received) to the `call-ringing` edge function (renamed `push-received` in 0044; `verify_jwt = false`, works from the background without a sign-in), which runs `fn_call_rang` (service role only). The caller's screen shows "Calling…" until then, "Ringing…" after, and starts the call timer only when someone joins. Browsers don't ring, so a call to someone on the web shows "Calling…" until they join.
 
 ## 16c. Meetings (migration 0022)
 

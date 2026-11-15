@@ -48,7 +48,7 @@ Based on a study of nine Flutter apps Clement shared:
 
 ---
 
-## Phase 1: chat feels like WhatsApp
+## Phase 1: chat feels like WhatsApp (done 15 November 2026, not yet released)
 
 Goal: someone used to WhatsApp finds nothing missing in everyday chatting.
 
