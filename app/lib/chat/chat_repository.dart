@@ -32,7 +32,26 @@ class Conversation {
       mutedUntil = _time(j['muted_until']),
       archived = j['archived'] as bool? ?? false,
       description = j['description'] as String?,
-      photoPath = j['photo_path'] as String?;
+      photoPath = j['photo_path'] as String?,
+      favourite = j['favourite'] as bool? ?? false,
+      mentions = (j['mentions'] as num?)?.toInt() ?? 0,
+      lastAuthorId = j['last_author_id'] as String?,
+      lastKind = j['last_kind'] as String?,
+      lastTick = j['last_tick'] as String?;
+
+  /// In your Favourites (the filter chip).
+  final bool favourite;
+
+  /// Unread @mentions of you in this chat.
+  final int mentions;
+
+  /// Who wrote the last message, and what kind it was.
+  final String? lastAuthorId;
+  final String? lastKind;
+
+  /// Your last message's tick: sent, delivered or read; null when the last
+  /// message is someone else's.
+  final String? lastTick;
 
   static DateTime? _time(Object? v) {
     if (v == null) return null;
@@ -1050,6 +1069,16 @@ class ChatActions {
                 ? null
                 : DateTime.now().add(until).toUtc().toIso8601String(),
           },
+        );
+    await _ref.read(conversationsProvider.notifier).refresh();
+  }
+
+  Future<void> favourite(String conversationId, bool on) async {
+    await _ref
+        .read(supabaseProvider)
+        .rpc(
+          'fn_favourite_conversation',
+          params: {'p_conversation': conversationId, 'p_on': on},
         );
     await _ref.read(conversationsProvider.notifier).refresh();
   }

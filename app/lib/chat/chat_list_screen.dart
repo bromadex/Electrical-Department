@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,10 +14,13 @@ import '../ui/form_sheet.dart';
 import '../services/session_controller.dart';
 import '../theme/tokens.dart';
 import '../ui/bits.dart';
-import '../ui/motion.dart';
-import '../ui/page.dart';
 import '../ui/surfaces.dart';
 import '../widgets/app_back_button.dart';
+import 'camera_screen.dart';
+import 'chat_media.dart';
+import 'chat_video.dart';
+import 'group_info_screen.dart';
+import '../meetings/meetings_list_screen.dart';
 import 'calls_screen.dart';
 import 'chat_repository.dart';
 import 'conversation_screen.dart';
@@ -51,20 +55,101 @@ void openChat(BuildContext context, WidgetRef ref, String id) {
   }
 }
 
-/// The chat list as its own page (from the floating chat button): back
+/// Chat as its own page (from the floating chat button), like WhatsApp for
+/// iPhone: Chats, Calls, Meetings and Starred along the bottom. Back
 /// returns to the screen you were on.
-class ChatHomeScreen extends StatelessWidget {
+class ChatHomeScreen extends ConsumerStatefulWidget {
   const ChatHomeScreen({super.key});
+
+  @override
+  ConsumerState<ChatHomeScreen> createState() => _ChatHomeScreenState();
+}
+
+class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
+  int _tab = 0;
+
+  static const _tabs = [
+    (CupertinoIcons.chat_bubble_2, CupertinoIcons.chat_bubble_2_fill, 'Chats'),
+    (CupertinoIcons.phone, CupertinoIcons.phone_fill, 'Calls'),
+    (CupertinoIcons.person_3, CupertinoIcons.person_3_fill, 'Meetings'),
+    (CupertinoIcons.star, CupertinoIcons.star_fill, 'Starred'),
+  ];
 
   @override
   Widget build(BuildContext context) {
     return ChatThemed(
-      child: Scaffold(
-        appBar: AppBar(
-          leading: const AppBackButton(fallback: '/home'),
-          title: const Text('Chats'),
-        ),
-        body: const ChatListScreen(),
+      child: Builder(
+        builder: (context) {
+          final theme = Theme.of(context);
+          final dark = theme.brightness == Brightness.dark;
+          final unread = ref.watch(chatUnreadProvider);
+          final missed = ref.watch(missedCallsProvider).value ?? 0;
+          return Scaffold(
+            body: IndexedStack(
+              index: _tab,
+              children: const [
+                ChatListScreen(),
+                CallsScreen(),
+                MeetingsListScreen(plain: true),
+                StarredScreen(),
+              ],
+            ),
+            bottomNavigationBar: DecoratedBox(
+              decoration: BoxDecoration(
+                color: dark ? const Color(0xFF121212) : const Color(0xFFF7F7F7),
+                border: Border(
+                  top: BorderSide(color: theme.dividerColor, width: 0.5),
+                ),
+              ),
+              child: SafeArea(
+                top: false,
+                child: SizedBox(
+                  height: 58,
+                  child: Row(
+                    children: [
+                      for (final (i, t) in _tabs.indexed)
+                        Expanded(
+                          child: InkResponse(
+                            onTap: () => setState(() => _tab = i),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Badge(
+                                  isLabelVisible:
+                                      (i == 0 && unread > 0) ||
+                                      (i == 1 && missed > 0),
+                                  label: Text('${i == 0 ? unread : missed}'),
+                                  child: Icon(
+                                    _tab == i ? t.$2 : t.$1,
+                                    size: 26,
+                                    color: _tab == i
+                                        ? theme.colorScheme.onSurface
+                                        : theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  t.$3,
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: _tab == i
+                                        ? theme.colorScheme.onSurface
+                                        : theme.colorScheme.onSurfaceVariant,
+                                    fontWeight: _tab == i
+                                        ? FontWeight.w700
+                                        : FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -129,14 +214,123 @@ class _ChatList extends ConsumerStatefulWidget {
   ConsumerState<_ChatList> createState() => _ChatListState();
 }
 
+enum _Filter { all, unread, favourites, groups }
+
+/// The chat list like WhatsApp for iPhone: a large "Chats" title that
+/// shrinks into the bar, … / camera / green ➕, search, filter chips, the
+/// Archived row, rows with ticks, green unread counts and dividers.
 class _ChatListState extends ConsumerState<_ChatList> {
   final _search = TextEditingController();
-  bool _showArchived = false;
+  _Filter _filter = _Filter.all;
+  bool _archivedView = false;
 
   @override
   void dispose() {
     _search.dispose();
     super.dispose();
+  }
+
+  void _menu() {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheet) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(CupertinoIcons.square_pencil),
+              title: const Text('New chat or group'),
+              onTap: () {
+                Navigator.pop(sheet);
+                showFormSheet(context, const _NewChatSheet());
+              },
+            ),
+            ListTile(
+              leading: const Icon(CupertinoIcons.star),
+              title: const Text('Starred messages'),
+              onTap: () {
+                Navigator.pop(sheet);
+                context.push('/starred');
+              },
+            ),
+            ListTile(
+              leading: const Icon(CupertinoIcons.archivebox),
+              title: const Text('Archived chats'),
+              onTap: () {
+                Navigator.pop(sheet);
+                setState(() => _archivedView = true);
+              },
+            ),
+            ListTile(
+              leading: const Icon(CupertinoIcons.checkmark_alt_circle),
+              title: const Text('Read all'),
+              onTap: () {
+                Navigator.pop(sheet);
+                for (final c
+                    in ref.read(conversationsProvider).value ?? const []) {
+                  if (c.unread > 0) {
+                    unawaited(ref.read(chatActionsProvider).markRead(c.id));
+                  }
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// The chat camera from the list: take it, pick a chat, send.
+  Future<void> _camera() async {
+    final shot = await Navigator.of(context).push<CameraShot>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => const ChatCameraScreen(),
+      ),
+    );
+    if (shot == null || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final chats = ref.read(conversationsProvider).value ?? const [];
+    final to = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (s) => SafeArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(s).height * 0.7,
+          ),
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              const ListTile(title: Text('Send to')),
+              for (final c in chats)
+                ListTile(
+                  leading: c.isDirect
+                      ? AppAvatar(name: c.title, size: 40)
+                      : ChatGroupAvatar(chat: c, size: 40),
+                  title: Text(c.title),
+                  onTap: () => Navigator.pop(s, c.id),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (to == null || !mounted) return;
+    final actions = ref.read(chatActionsProvider);
+    if (shot.video) {
+      final v = await prepareChatVideo(shot.file, messenger: messenger);
+      if (v == null) return;
+      await actions.send(to, video: v);
+    } else {
+      await actions.send(
+        to,
+        photo: await compressPhoto(await shot.file.readAsBytes()),
+      );
+    }
+    if (mounted) widget.onOpen(to);
   }
 
   @override
@@ -146,242 +340,234 @@ class _ChatListState extends ConsumerState<_ChatList> {
     final session = ref.watch(sessionProvider);
     final canChat = session.can('chat.use');
     final q = _search.text.trim().toLowerCase();
-
-    List<Widget> tiles(List<Conversation> list, int from) => [
-      for (final (i, c) in list.indexed)
-        Padding(
-          padding: const EdgeInsets.only(bottom: Space.xs),
-          child: _ChatTile(
-            chat: c,
-            selected: c.id == widget.selected,
-            onOpen: () => widget.onOpen(c.id),
-          ),
-        ).entrance(context, index: (from + i).clamp(0, 8)),
+    final all = chats.value ?? const <Conversation>[];
+    final archived = [
+      for (final c in all)
+        if (c.archived) c,
     ];
+    bool keep(Conversation c) {
+      if (q.isNotEmpty) {
+        return c.title.toLowerCase().contains(q) ||
+            (c.preview?.toLowerCase().contains(q) ?? false);
+      }
+      if (_archivedView) return c.archived;
+      if (c.archived) return false;
+      return switch (_filter) {
+        _Filter.all => true,
+        _Filter.unread => c.unread > 0,
+        _Filter.favourites => c.favourite,
+        _Filter.groups => !c.isDirect,
+      };
+    }
 
-    Widget label(String text) => Padding(
-      padding: const EdgeInsets.fromLTRB(4, Space.sm, 0, Space.xs),
-      child: Text(
-        text.toUpperCase(),
-        style: theme.textTheme.labelSmall?.copyWith(
-          letterSpacing: 0.8,
-          fontWeight: FontWeight.w700,
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
+    final shown = [
+      for (final c in all)
+        if (keep(c)) c,
+    ];
+    final sub = theme.colorScheme.onSurfaceVariant;
+
+    Widget chip(_Filter f, String label) => Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: ChoiceChip(
+        label: Text(label),
+        selected: _filter == f,
+        onSelected: (_) => setState(() => _filter = f),
       ),
     );
 
-    return PageScroll(
-      maxWidth: 720,
+    return RefreshIndicator(
       onRefresh: ref.read(conversationsProvider.notifier).refresh,
-      children: [
-        Row(
-          children: [
-            Expanded(
+      child: CustomScrollView(
+        slivers: [
+          SliverAppBar.large(
+            pinned: true,
+            leading: _archivedView
+                ? IconButton(
+                    tooltip: 'Back to chats',
+                    onPressed: () => setState(() => _archivedView = false),
+                    icon: const Icon(CupertinoIcons.chevron_back),
+                  )
+                : const AppBackButton(fallback: '/home'),
+            title: Text(_archivedView ? 'Archived' : 'Chats'),
+            actions: [
+              if (canChat && !_archivedView) ...[
+                IconButton(
+                  tooltip: 'More',
+                  onPressed: _menu,
+                  icon: const Icon(CupertinoIcons.ellipsis_circle),
+                ),
+                if (!kIsWeb)
+                  IconButton(
+                    tooltip: 'Camera',
+                    onPressed: _camera,
+                    icon: const Icon(CupertinoIcons.camera),
+                  ),
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: IconButton.filled(
+                    tooltip: 'New chat',
+                    onPressed: () =>
+                        showFormSheet(context, const _NewChatSheet()),
+                    icon: const Icon(CupertinoIcons.add),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: TextField(
                 controller: _search,
                 onChanged: (_) => setState(() {}),
+                textInputAction: TextInputAction.search,
                 decoration: InputDecoration(
-                  prefixIcon: const Icon(CupertinoIcons.search),
-                  hintText: 'Search chats',
+                  prefixIcon: Icon(CupertinoIcons.search, color: sub),
+                  hintText: 'Search',
                   isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
                   suffixIcon: q.isEmpty
                       ? null
                       : IconButton(
                           tooltip: 'Clear',
                           onPressed: () => setState(_search.clear),
-                          icon: const Icon(CupertinoIcons.xmark_circle_fill),
+                          icon: Icon(
+                            CupertinoIcons.xmark_circle_fill,
+                            color: sub,
+                          ),
                         ),
                 ),
               ),
-            ),
-            if (canChat) ...[
-              const SizedBox(width: Space.xs),
-              Badge(
-                isLabelVisible: (ref.watch(missedCallsProvider).value ?? 0) > 0,
-                label: Text('${ref.watch(missedCallsProvider).value ?? 0}'),
-                child: IconButton.filledTonal(
-                  tooltip: 'Calls',
-                  onPressed: () => context.push('/calls'),
-                  icon: const Icon(CupertinoIcons.phone),
-                ),
-              ),
-              const SizedBox(width: Space.xs),
-              IconButton.filledTonal(
-                tooltip: 'Starred messages',
-                onPressed: () => context.push('/starred'),
-                icon: const Icon(CupertinoIcons.star),
-              ),
-              const SizedBox(width: Space.xs),
-              IconButton.filledTonal(
-                tooltip: 'New chat',
-                onPressed: () => showFormSheet(context, const _NewChatSheet()),
-                icon: const Icon(CupertinoIcons.square_pencil),
-              ),
-            ],
-          ],
-        ),
-        if (canChat && q.isEmpty) _OnlineNow(onOpen: widget.onOpen),
-        const SizedBox(height: Space.xs),
-        ...chats.when(
-          loading: () => [
-            for (var i = 0; i < 4; i++)
-              const Padding(
-                padding: EdgeInsets.only(bottom: Space.sm),
-                child: Skeleton(height: 72),
-              ),
-          ],
-          error: (e, _) => [
-            EmptyState(
-              icon: CupertinoIcons.wifi_slash,
-              title: 'Could not load chats',
-              message: AppError.from(e).isRetryable
-                  ? 'Chats load when you are connected.'
-                  : AppError.from(e).message,
-            ),
-          ],
-          data: (all) {
-            final list = [
-              for (final c in all)
-                if (q.isEmpty ||
-                    c.title.toLowerCase().contains(q) ||
-                    (c.preview?.toLowerCase().contains(q) ?? false))
-                  c,
-            ];
-            if (all.isEmpty) {
-              return [
-                EmptyState(
-                  icon: CupertinoIcons.chat_bubble_2,
-                  title: 'No chats yet',
-                  message: canChat
-                      ? 'Your site groups appear here. Start a chat with '
-                            'anyone in the department.'
-                      : 'Chat is for the electrical team.',
-                ),
-              ];
-            }
-            if (list.isEmpty) {
-              return [
-                EmptyState(
-                  icon: CupertinoIcons.search,
-                  title: 'No chats match',
-                  message: 'Nothing called "${_search.text.trim()}".',
-                ),
-              ];
-            }
-            final archived = [
-              for (final c in list)
-                if (c.archived) c,
-            ];
-            final pinned = [
-              for (final c in list)
-                if (c.pinned && !c.archived) c,
-            ];
-            final rest = [
-              for (final c in list)
-                if (!c.pinned && !c.archived) c,
-            ];
-            return [
-              if (pinned.isNotEmpty) ...[
-                label('Pinned'),
-                ...tiles(pinned, 0),
-                label('All chats'),
-              ],
-              ...tiles(rest, pinned.length),
-              if (archived.isNotEmpty) ...[
-                ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-                  leading: const Icon(CupertinoIcons.archivebox),
-                  title: Text('Archived (${archived.length})'),
-                  trailing: Icon(
-                    _showArchived
-                        ? CupertinoIcons.chevron_up
-                        : CupertinoIcons.chevron_down,
-                  ),
-                  onTap: () => setState(() => _showArchived = !_showArchived),
-                ),
-                if (_showArchived || q.isNotEmpty)
-                  ...tiles(archived, pinned.length + rest.length),
-              ],
-            ];
-          },
-        ),
-      ],
-    );
-  }
-}
-
-/// A row of people who have the app open now; tap one to chat.
-class _OnlineNow extends ConsumerWidget {
-  const _OnlineNow({required this.onOpen});
-
-  final void Function(String id) onOpen;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final me = ref.watch(authUserIdProvider);
-    final online = ref.watch(chatPresenceProvider.select((p) => p.online));
-    final people = ref.watch(chatPeopleProvider).value ?? const [];
-    final here = [
-      for (final p in people)
-        if (p.id != me && online.contains(p.id)) p,
-    ];
-    if (here.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(top: Space.md),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'ONLINE NOW · ${here.length}',
-            style: theme.textTheme.labelSmall?.copyWith(
-              letterSpacing: 0.8,
-              fontWeight: FontWeight.w700,
-              color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: Space.xs),
-          SizedBox(
-            height: 78,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: here.length,
-              separatorBuilder: (_, _) => const SizedBox(width: Space.sm),
-              itemBuilder: (context, i) {
-                final p = here[i];
-                return InkWell(
-                  borderRadius: BorderRadius.circular(Radii.md),
-                  onTap: () async {
-                    try {
-                      final id = await ref
-                          .read(chatActionsProvider)
-                          .openDirect(p.id);
-                      onOpen(id);
-                    } catch (e) {
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(AppError.from(e).message)),
-                      );
-                    }
-                  },
-                  child: SizedBox(
-                    width: 60,
-                    child: Column(
-                      children: [
-                        OnlineAvatar(name: p.name, online: true, size: 50),
-                        const SizedBox(height: 4),
-                        Text(
-                          p.name.split(' ').first,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.labelSmall,
+          if (!_archivedView && q.isEmpty)
+            SliverToBoxAdapter(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+                child: Row(
+                  children: [
+                    chip(_Filter.all, 'All'),
+                    chip(_Filter.unread, 'Unread'),
+                    chip(_Filter.favourites, 'Favourites'),
+                    chip(_Filter.groups, 'Groups'),
+                  ],
+                ),
+              ),
+            ),
+          if (!_archivedView &&
+              q.isEmpty &&
+              _filter == _Filter.all &&
+              archived.isNotEmpty)
+            SliverToBoxAdapter(
+              child: InkWell(
+                onTap: () => setState(() => _archivedView = true),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(30, 10, 16, 10),
+                  child: Row(
+                    children: [
+                      Icon(CupertinoIcons.archivebox, color: sub, size: 22),
+                      const SizedBox(width: 30),
+                      Expanded(
+                        child: Text(
+                          'Archived',
+                          style: theme.textTheme.titleMedium,
                         ),
-                      ],
+                      ),
+                      Text(
+                        '${archived.length}',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          if (chats.isLoading && all.isEmpty)
+            const SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (chats.hasError && all.isEmpty)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: EmptyState(
+                icon: CupertinoIcons.wifi_slash,
+                title: 'Could not load chats',
+                message: AppError.from(chats.error!).isRetryable
+                    ? 'Chats load when you are connected.'
+                    : AppError.from(chats.error!).message,
+              ),
+            )
+          else if (shown.isEmpty)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: EmptyState(
+                icon: q.isNotEmpty
+                    ? CupertinoIcons.search
+                    : CupertinoIcons.chat_bubble_2,
+                title: q.isNotEmpty
+                    ? 'No chats match'
+                    : all.isEmpty
+                    ? 'No chats yet'
+                    : switch (_filter) {
+                        _Filter.unread => 'No unread chats',
+                        _Filter.favourites => 'No favourites yet',
+                        _Filter.groups => 'No groups',
+                        _Filter.all => 'Nothing here',
+                      },
+                message: q.isNotEmpty
+                    ? 'Nothing called "${_search.text.trim()}".'
+                    : all.isEmpty
+                    ? (canChat
+                          ? 'Your site groups appear here. Tap ➕ to chat '
+                                'with anyone in the department.'
+                          : 'Chat is for the electrical team.')
+                    : _filter == _Filter.favourites
+                    ? 'Long-press a chat and choose Add to favourites.'
+                    : '',
+              ),
+            )
+          else
+            SliverList.separated(
+              itemCount: shown.length,
+              separatorBuilder: (_, _) => const Divider(indent: 84),
+              itemBuilder: (_, i) => _ChatTile(
+                chat: shown[i],
+                selected: shown[i].id == widget.selected,
+                onOpen: () => widget.onOpen(shown[i].id),
+              ),
+            ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 18, 16, 120),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(CupertinoIcons.lock_fill, size: 12, color: sub),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text.rich(
+                      TextSpan(
+                        text: 'Messages stay inside ',
+                        children: [
+                          TextSpan(
+                            text: 'Bravura Electrical',
+                            style: TextStyle(
+                              color: theme.colorScheme.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      style: theme.textTheme.labelSmall,
                     ),
                   ),
-                );
-              },
+                ],
+              ),
             ),
           ),
         ],
@@ -514,6 +700,24 @@ class _ChatTile extends ConsumerWidget {
             ),
             ListTile(
               leading: Icon(
+                chat.favourite
+                    ? CupertinoIcons.heart_slash
+                    : CupertinoIcons.heart,
+              ),
+              title: Text(
+                chat.favourite ? 'Remove from favourites' : 'Add to favourites',
+              ),
+              onTap: () {
+                Navigator.pop(sheet);
+                unawaited(
+                  ref
+                      .read(chatActionsProvider)
+                      .favourite(chat.id, !chat.favourite),
+                );
+              },
+            ),
+            ListTile(
+              leading: Icon(
                 chat.muted ? CupertinoIcons.bell : CupertinoIcons.bell_slash,
               ),
               title: Text(chat.muted ? 'Unmute' : 'Mute for 8 hours'),
@@ -572,11 +776,14 @@ class _ChatTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final dark = theme.brightness == Brightness.dark;
     final c = chat;
     final unread = c.unread > 0;
     final me = ref.watch(authUserIdProvider);
     final presence = ref.watch(chatPresenceProvider);
     final names = ref.watch(peopleProvider).value ?? const {};
+    final green = theme.colorScheme.primary;
+    final sub = theme.colorScheme.onSurfaceVariant;
     final typing = presence.typingIn(c.id, except: me);
     final typingText = typing.isEmpty
         ? null
@@ -585,133 +792,214 @@ class _ChatTile extends ConsumerWidget {
         : typing.length == 1
         ? '${(names[typing.first] ?? 'Someone').split(' ').first} is typing…'
         : '${typing.length} people are typing…';
+    final photo = c.photoPath == null
+        ? null
+        : ref.watch(groupPhotoProvider(c.photoPath!)).value;
 
-    return GestureDetector(
-      onLongPress: () => _menu(context, ref),
-      onSecondaryTap: () => _menu(context, ref),
-      child: SurfaceCard(
-        padding: const EdgeInsets.symmetric(
-          horizontal: Space.md,
-          vertical: Space.sm,
+    // The last message as WhatsApp shows it: "You:" or the sender's first
+    // name in groups, a tick for yours, an icon for photos, videos, voice
+    // notes and files.
+    final mine = c.lastAuthorId != null && c.lastAuthorId == me;
+    var body = c.preview ?? '';
+    final colon = body.indexOf(': ');
+    if (colon > 0 && colon < 60) body = body.substring(colon + 2);
+    body = body.replaceFirst(RegExp(r'^(📷|🎥|🎤|📎|🔖|📞) ?'), '');
+    final who = c.isDirect || c.lastAuthorId == null
+        ? null
+        : mine
+        ? 'You'
+        : (names[c.lastAuthorId] ?? '').split(' ').first;
+    final kindIcon = switch (c.lastKind) {
+      'photo' => CupertinoIcons.camera_fill,
+      'video' => CupertinoIcons.video_camera_solid,
+      'voice' => CupertinoIcons.mic_fill,
+      'file' => CupertinoIcons.doc_fill,
+      'record' => CupertinoIcons.tag_fill,
+      _ => null,
+    };
+    final tick = !mine
+        ? null
+        : switch (c.lastTick) {
+            'read' => (Icons.done_all_rounded, ChatColors.blueLight),
+            'delivered' => (Icons.done_all_rounded, sub),
+            _ => (Icons.done_rounded, sub),
+          };
+
+    final Widget preview;
+    if (typingText != null) {
+      preview = Text(
+        typingText,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: theme.textTheme.bodyMedium?.copyWith(
+          color: green,
+          fontWeight: FontWeight.w500,
         ),
-        color: selected ? BrandColors.maroon.withValues(alpha: 0.12) : null,
-        onTap: onOpen,
-        child: Row(
+      );
+    } else if (c.callLive) {
+      preview = Row(
+        children: [
+          Icon(CupertinoIcons.phone_fill, size: 15, color: green),
+          const SizedBox(width: 4),
+          Text(
+            'Call in progress · tap to join',
+            style: theme.textTheme.bodyMedium?.copyWith(color: green),
+          ),
+        ],
+      );
+    } else {
+      preview = Text.rich(
+        TextSpan(
           children: [
-            c.isDirect
-                ? OnlineAvatar(
-                    name: c.title,
-                    online: presence.isOnline(c.otherUserId),
-                  )
-                : ChatGroupAvatar(chat: c),
-            const SizedBox(width: Space.sm),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          c.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: unread ? FontWeight.w800 : null,
-                          ),
-                        ),
-                      ),
-                      if (c.muted)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 4),
-                          child: Icon(
-                            CupertinoIcons.bell_slash_fill,
-                            size: 13,
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      if (c.callLive)
-                        const Padding(
-                          padding: EdgeInsets.only(right: 4),
-                          child: Icon(
-                            CupertinoIcons.phone_fill,
-                            size: 14,
-                            color: BrandColors.success,
-                          ),
-                        ),
-                      if (c.pinned)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 4),
-                          child: Icon(
-                            CupertinoIcons.pin_fill,
-                            size: 12,
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      if (c.lastMessageAt != null)
-                        Text(
-                          chatTime(c.lastMessageAt!),
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: unread ? BrandColors.maroon : null,
-                            fontWeight: unread ? FontWeight.w700 : null,
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          typingText ??
-                              (c.callLive
-                                  ? 'Call in progress · tap to join'
-                                  : null) ??
-                              c.preview ??
-                              (c.isDirect
-                                  ? 'Say hello'
-                                  : '${c.memberCount} members'),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: typingText != null
-                                ? BrandColors.coral
-                                : unread
-                                ? theme.colorScheme.onSurface
-                                : null,
-                            fontStyle: typingText != null
-                                ? FontStyle.italic
-                                : null,
-                            fontWeight: unread ? FontWeight.w600 : null,
-                          ),
-                        ),
-                      ),
-                      if (unread)
-                        Container(
-                          margin: const EdgeInsets.only(left: Space.xs),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 7,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: BrandColors.maroon,
-                            borderRadius: BorderRadius.circular(99),
-                          ),
-                          child: Text(
-                            c.unread > 99 ? '99+' : '${c.unread}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ],
+            if (who != null && who.isNotEmpty) TextSpan(text: '$who: '),
+            if (tick != null)
+              WidgetSpan(
+                alignment: PlaceholderAlignment.middle,
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 3),
+                  child: Icon(tick.$1, size: 17, color: tick.$2),
+                ),
               ),
+            if (kindIcon != null)
+              WidgetSpan(
+                alignment: PlaceholderAlignment.middle,
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 3),
+                  child: Icon(kindIcon, size: 15, color: sub),
+                ),
+              ),
+            TextSpan(
+              text: body.isNotEmpty
+                  ? body
+                  : (c.isDirect ? 'Say hello' : '${c.memberCount} members'),
             ),
           ],
+        ),
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: theme.textTheme.bodyMedium?.copyWith(color: sub, height: 1.25),
+      );
+    }
+
+    return Material(
+      color: selected
+          ? (dark ? ChatColors.selectedDark : ChatColors.selected)
+          : Colors.transparent,
+      child: InkWell(
+        onTap: onOpen,
+        onLongPress: () => _menu(context, ref),
+        onSecondaryTap: () => _menu(context, ref),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 9, 16, 9),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              photo != null
+                  ? CircleAvatar(
+                      radius: 28,
+                      backgroundImage: NetworkImage(photo),
+                    )
+                  : c.isDirect
+                  ? OnlineAvatar(
+                      name: c.title,
+                      online: presence.isOnline(c.otherUserId),
+                      size: 56,
+                    )
+                  : ChatGroupAvatar(chat: c, size: 56),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            c.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleMedium,
+                          ),
+                        ),
+                        if (c.lastMessageAt != null)
+                          Text(
+                            chatTime(c.lastMessageAt!),
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: unread ? green : sub,
+                              fontWeight: unread ? FontWeight.w600 : null,
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(child: preview),
+                        if (c.muted)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 6, top: 2),
+                            child: Icon(
+                              CupertinoIcons.bell_slash_fill,
+                              size: 15,
+                              color: sub,
+                            ),
+                          ),
+                        if (c.mentions > 0)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 6, top: 1),
+                            child: CircleAvatar(
+                              radius: 10,
+                              backgroundColor: green,
+                              child: Text(
+                                '@',
+                                style: TextStyle(
+                                  color: theme.colorScheme.onPrimary,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ),
+                        if (unread)
+                          Container(
+                            margin: const EdgeInsets.only(left: 6, top: 1),
+                            constraints: const BoxConstraints(minWidth: 20),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: c.muted ? sub : green,
+                              borderRadius: BorderRadius.circular(99),
+                            ),
+                            child: Text(
+                              c.unread > 99 ? '99+' : '${c.unread}',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: theme.colorScheme.onPrimary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          )
+                        else if (c.pinned)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 6, top: 2),
+                            child: Icon(
+                              CupertinoIcons.pin_fill,
+                              size: 15,
+                              color: sub,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

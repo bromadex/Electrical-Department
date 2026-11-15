@@ -31,7 +31,10 @@ final allMeetingsProvider = FutureProvider.autoDispose<List<Meeting>>((
 /// past ones, with the chat, chair and whether minutes are approved. Open
 /// a meeting (minutes) or join its call.
 class MeetingsListScreen extends ConsumerWidget {
-  const MeetingsListScreen({super.key});
+  const MeetingsListScreen({super.key, this.plain = false});
+
+  /// Inside chat: the plain chat background instead of the burgundy mesh.
+  final bool plain;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -99,7 +102,7 @@ class MeetingsListScreen extends ConsumerWidget {
         title: const Text('Meetings'),
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
       ),
-      body: MeshBackground(
+      body: (plain ? _plainBg : MeshBackground.new)(
         child: RefreshIndicator(
           edgeOffset: top,
           onRefresh: () => ref.refresh(allMeetingsProvider.future),
@@ -196,3 +199,10 @@ String talkingLabel(Duration d) {
   final s = d.inSeconds % 60;
   return m == 0 ? '$s s' : '$m min $s s';
 }
+
+Widget _plainBg({Widget? child}) => Builder(
+  builder: (context) => ColoredBox(
+    color: Theme.of(context).scaffoldBackgroundColor,
+    child: child,
+  ),
+);

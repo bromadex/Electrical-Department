@@ -447,6 +447,11 @@ triggers on `user_roles` and new sites).
   at `/chat/<id>/info`, starred at `/chat/<id>/starred` and `/starred`, search in a chat,
   in-app camera, downloads kept on the phone. These calls are online only (not queued).
 
+- **Chat list (migration 0049):** `conversation_members.favourite` and
+  `fn_favourite_conversation(p_conversation, p_on)`; `fn_my_conversations` also returns
+  `favourite`, `mentions` (your unread @mentions there), `last_author_id`, `last_kind` and,
+  when the last message is yours, `last_tick` (`sent` | `delivered` | `read`, everyone).
+
 ## 16b. Calls (migration 0017)
 
 Voice and video calls in any chat, on LiveKit Cloud. A chat's call is the room

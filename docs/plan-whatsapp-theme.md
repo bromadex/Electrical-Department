@@ -52,7 +52,7 @@ Goal: one place that holds WhatsApp's look so every chat screen matches.
 - The electrical doodle wallpaper stays (WhatsApp's own doodles are
   WhatsApp's art, so we keep ours in the same style).
 
-## Phase C: Chat list (phones)
+## Phase C: Chat list (phones) (done 15 November 2026, not yet released)
 
 From the iPhone screenshots:
 

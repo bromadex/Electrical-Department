@@ -2,6 +2,19 @@
 
 ## 15 November 2026
 
+### Chat list like WhatsApp on iPhone
+- A large **Chats** title that shrinks as you scroll, with … (new chat,
+  starred, archived, read all), the camera (take a photo or video, pick a
+  chat, send) and a green ➕.
+- Search, and filter chips: All, Unread, Favourites, Groups. Long-press a
+  chat to add it to favourites (migration 0049).
+- **Archived** row at the top with the count.
+- Rows like WhatsApp: round photo, name, "You:" or the sender's name in
+  groups, ticks on your last message, icons for photos, videos, voice
+  notes and files, the time in green with a green count when unread, @ for
+  mentions, pin and mute icons, "typing…" in green, thin dividers.
+- Along the bottom of chat: Chats, Calls, Meetings and Starred.
+
 ### Chat colours and type like WhatsApp
 - Chat follows the phone's light or dark setting, as WhatsApp does: white
   or true-black lists and bars, WhatsApp's greens for buttons, chips and
