@@ -45,7 +45,7 @@ IconData docIcon(Doc d) {
     'png' ||
     'jpg' ||
     'jpeg' ||
-    'webp' => (label: 'IMG', color: const Color(0xFF7AE2B8)),
+    'webp' => (label: 'IMG', color: const Color(0xFFE38FB1)),
     '' => (label: '—', color: const Color(0xFF9AA0A6)),
     _ => (
       label: ext.length > 4 ? 'FILE' : ext.toUpperCase(),

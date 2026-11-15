@@ -20,6 +20,7 @@ import 'calls_screen.dart';
 import 'chat_repository.dart';
 import 'conversation_screen.dart';
 import 'presence.dart';
+import 'wallpaper.dart';
 
 /// The chat open beside the list on wide screens.
 final selectedChatProvider = NotifierProvider<SelectedChat, String?>(
@@ -54,6 +55,11 @@ class ChatListScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // The Chat tab is WhatsApp green; the rest of the app stays burgundy.
+    return ChatThemed(child: _build(context, ref));
+  }
+
+  Widget _build(BuildContext context, WidgetRef ref) {
     return Builder(
       builder: (context) {
         if (!chatTwoPanes(context)) {

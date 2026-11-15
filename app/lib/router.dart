@@ -25,6 +25,7 @@ import 'assets/asset_detail_screen.dart';
 import 'assets/equipment_screen.dart';
 import 'chat/call_screen.dart';
 import 'chat/calls_screen.dart';
+import 'chat/wallpaper.dart';
 import 'chat/guest_call_screen.dart';
 import 'chat/group_info_screen.dart';
 import 'meetings/meetings_list_screen.dart';
@@ -207,15 +208,20 @@ GoRouter buildRouter(WidgetRef ref) {
         builder: (_, s) => GuestCallScreen(token: s.pathParameters['token']!),
       ),
       GoRoute(path: '/meetings', builder: (_, _) => const MeetingsListScreen()),
-      GoRoute(path: '/starred', builder: (_, _) => const StarredScreen()),
+      GoRoute(
+        path: '/starred',
+        builder: (_, _) => const ChatThemed(child: StarredScreen()),
+      ),
       GoRoute(
         path: '/chat/:id/info',
-        builder: (_, s) => GroupInfoScreen(id: s.pathParameters['id']!),
+        builder: (_, s) =>
+            ChatThemed(child: GroupInfoScreen(id: s.pathParameters['id']!)),
       ),
       GoRoute(
         path: '/chat/:id/starred',
-        builder: (_, s) =>
-            StarredScreen(conversationId: s.pathParameters['id']!),
+        builder: (_, s) => ChatThemed(
+          child: StarredScreen(conversationId: s.pathParameters['id']!),
+        ),
       ),
       GoRoute(
         path: '/chat/:id/call',
@@ -228,7 +234,8 @@ GoRouter buildRouter(WidgetRef ref) {
       ),
       GoRoute(
         path: '/chat/:id',
-        builder: (_, s) => ConversationScreen(id: s.pathParameters['id']!),
+        builder: (_, s) =>
+            ChatThemed(child: ConversationScreen(id: s.pathParameters['id']!)),
       ),
       GoRoute(path: '/admin/users', builder: (_, _) => const UsersScreen()),
       GoRoute(path: '/admin/sites', builder: (_, _) => const SitesScreen()),

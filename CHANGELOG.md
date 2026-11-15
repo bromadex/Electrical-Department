@@ -2,13 +2,12 @@
 
 ## 15 November 2026
 
-### WhatsApp green, as on iPhone
-- The whole app is now in WhatsApp for iPhone's green with the same liquid
-  glass: deep night green behind the glass in the dark theme, iOS blue for
-  links, light blue read ticks.
-- Chats look like WhatsApp on iPhone: flat bubbles (yours light green, or
-  dark green in the dark theme; others white or dark grey) on the beige or
-  night wallpaper with faint doodles, here electrical ones.
+### Chat looks like WhatsApp on iPhone
+- The Chat tab and chats are WhatsApp for iPhone green: flat bubbles (yours
+  light green, or dark green in the dark theme; others white or dark grey)
+  on the beige or night wallpaper with faint electrical doodles, green
+  buttons and blue links. The rest of the app keeps the burgundy liquid
+  glass.
 
 ### More for calls and chat
 - **Guests by link:** whoever runs a group call can share a link (2 hours

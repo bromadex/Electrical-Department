@@ -1,34 +1,21 @@
 import 'package:flutter/material.dart';
 
-/// WhatsApp for iPhone green with liquid glass (15 November 2026; before that the
-/// burgundy of the Bravura logo). The names stay from then: maroon is the
-/// main green, maroonDeep the darkest, coral the teal accent and blush the
-/// light green that reads on dark glass.
+/// Colours sampled from the Bravura rhino logo.
 class BrandColors {
-  /// Chat bubbles as on WhatsApp for iPhone: yours light green (light
-  /// theme) or dark green (dark theme), others white or dark grey, on the
-  /// beige or night wallpaper.
-  static const bubbleMine = Color(0xFFD9FDD3);
-  static const bubbleMineDark = Color(0xFF005C4B);
-  static const bubbleOther = Colors.white;
-  static const bubbleOtherDark = Color(0xFF1F2C34);
-  static const wallpaper = Color(0xFFEFEAE2);
-  static const wallpaperDark = Color(0xFF0B141A);
-
-  static const maroon = Color(0xFF1DAB61);
-  static const maroonDeep = Color(0xFF0E7A43);
-  static const coral = Color(0xFF25D366);
-  static const blush = Color(0xFF21C063);
+  static const maroon = Color(0xFF7A1F2B);
+  static const maroonDeep = Color(0xFF4E1019);
+  static const coral = Color(0xFFB5566E);
+  static const blush = Color(0xFFE7A1B3);
 
   /// Status colours used by pills and charts.
   static const success = Color(0xFF1F9D6B);
   static const warning = Color(0xFFE59A1A);
-  static const info = Color(0xFF007AFF);
+  static const info = Color(0xFF2F6FDB);
 
   static const brandGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [maroonDeep, maroon, Color(0xFF25D366)],
+    colors: [maroonDeep, maroon, Color(0xFF2F6FDB)],
     stops: [0, 0.55, 1],
   );
 }
@@ -78,49 +65,48 @@ class Motion {
       reduced(context) ? Duration.zero : d;
 }
 
-/// The palette by meaning (job cards and charts): WhatsApp greens and
-/// blue as in [BrandColors] (the names are from the old burgundy palette),
-/// one colour per status. Meaning is never shown by
+/// The palette by meaning (job cards and charts): burgundy, dark rose and
+/// blue as in [BrandColors], one colour per status. Meaning is never shown by
 /// colour alone (see v2/ui/status.dart).
 class AppColors {
   /// Primary: buttons, selected items, record numbers (light theme).
-  static const burgundy = Color(0xFF1DAB61);
-  static const burgundyDeep = Color(0xFF0E7A43);
+  static const burgundy = Color(0xFF7A1F2B);
+  static const burgundyDeep = Color(0xFF4E1019);
 
   /// Primary on dark surfaces, light enough to read.
-  static const burgundyLight = Color(0xFF21C063);
+  static const burgundyLight = Color(0xFFE7A1B3);
 
   /// Accent: highlights, the selected menu marker, soft tints.
-  static const rose = Color(0xFF25D366);
-  static const roseSoft = Color(0xFFD9FDD3);
+  static const rose = Color(0xFFB5566E);
+  static const roseSoft = Color(0xFFF6E8EB);
 
   /// Secondary: links and information.
-  static const blue = Color(0xFF007AFF);
-  static const blueLight = Color(0xFF53BDEB);
+  static const blue = Color(0xFF2F6FDB);
+  static const blueLight = Color(0xFF8AB4FF);
 
   /// Chrome: the side menu in both themes, tooltips, snack bars.
-  static const black = Color(0xFF111B21);
-  static const blackRaised = Color(0xFF202C33);
+  static const black = Color(0xFF161113);
+  static const blackRaised = Color(0xFF241B1F);
 
-  /// The dark glass backdrop (issue #26): WhatsApp's deep night green, and
-  /// the slightly lighter shade its gradient starts from.
-  static const night = Color(0xFF0B141A);
-  static const nightLift = Color(0xFF0F2A26);
+  /// The dark glass backdrop (issue #26): a very deep burgundy, and the
+  /// slightly lighter shade its gradient starts from.
+  static const night = Color(0xFF1E0A0E);
+  static const nightLift = Color(0xFF2C1016);
 
-  static const canvas = Color(0xFFF2F2F7);
-  static const canvasDark = Color(0xFF0B141A);
-  static const panelDark = Color(0xFF111B21);
-  static const line = Color(0xFFE9EDEF);
-  static const lineDark = Color(0xFF2A3942);
+  static const canvas = Color(0xFFFAF7F8);
+  static const canvasDark = Color(0xFF0F0B0D);
+  static const panelDark = Color(0xFF1B1517);
+  static const line = Color(0xFFEBE1E4);
+  static const lineDark = Color(0xFF362B30);
 
   // Statuses keep their usual meaning colours so a critical red never looks
-  // like the green of an ordinary button.
+  // like the burgundy of an ordinary button.
   static const critical = Color(0xFFD92D20);
   static const warning = Color(0xFFE59A1A);
   static const success = Color(0xFF1F9D6B);
   static const info = blue;
   static const review = Color(0xFF6938EF);
-  static const neutral = Color(0xFF667781);
+  static const neutral = Color(0xFF6B6266);
 
   /// Bravura logo colour.
   static const brand = Color(0xFF982329);
@@ -132,6 +118,38 @@ class AppColors {
     if (c == blue) return blueLight;
     return c;
   }
+}
+
+/// Chat only: WhatsApp for iPhone's greens, bubbles and wallpaper. The
+/// rest of the app keeps the burgundy liquid glass ([BrandColors]).
+class ChatColors {
+  /// Buttons, links and highlights in chat screens.
+  static const green = Color(0xFF1DAB61);
+  static const greenDeep = Color(0xFF0E7A43);
+
+  /// The green that reads on dark glass.
+  static const greenLight = Color(0xFF21C063);
+  static const greenBright = Color(0xFF25D366);
+
+  /// Bubbles: yours light green (light theme) or dark green (dark theme),
+  /// others white or dark grey.
+  static const bubbleMine = Color(0xFFD9FDD3);
+  static const bubbleMineDark = Color(0xFF005C4B);
+  static const bubbleOther = Colors.white;
+  static const bubbleOtherDark = Color(0xFF1F2C34);
+
+  /// Text on the bubbles.
+  static const text = Color(0xFF111B21);
+  static const textDark = Color(0xFFE9EDEF);
+  static const subtext = Color(0xFF667781);
+
+  /// Behind the messages.
+  static const wallpaper = Color(0xFFEFEAE2);
+  static const wallpaperDark = Color(0xFF0B141A);
+
+  /// Links and read ticks.
+  static const blue = Color(0xFF007AFF);
+  static const blueLight = Color(0xFF53BDEB);
 }
 
 /// Screen widths where the layout changes.

@@ -203,7 +203,7 @@ class ToolList extends ConsumerWidget {
 
 /// What a tool looks like in lists: an icon and colour by what it is.
 ({IconData icon, Color color}) toolLook(LocalTool t) {
-  // Brand colours only (issue #26): blue, teal, light green and green.
+  // Brand colours only (issue #26): blue, rose, blush and burgundy.
   final k = '${t.name} ${t.kind ?? ''}'.toLowerCase();
   bool has(List<String> words) => words.any(k.contains);
   const blue = AppColors.blue, rose = BrandColors.coral;

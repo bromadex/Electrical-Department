@@ -1675,12 +1675,10 @@ class _Bubble extends StatelessWidget {
     final dark = theme.brightness == Brightness.dark;
     // WhatsApp for iPhone: flat bubbles, dark text on the light green.
     final bubble = mine
-        ? (dark ? BrandColors.bubbleMineDark : BrandColors.bubbleMine)
-        : (dark ? BrandColors.bubbleOtherDark : BrandColors.bubbleOther);
-    final fg = dark ? const Color(0xFFE9EDEF) : const Color(0xFF111B21);
-    final sub = dark
-        ? Colors.white.withValues(alpha: 0.6)
-        : const Color(0xFF667781);
+        ? (dark ? ChatColors.bubbleMineDark : ChatColors.bubbleMine)
+        : (dark ? ChatColors.bubbleOtherDark : ChatColors.bubbleOther);
+    final fg = dark ? ChatColors.textDark : ChatColors.text;
+    final sub = dark ? Colors.white.withValues(alpha: 0.6) : ChatColors.subtext;
     final width = MediaQuery.sizeOf(context).width;
     final maxW = (width * 0.78).clamp(220.0, 520.0);
     final time =
@@ -1730,12 +1728,12 @@ class _Bubble extends StatelessWidget {
               margin: const EdgeInsets.only(bottom: 6),
               padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
               decoration: BoxDecoration(
-                color: (dark ? BrandColors.blush : BrandColors.maroon)
+                color: (dark ? ChatColors.greenLight : ChatColors.green)
                     .withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(8),
                 border: Border(
                   left: BorderSide(
-                    color: dark ? BrandColors.blush : BrandColors.maroon,
+                    color: dark ? ChatColors.greenLight : ChatColors.green,
                     width: 3,
                   ),
                 ),
@@ -1800,7 +1798,7 @@ class _Bubble extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: (dark ? AppColors.blueLight : BrandColors.info).withValues(
+              color: (dark ? ChatColors.blueLight : ChatColors.blue).withValues(
                 alpha: 0.14,
               ),
               borderRadius: BorderRadius.circular(Radii.md),
@@ -1815,7 +1813,7 @@ class _Bubble extends StatelessWidget {
                     url: photoUrl,
                     name: m.attachmentName ?? 'File',
                     size: m.attachmentSize,
-                    color: dark ? AppColors.blueLight : BrandColors.info,
+                    color: dark ? ChatColors.blueLight : ChatColors.blue,
                   ),
           ),
         if (m.kind == 'video')
@@ -1835,7 +1833,7 @@ class _Bubble extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: (dark ? AppColors.blueLight : BrandColors.info)
+                color: (dark ? ChatColors.blueLight : ChatColors.blue)
                     .withValues(alpha: 0.14),
                 borderRadius: BorderRadius.circular(Radii.md),
               ),
@@ -1850,7 +1848,7 @@ class _Bubble extends StatelessWidget {
                       _ => CupertinoIcons.tag_fill,
                     },
                     size: 18,
-                    color: dark ? AppColors.blueLight : BrandColors.info,
+                    color: dark ? ChatColors.blueLight : ChatColors.blue,
                   ),
                   const SizedBox(width: 6),
                   Text(
@@ -1862,13 +1860,13 @@ class _Bubble extends StatelessWidget {
                       _ => 'Open',
                     },
                     style: theme.textTheme.labelLarge?.copyWith(
-                      color: dark ? AppColors.blueLight : BrandColors.info,
+                      color: dark ? ChatColors.blueLight : ChatColors.blue,
                     ),
                   ),
                   Icon(
                     CupertinoIcons.chevron_right,
                     size: 14,
-                    color: dark ? AppColors.blueLight : BrandColors.info,
+                    color: dark ? ChatColors.blueLight : ChatColors.blue,
                   ),
                 ],
               ),
@@ -2547,7 +2545,7 @@ TextSpan highlightMatches(String text, String? query, TextStyle? style) {
         text: text.substring(i, i + q.length),
         style: const TextStyle(
           backgroundColor: Color(0xFFFFC145),
-          color: Color(0xFF0A2A24),
+          color: Color(0xFF1C0D12),
           fontWeight: FontWeight.w700,
         ),
       ),

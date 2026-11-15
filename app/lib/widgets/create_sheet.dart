@@ -80,7 +80,7 @@ class _CreateSheet extends ConsumerWidget {
           icon: CupertinoIcons.person_crop_circle_badge_checkmark,
           title: 'My jobs',
           hint: 'Start, pause, submit',
-          colors: const [Color(0xFF128C7E), BrandColors.info],
+          colors: const [Color(0xFF8E2D45), BrandColors.info],
           run: (c) => then(c, (h) => h.go('/jobs?mine=1')),
         ),
       if (can('jc.view') && works)

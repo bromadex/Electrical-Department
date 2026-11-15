@@ -224,8 +224,8 @@ class _VoiceNotePlayerState extends State<VoiceNotePlayer> {
     // On WhatsApp-style bubbles: dark text on the light green, light text
     // on the dark green.
     final fg = Theme.of(context).brightness == Brightness.dark
-        ? const Color(0xFFE9EDEF)
-        : const Color(0xFF111B21);
+        ? ChatColors.textDark
+        : ChatColors.text;
     final dim = fg.withValues(alpha: 0.35);
     final total = widget.durationMs <= 0 ? 1 : widget.durationMs;
     final done = (_at.inMilliseconds / total).clamp(0.0, 1.0);
@@ -234,7 +234,7 @@ class _VoiceNotePlayerState extends State<VoiceNotePlayer> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Material(
-          color: BrandColors.maroon,
+          color: ChatColors.green,
           shape: const CircleBorder(),
           child: InkWell(
             customBorder: const CircleBorder(),

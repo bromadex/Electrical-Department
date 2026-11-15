@@ -309,13 +309,13 @@ class _GuestCallScreenState extends ConsumerState<GuestCallScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0B141A),
+      backgroundColor: const Color(0xFF0B1022),
       body: DecoratedBox(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF0A2A24), Color(0xFF0B141A)],
+            colors: [Color(0xFF1C0D12), Color(0xFF0B1022)],
           ),
         ),
         child: SafeArea(

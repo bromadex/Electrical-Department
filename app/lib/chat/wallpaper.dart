@@ -3,7 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-import '../theme/tokens.dart';
+import '../theme/app_theme.dart';
 
 /// The chat background as on WhatsApp for iPhone: beige (light) or night
 /// green (dark) with faint doodles, here electrical ones (bolts, bulbs,
@@ -17,7 +17,7 @@ class ChatWallpaper extends StatelessWidget {
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
     return ColoredBox(
-      color: dark ? BrandColors.wallpaperDark : BrandColors.wallpaper,
+      color: dark ? ChatColors.wallpaperDark : ChatColors.wallpaper,
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -89,4 +89,16 @@ class _Doodles extends CustomPainter {
 
   @override
   bool shouldRepaint(_Doodles old) => old.color != color;
+}
+
+/// Chat screens in WhatsApp green (buttons, links, selection); the rest of
+/// the app stays burgundy.
+class ChatThemed extends StatelessWidget {
+  const ChatThemed({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) =>
+      Theme(data: AppTheme.chat(Theme.of(context)), child: child);
 }

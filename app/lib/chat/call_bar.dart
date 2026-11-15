@@ -183,7 +183,7 @@ class _CallPipViewState extends ConsumerState<CallPipView> {
     }
     final name = who == null || who.name.isEmpty ? 'Call' : who.name;
     return ColoredBox(
-      color: const Color(0xFF0B141A),
+      color: const Color(0xFF0B1022),
       child: Stack(
         fit: StackFit.expand,
         children: [

@@ -54,7 +54,7 @@ class BarChart extends StatelessWidget {
                   color: theme.colorScheme.onSurfaceVariant,
                 ) ??
                 const TextStyle(),
-            bubble: g.dark ? const Color(0xFF1F2C34) : Colors.white,
+            bubble: g.dark ? const Color(0xFF3A1218) : Colors.white,
             bubbleText: theme.colorScheme.onSurface,
           ),
         ),
