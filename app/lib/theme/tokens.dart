@@ -1,19 +1,29 @@
 import 'package:flutter/material.dart';
 
-/// WhatsApp green with liquid glass (15 November 2026; before that the
+/// WhatsApp for iPhone green with liquid glass (15 November 2026; before that the
 /// burgundy of the Bravura logo). The names stay from then: maroon is the
 /// main green, maroonDeep the darkest, coral the teal accent and blush the
 /// light green that reads on dark glass.
 class BrandColors {
-  static const maroon = Color(0xFF008069);
-  static const maroonDeep = Color(0xFF075E54);
-  static const coral = Color(0xFF00A884);
-  static const blush = Color(0xFF7AE2B8);
+  /// Chat bubbles as on WhatsApp for iPhone: yours light green (light
+  /// theme) or dark green (dark theme), others white or dark grey, on the
+  /// beige or night wallpaper.
+  static const bubbleMine = Color(0xFFD9FDD3);
+  static const bubbleMineDark = Color(0xFF005C4B);
+  static const bubbleOther = Colors.white;
+  static const bubbleOtherDark = Color(0xFF1F2C34);
+  static const wallpaper = Color(0xFFEFEAE2);
+  static const wallpaperDark = Color(0xFF0B141A);
+
+  static const maroon = Color(0xFF1DAB61);
+  static const maroonDeep = Color(0xFF0E7A43);
+  static const coral = Color(0xFF25D366);
+  static const blush = Color(0xFF21C063);
 
   /// Status colours used by pills and charts.
   static const success = Color(0xFF1F9D6B);
   static const warning = Color(0xFFE59A1A);
-  static const info = Color(0xFF027EB5);
+  static const info = Color(0xFF007AFF);
 
   static const brandGradient = LinearGradient(
     begin: Alignment.topLeft,
@@ -74,18 +84,18 @@ class Motion {
 /// colour alone (see v2/ui/status.dart).
 class AppColors {
   /// Primary: buttons, selected items, record numbers (light theme).
-  static const burgundy = Color(0xFF008069);
-  static const burgundyDeep = Color(0xFF075E54);
+  static const burgundy = Color(0xFF1DAB61);
+  static const burgundyDeep = Color(0xFF0E7A43);
 
   /// Primary on dark surfaces, light enough to read.
-  static const burgundyLight = Color(0xFF7AE2B8);
+  static const burgundyLight = Color(0xFF21C063);
 
   /// Accent: highlights, the selected menu marker, soft tints.
-  static const rose = Color(0xFF00A884);
-  static const roseSoft = Color(0xFFE7F8EE);
+  static const rose = Color(0xFF25D366);
+  static const roseSoft = Color(0xFFD9FDD3);
 
   /// Secondary: links and information.
-  static const blue = Color(0xFF027EB5);
+  static const blue = Color(0xFF007AFF);
   static const blueLight = Color(0xFF53BDEB);
 
   /// Chrome: the side menu in both themes, tooltips, snack bars.
@@ -97,7 +107,7 @@ class AppColors {
   static const night = Color(0xFF0B141A);
   static const nightLift = Color(0xFF0F2A26);
 
-  static const canvas = Color(0xFFF0F2F5);
+  static const canvas = Color(0xFFF2F2F7);
   static const canvasDark = Color(0xFF0B141A);
   static const panelDark = Color(0xFF111B21);
   static const line = Color(0xFFE9EDEF);

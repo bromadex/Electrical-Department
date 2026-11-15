@@ -22,6 +22,7 @@ import '../ui/bits.dart';
 import '../ui/surfaces.dart';
 import 'chat_list_screen.dart';
 import 'chat_media.dart';
+import 'wallpaper.dart';
 import 'camera_screen.dart';
 import 'chat_video.dart';
 import 'downloads.dart';
@@ -1010,7 +1011,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                         ),
                       ),
               ),
-        body: MeshBackground(
+        body: ChatWallpaper(
           child: Column(
             children: [
               Expanded(
@@ -1671,10 +1672,15 @@ class _Bubble extends StatelessWidget {
     final theme = Theme.of(context);
     final g = Glass.of(context);
     final m = message;
-    final fg = mine ? Colors.white : theme.colorScheme.onSurface;
-    final sub = mine
-        ? Colors.white.withValues(alpha: 0.75)
-        : theme.colorScheme.onSurfaceVariant;
+    final dark = theme.brightness == Brightness.dark;
+    // WhatsApp for iPhone: flat bubbles, dark text on the light green.
+    final bubble = mine
+        ? (dark ? BrandColors.bubbleMineDark : BrandColors.bubbleMine)
+        : (dark ? BrandColors.bubbleOtherDark : BrandColors.bubbleOther);
+    final fg = dark ? const Color(0xFFE9EDEF) : const Color(0xFF111B21);
+    final sub = dark
+        ? Colors.white.withValues(alpha: 0.6)
+        : const Color(0xFF667781);
     final width = MediaQuery.sizeOf(context).width;
     final maxW = (width * 0.78).clamp(220.0, 520.0);
     final time =
@@ -1724,13 +1730,12 @@ class _Bubble extends StatelessWidget {
               margin: const EdgeInsets.only(bottom: 6),
               padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
               decoration: BoxDecoration(
-                color: (mine ? Colors.white : BrandColors.maroon).withValues(
-                  alpha: 0.12,
-                ),
+                color: (dark ? BrandColors.blush : BrandColors.maroon)
+                    .withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(8),
                 border: Border(
                   left: BorderSide(
-                    color: mine ? Colors.white : BrandColors.maroon,
+                    color: dark ? BrandColors.blush : BrandColors.maroon,
                     width: 3,
                   ),
                 ),
@@ -1795,7 +1800,7 @@ class _Bubble extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: (mine ? Colors.white : BrandColors.info).withValues(
+              color: (dark ? AppColors.blueLight : BrandColors.info).withValues(
                 alpha: 0.14,
               ),
               borderRadius: BorderRadius.circular(Radii.md),
@@ -1810,7 +1815,7 @@ class _Bubble extends StatelessWidget {
                     url: photoUrl,
                     name: m.attachmentName ?? 'File',
                     size: m.attachmentSize,
-                    color: mine ? Colors.white : BrandColors.info,
+                    color: dark ? AppColors.blueLight : BrandColors.info,
                   ),
           ),
         if (m.kind == 'video')
@@ -1830,9 +1835,8 @@ class _Bubble extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: (mine ? Colors.white : BrandColors.info).withValues(
-                  alpha: 0.14,
-                ),
+                color: (dark ? AppColors.blueLight : BrandColors.info)
+                    .withValues(alpha: 0.14),
                 borderRadius: BorderRadius.circular(Radii.md),
               ),
               child: Row(
@@ -1846,7 +1850,7 @@ class _Bubble extends StatelessWidget {
                       _ => CupertinoIcons.tag_fill,
                     },
                     size: 18,
-                    color: mine ? Colors.white : BrandColors.info,
+                    color: dark ? AppColors.blueLight : BrandColors.info,
                   ),
                   const SizedBox(width: 6),
                   Text(
@@ -1858,13 +1862,13 @@ class _Bubble extends StatelessWidget {
                       _ => 'Open',
                     },
                     style: theme.textTheme.labelLarge?.copyWith(
-                      color: mine ? Colors.white : BrandColors.info,
+                      color: dark ? AppColors.blueLight : BrandColors.info,
                     ),
                   ),
                   Icon(
                     CupertinoIcons.chevron_right,
                     size: 14,
-                    color: mine ? Colors.white : BrandColors.info,
+                    color: dark ? AppColors.blueLight : BrandColors.info,
                   ),
                 ],
               ),
@@ -1932,21 +1936,20 @@ class _Bubble extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
                     decoration: BoxDecoration(
-                      gradient: mine
-                          ? const LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [BrandColors.maroon, BrandColors.coral],
-                            )
-                          : null,
-                      color: mine ? null : g.fillStrong,
+                      color: bubble,
                       borderRadius: BorderRadius.only(
-                        topLeft: const Radius.circular(18),
-                        topRight: const Radius.circular(18),
-                        bottomLeft: Radius.circular(mine ? 18 : 6),
-                        bottomRight: Radius.circular(mine ? 6 : 18),
+                        topLeft: const Radius.circular(16),
+                        topRight: const Radius.circular(16),
+                        bottomLeft: Radius.circular(mine ? 16 : 4),
+                        bottomRight: Radius.circular(mine ? 4 : 16),
                       ),
-                      boxShadow: g.shadow,
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x1F000000),
+                          blurRadius: 1.5,
+                          offset: Offset(0, 1),
+                        ),
+                      ],
                     ),
                     child: Opacity(
                       opacity: m.pending ? 0.75 : 1,

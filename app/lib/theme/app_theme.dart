@@ -19,7 +19,7 @@ class AppTheme {
           dynamicSchemeVariant: DynamicSchemeVariant.fidelity,
         ).copyWith(
           primary: dark ? BrandColors.blush : BrandColors.maroon,
-          onPrimary: dark ? BrandColors.maroonDeep : Colors.white,
+          onPrimary: dark ? const Color(0xFF0B141A) : Colors.white,
           secondary: dark ? AppColors.blueLight : BrandColors.info,
           tertiary: BrandColors.coral,
           // Dark glass (issue #26): near-white text with two muted levels

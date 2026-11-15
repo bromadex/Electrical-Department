@@ -1736,6 +1736,7 @@ class _CallSideState extends ConsumerState<_CallSide> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final dark = theme.brightness == Brightness.dark;
     final thread = ref.watch(chatThreadProvider(widget.conversationId));
     final me = ref.watch(authUserIdProvider);
     final names = ref.watch(peopleProvider).value ?? const {};
@@ -1885,17 +1886,13 @@ class _CallSideState extends ConsumerState<_CallSide> {
                             ),
                             constraints: const BoxConstraints(maxWidth: 280),
                             decoration: BoxDecoration(
-                              gradient: mine
-                                  ? const LinearGradient(
-                                      colors: [
-                                        BrandColors.maroon,
-                                        BrandColors.coral,
-                                      ],
-                                    )
-                                  : null,
-                              color: mine
-                                  ? null
-                                  : theme.colorScheme.surfaceContainerHigh,
+                              color: dark
+                                  ? (mine
+                                        ? BrandColors.bubbleMineDark
+                                        : BrandColors.bubbleOtherDark)
+                                  : (mine
+                                        ? BrandColors.bubbleMine
+                                        : BrandColors.bubbleOther),
                               borderRadius: BorderRadius.circular(16),
                             ),
                             child: Column(
@@ -1939,7 +1936,9 @@ class _CallSideState extends ConsumerState<_CallSide> {
                                         ? '🎤 Voice note'
                                         : '📎 ${m.attachmentName ?? 'File'}',
                                     style: TextStyle(
-                                      color: mine ? Colors.white : null,
+                                      color: dark
+                                          ? const Color(0xFFE9EDEF)
+                                          : const Color(0xFF111B21),
                                     ),
                                   ),
                                 if (m.body != null)
@@ -1950,7 +1949,9 @@ class _CallSideState extends ConsumerState<_CallSide> {
                                     child: Text(
                                       m.body!,
                                       style: TextStyle(
-                                        color: mine ? Colors.white : null,
+                                        color: dark
+                                            ? const Color(0xFFE9EDEF)
+                                            : const Color(0xFF111B21),
                                       ),
                                     ),
                                   ),

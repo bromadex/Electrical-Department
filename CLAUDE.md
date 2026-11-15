@@ -21,7 +21,7 @@ in `API.md`.
   `Panel`, charts, media, time). `app/lib/v2/ui/` only adds job-card pieces
   (status pills, paged table, forms) and re-exports the kit.
 - Keep the liquid-glass look (`app/lib/ui/surfaces.dart`,
-  `app/lib/theme/tokens.dart`) in WhatsApp green (since 15 November 2026;
+  `app/lib/theme/tokens.dart`) in WhatsApp for iPhone green (since 15 November 2026;
   the token names `maroon`, `coral`, `blush` and `burgundy` are kept and
   now hold the greens). Dark liquid glass is the default (issue #26); light
   stays in Settings → Appearance. In the dark theme all transparency is
