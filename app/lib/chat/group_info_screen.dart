@@ -23,7 +23,7 @@ import 'chat_video.dart';
 import 'downloads.dart';
 
 /// Members of a chat with their role (owner or member).
-final chatMembersProvider = FutureProvider.autoDispose
+final chatMemberRolesProvider = FutureProvider.autoDispose
     .family<List<({String id, String role})>, String>((ref, id) async {
       final rows = await ref
           .read(supabaseProvider)
@@ -209,7 +209,7 @@ class _GroupInfoScreenState extends ConsumerState<GroupInfoScreen> {
           .updateGroup(chat.id, add: picked.toList()),
       done: 'Added',
     );
-    ref.invalidate(chatMembersProvider(chat.id));
+    ref.invalidate(chatMemberRolesProvider(chat.id));
   }
 
   @override
@@ -220,7 +220,8 @@ class _GroupInfoScreenState extends ConsumerState<GroupInfoScreen> {
     final chat = chats.where((c) => c.id == widget.id).firstOrNull;
     final me = ref.watch(authUserIdProvider);
     final names = ref.watch(peopleProvider).value ?? const {};
-    final members = ref.watch(chatMembersProvider(widget.id)).value ?? const [];
+    final members =
+        ref.watch(chatMemberRolesProvider(widget.id)).value ?? const [];
     final iOwn = members.any((m) => m.id == me && m.role == 'owner');
     final canEdit =
         chat != null &&
@@ -436,7 +437,7 @@ class _GroupInfoScreenState extends ConsumerState<GroupInfoScreen> {
                                           done: 'Removed',
                                         );
                                         ref.invalidate(
-                                          chatMembersProvider(chat.id),
+                                          chatMemberRolesProvider(chat.id),
                                         );
                                       },
                                       icon: const Icon(

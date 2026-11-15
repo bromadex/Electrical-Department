@@ -60,6 +60,12 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   /// Reaction bar open.
   bool _reactOpen = false;
 
+  /// Before joining: camera preview, microphone and speaker choices.
+  late bool _preCam = widget.video;
+  bool _preMic = true;
+  bool _preSpeaker = false;
+  LocalVideoTrack? _preview;
+
   /// Everyone in tiles (grid) instead of one large speaker.
   bool _grid = false;
 
@@ -91,7 +97,41 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   @override
   void dispose() {
     _call.removeListener(_changed);
+    unawaited(_preview?.dispose());
     super.dispose();
+  }
+
+  Future<void> _togglePreviewCam() async {
+    final on = !_preCam;
+    setState(() => _preCam = on);
+    if (on) {
+      try {
+        final t = await LocalVideoTrack.createCameraTrack();
+        if (!mounted || !_preCam) {
+          await t.dispose();
+          return;
+        }
+        setState(() => _preview = t);
+      } catch (_) {
+        if (mounted) setState(() => _preCam = false);
+      }
+    } else {
+      final t = _preview;
+      setState(() => _preview = null);
+      await t?.dispose();
+    }
+  }
+
+  Future<void> _joinFromPreview() async {
+    final t = _preview;
+    _preview = null;
+    await t?.dispose();
+    await _call.join(
+      widget.conversationId,
+      video: _preCam,
+      mic: _preMic,
+      speaker: kIsWeb ? null : _preSpeaker,
+    );
   }
 
   void _changed() {
@@ -163,8 +203,14 @@ class _CallScreenState extends ConsumerState<CallScreen> {
         connecting: mine && call.stage == CallStage.connecting,
         error: mine ? call.error : null,
         otherCall: call.active && !mine,
-        onJoin: () => call.join(widget.conversationId),
-        onJoinVideo: () => call.join(widget.conversationId, video: true),
+        preview: _preview,
+        cam: _preCam,
+        mic: _preMic,
+        speaker: kIsWeb ? null : _preSpeaker,
+        onCam: _togglePreviewCam,
+        onMic: () => setState(() => _preMic = !_preMic),
+        onSpeaker: () => setState(() => _preSpeaker = !_preSpeaker),
+        onJoin: _joinFromPreview,
         onBack: _close,
       );
     } else {
@@ -649,10 +695,27 @@ class _Ringing extends StatefulWidget {
     required this.connecting,
     required this.error,
     required this.onJoin,
-    required this.onJoinVideo,
     required this.onBack,
+    required this.cam,
+    required this.mic,
+    required this.speaker,
+    required this.onCam,
+    required this.onMic,
+    required this.onSpeaker,
+    this.preview,
     this.otherCall = false,
   });
+
+  /// The camera as others will see it, while the camera is on.
+  final LocalVideoTrack? preview;
+  final bool cam;
+  final bool mic;
+
+  /// Loudspeaker (true) or earpiece; null in the browser.
+  final bool? speaker;
+  final VoidCallback onCam;
+  final VoidCallback onMic;
+  final VoidCallback onSpeaker;
 
   final String title;
   final bool isGroup;
@@ -662,7 +725,6 @@ class _Ringing extends StatefulWidget {
   /// You are in a call in another chat; joining this one ends it.
   final bool otherCall;
   final VoidCallback onJoin;
-  final VoidCallback onJoinVideo;
   final VoidCallback onBack;
 
   @override
@@ -710,35 +772,46 @@ class _RingingState extends State<_Ringing>
                 child: child,
               ),
               child: Center(
-                child: Container(
-                  width: 128,
-                  height: 128,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: BrandColors.brandGradient,
-                    boxShadow: [
-                      BoxShadow(
-                        color: BrandColors.maroon.withValues(alpha: 0.6),
-                        blurRadius: 40,
-                      ),
-                    ],
-                  ),
-                  alignment: Alignment.center,
-                  child: widget.isGroup
-                      ? const Icon(
-                          CupertinoIcons.person_3_fill,
-                          color: Colors.white,
-                          size: 56,
-                        )
-                      : Text(
-                          AppAvatar.initials(widget.title),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 44,
-                            fontWeight: FontWeight.w700,
+                child: widget.preview != null
+                    ? ClipOval(
+                        child: SizedBox.square(
+                          dimension: 150,
+                          child: VideoTrackRenderer(
+                            widget.preview!,
+                            fit: VideoViewFit.cover,
+                            mirrorMode: VideoViewMirrorMode.mirror,
                           ),
                         ),
-                ),
+                      )
+                    : Container(
+                        width: 128,
+                        height: 128,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: BrandColors.brandGradient,
+                          boxShadow: [
+                            BoxShadow(
+                              color: BrandColors.maroon.withValues(alpha: 0.6),
+                              blurRadius: 40,
+                            ),
+                          ],
+                        ),
+                        alignment: Alignment.center,
+                        child: widget.isGroup
+                            ? const Icon(
+                                CupertinoIcons.person_3_fill,
+                                color: Colors.white,
+                                size: 56,
+                              )
+                            : Text(
+                                AppAvatar.initials(widget.title),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 44,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                      ),
               ),
             ),
           ),
@@ -805,13 +878,37 @@ class _RingingState extends State<_Ringing>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _BigAction(
-                  icon: CupertinoIcons.video_camera_solid,
-                  label: 'With video',
-                  color: Colors.white.withValues(alpha: 0.16),
-                  onTap: widget.connecting ? null : widget.onJoinVideo,
-                ),
-                const SizedBox(width: Space.xl),
+                if (!widget.connecting) ...[
+                  _GlassButton(
+                    icon: widget.mic
+                        ? CupertinoIcons.mic_fill
+                        : CupertinoIcons.mic_slash_fill,
+                    tooltip: widget.mic ? 'Join muted' : 'Join with microphone',
+                    off: !widget.mic,
+                    onTap: widget.onMic,
+                  ),
+                  const SizedBox(width: Space.sm),
+                  _GlassButton(
+                    icon: widget.cam
+                        ? CupertinoIcons.video_camera_solid
+                        : CupertinoIcons.video_camera,
+                    tooltip: widget.cam ? 'Camera off' : 'Camera on',
+                    off: widget.cam,
+                    onTap: widget.onCam,
+                  ),
+                  if (widget.speaker != null) ...[
+                    const SizedBox(width: Space.sm),
+                    _GlassButton(
+                      icon: widget.speaker!
+                          ? CupertinoIcons.speaker_3_fill
+                          : CupertinoIcons.ear,
+                      tooltip: widget.speaker! ? 'Loudspeaker' : 'Earpiece',
+                      off: widget.speaker!,
+                      onTap: widget.onSpeaker,
+                    ),
+                  ],
+                  const SizedBox(width: Space.lg),
+                ],
                 _BigAction(
                   icon: CupertinoIcons.phone_fill,
                   label: widget.connecting ? 'Joining…' : 'Join',
@@ -1457,6 +1554,79 @@ class _CallSideState extends ConsumerState<_CallSide> {
     super.dispose();
   }
 
+  /// Pick chat members who are not in the call and ring them.
+  Future<void> _addPeople(CallController call) async {
+    final members = await ref.read(
+      chatMembersProvider(widget.conversationId).future,
+    );
+    if (!mounted) return;
+    final names = ref.read(peopleProvider).value ?? const {};
+    final inCall = {for (final p in widget.people) p.identity};
+    final me = ref.read(authUserIdProvider);
+    final out = [
+      for (final m in members)
+        if (!inCall.contains(m) && m != me) m,
+    ];
+    if (out.isEmpty) {
+      call.snack('Everyone in this chat is already in the call.');
+      return;
+    }
+    final picked = <String>{};
+    final ok = await showModalBottomSheet<bool>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (s) => StatefulBuilder(
+        builder: (s, set) => SafeArea(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(s).height * 0.7,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Ring people to join'),
+                Flexible(
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: [
+                      for (final id in out)
+                        CheckboxListTile(
+                          value: picked.contains(id),
+                          onChanged: (v) => set(
+                            () =>
+                                v == true ? picked.add(id) : picked.remove(id),
+                          ),
+                          secondary: AppAvatar(
+                            name: names[id] ?? '?',
+                            size: 34,
+                          ),
+                          title: Text(names[id] ?? 'Someone'),
+                        ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(Space.md),
+                  child: FilledButton.icon(
+                    onPressed: () => Navigator.pop(s, true),
+                    icon: const Icon(CupertinoIcons.phone_fill),
+                    label: const Text('Ring'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    if (ok != true || picked.isEmpty) return;
+    final n = await call.ring(picked.toList());
+    if (n != null) {
+      call.snack(n == 1 ? 'Ringing 1 person' : 'Ringing $n people');
+    }
+  }
+
   Future<void> _send() async {
     final t = _text.text.trim();
     if (t.isEmpty) return;
@@ -1523,6 +1693,17 @@ class _CallSideState extends ConsumerState<_CallSide> {
                   ? ListView(
                       padding: const EdgeInsets.symmetric(horizontal: Space.md),
                       children: [
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const CircleAvatar(
+                            child: Icon(CupertinoIcons.person_add),
+                          ),
+                          title: const Text('Add people'),
+                          subtitle: const Text(
+                            'Ring others in this chat to join',
+                          ),
+                          onTap: () => _addPeople(call),
+                        ),
                         for (final p in people)
                           ListenableBuilder(
                             listenable: p,

@@ -2,6 +2,42 @@
 
 ## 15 November 2026
 
+### Calls (Phase 2, second half)
+- **Grid view** (everyone in tiles, swipe for more) and your own picture
+  can be dragged to any corner. The **⋯** button in a call holds the view,
+  video quality and the chair's controls.
+- **Chair controls:** the meeting chair (or whoever started a group call)
+  can mute one person or everyone, lower hands, remove someone, or end the
+  call for everyone. Muted people are told and can unmute themselves.
+- **Saving data:** video quality Auto, Low or Audio only; poor signal
+  offers audio only; a signal icon shows on people with poor signal.
+- **Picture-in-picture** on Android when you leave the app during a call.
+
+### Chat extras (Phase 3)
+- **Video messages** up to 2 minutes (made smaller on phones), with a
+  full-screen player.
+- **Our own camera:** tap for a photo, hold for a video, flash, flip,
+  gallery.
+- **Downloads:** files show a progress ring with cancel and open from the
+  phone afterwards without downloading again.
+- **Group info:** picture, name, description, members (add and remove),
+  shared media, files and links, starred messages, mute, archive, leave.
+- **Mute** a chat for 8 hours, a week or always; **archive** chats until a
+  new message comes; **last seen** for people who are offline.
+- **Search in a chat** with up and down, **star** messages (per chat and
+  across chats), **edit** your messages for 15 minutes (shows "edited")
+  (migration 0046).
+
+### Meetings (Phase 4)
+- **Before joining:** camera preview, join muted or with the camera off,
+  loudspeaker or earpiece.
+- **Add people** to a running call: rings others in the chat (migration
+  0047).
+- **Meetings list** (Menu → Meetings): upcoming and past meetings from all
+  chats with chair and minutes status; open or join.
+- **Talking time** per person, from live captions, under Present and in
+  the minutes PDF.
+
 ### Calls (Phase 2, first half)
 - **Back no longer hangs up.** Back or ⌄ minimises the call; a green
   **Tap to return to call** bar with the time, mute and hang up stays at the

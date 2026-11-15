@@ -22,6 +22,7 @@ import '../ui/surfaces.dart';
 import '../widgets/app_back_button.dart';
 import 'captions.dart';
 import 'meeting_pdf.dart';
+import 'meetings_list_screen.dart';
 import 'meetings_repository.dart';
 
 /// A readable error: the server's message, or ours from MeetingActions.
@@ -345,6 +346,14 @@ class _Present extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final list = ref.watch(meetingAttendanceProvider(meetingId));
+    final talk = {
+      for (final t in talkingTime([
+        for (final c
+            in ref.watch(meetingCaptionsProvider(meetingId)).value ?? const [])
+          (userId: c.userId, body: c.body),
+      ]))
+        t.userId: t.time,
+    };
     return list.when(
       loading: () => const LinearProgressIndicator(),
       error: (_, _) => const Text('Loads when you are online.'),
@@ -364,6 +373,18 @@ class _Present extends ConsumerWidget {
                     ListTile(
                       leading: AppAvatar(name: p.name, size: 34),
                       title: Text(p.name),
+                      trailing: talk[p.id] == null
+                          ? null
+                          : Text('Spoke ${talkingLabel(talk[p.id]!)}'),
+                    ),
+                  if (talk.isNotEmpty)
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(16, 4, 16, 8),
+                      child: Text(
+                        'Talking time is worked out from live captions, '
+                        'so people with captions off are not counted.',
+                        style: TextStyle(fontSize: 12),
+                      ),
                     ),
                 ],
               ),
@@ -632,6 +653,7 @@ class _MinutesPanelState extends ConsumerState<_MinutesPanel> {
     final bytes = await buildMinutesPdf(
       meeting: m,
       chairName: names[m.chairId] ?? '—',
+      talking: _talking(ref, m.id, names),
     );
     await Printing.sharePdf(bytes: bytes, filename: '${m.code}-minutes.pdf');
   }
@@ -1217,6 +1239,7 @@ class _MinutesPanelState extends ConsumerState<_MinutesPanel> {
             final bytes = await buildMinutesPdf(
               meeting: m.withMinutes(saved),
               chairName: names[m.chairId] ?? '—',
+              talking: _talking(ref, m.id, names),
             );
             await Printing.sharePdf(
               bytes: bytes,
@@ -1533,3 +1556,17 @@ class _StatusDraft {
     status.dispose();
   }
 }
+
+/// Talking time with names for the minutes PDF.
+List<({String name, String time})> _talking(
+  WidgetRef ref,
+  String meetingId,
+  Map<String, String> names,
+) => [
+  for (final t in talkingTime([
+    for (final c
+        in ref.read(meetingCaptionsProvider(meetingId)).value ?? const [])
+      (userId: c.userId, body: c.body),
+  ]))
+    (name: names[t.userId] ?? 'Someone', time: talkingLabel(t.time)),
+];

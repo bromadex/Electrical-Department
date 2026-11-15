@@ -139,7 +139,7 @@ Goal: someone used to WhatsApp finds nothing missing in everyday chatting.
 
 ---
 
-## Phase 2: calls and meetings (2.1 without picture-in-picture, 2.2, 2.3 and 2.7 done 15 November 2026, not yet released; 2.4–2.6 and picture-in-picture later)
+## Phase 2: calls and meetings (done 15 November 2026, not yet released)
 
 Goal: calls behave like WhatsApp, and meetings can show a screen from a
 phone.
@@ -218,7 +218,7 @@ phone.
 
 ---
 
-## Phase 3: chat extras
+## Phase 3: chat extras (done 15 November 2026, not yet released)
 
 ### 3.1 Video messages
 - Record or pick a short video (up to 2 minutes, compressed to 720p).
@@ -261,7 +261,7 @@ phone.
 
 ---
 
-## Phase 4: meeting extras
+## Phase 4: meeting extras (done 15 November 2026 apart from the microphone level before joining; not yet released)
 
 ### 4.1 Before joining
 - A small screen before joining:

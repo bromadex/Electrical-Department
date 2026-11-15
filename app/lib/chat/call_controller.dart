@@ -142,6 +142,8 @@ class CallController extends ChangeNotifier {
   Future<void> join(
     String conversation, {
     bool video = false,
+    bool mic = true,
+    bool? speaker,
     String? ringId,
   }) async {
     if (conversationId == conversation && active) return;
@@ -255,7 +257,7 @@ class CallController extends ChangeNotifier {
     stage = CallStage.inCall;
     _changed();
     unawaited(_startOngoing(serverTitle, video));
-    if (!kIsWeb) unawaited(setSpeaker(video));
+    if (!kIsWeb) unawaited(setSpeaker(speaker ?? video));
     unawaited(_checkChair(conversation));
     unawaited(_pipOnLeave(true));
     await _loadQuality();
@@ -264,7 +266,7 @@ class CallController extends ChangeNotifier {
     // 3. Microphone (and camera for a video call). If the browser or phone
     // blocks them you stay in the call, muted.
     try {
-      await r.localParticipant?.setMicrophoneEnabled(true);
+      if (mic) await r.localParticipant?.setMicrophoneEnabled(true);
       if (video) {
         await r.localParticipant?.setCameraEnabled(
           true,
@@ -591,6 +593,23 @@ class CallController extends ChangeNotifier {
         await FlutterBackground.disableBackgroundExecution();
       }
     } catch (_) {}
+  }
+
+  /// Rings chat members who are not in the call (fn_call_ring). Returns
+  /// how many, or null on failure.
+  Future<int?> ring(List<String> userIds) async {
+    final id = conversationId;
+    if (id == null || userIds.isEmpty) return 0;
+    try {
+      final n = await _db.rpc(
+        'fn_call_ring',
+        params: {'p_conversation': id, 'p_users': userIds},
+      );
+      return (n as num?)?.toInt() ?? 0;
+    } catch (_) {
+      snack('Could not ring them. Check your signal.');
+      return null;
+    }
   }
 
   // ---- Chair controls (call-admin edge function).

@@ -63,6 +63,10 @@ String dueOrStatus(MeetingAction a) => [
 Future<Uint8List> buildMinutesPdf({
   required Meeting meeting,
   required String chairName,
+
+  /// Who spoke how long (from live captions), with names; empty to leave
+  /// the table out.
+  List<({String name, String time})> talking = const [],
 }) async {
   final m = meeting;
   final min = m.minutes;
@@ -221,6 +225,16 @@ Future<Uint8List> buildMinutesPdf({
               3: pw.FlexColumnWidth(2),
             },
             centred: const {0},
+          ),
+        ],
+        if (talking.isNotEmpty) ...[
+          plainHeading('Talking Time'),
+          table(
+            headers: ['Name', 'Time'],
+            rows: [
+              for (final t in talking) [t.name, t.time],
+            ],
+            widths: const {0: pw.FlexColumnWidth(4), 1: pw.FlexColumnWidth(2)},
           ),
         ],
         if ((m.agenda ?? '').trim().isNotEmpty) ...[

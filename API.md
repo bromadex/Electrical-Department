@@ -435,6 +435,18 @@ triggers on `user_roles` and new sites).
   push per chat until it is opened, so later messages get two ticks when the app opens
   or receives them live.
 
+- **Chat extras (migration 0046):** messages `kind` may be `video` (chat-files, up to 2
+  minutes, 720p on phones); `messages.edited_at` and `fn_edit_message(p_message, p_body)`
+  (own text, 15 minutes); `message_stars` + `fn_star_message(p_message, p_on)`;
+  `conversation_members.muted_until` (`fn_mute_conversation(p_conversation, p_until)`,
+  `'infinity'` for always; the push trigger skips `chat` alerts for muted chats, mentions
+  still push) and `archived_at` (`fn_archive_conversation(p_conversation, p_on)`;
+  `fn_my_conversations.archived` until a newer message); `profiles.last_seen_at`
+  (`fn_seen()`, when the app goes to the background); `conversations.description` and
+  `photo_path` (`<chat>/group/…` in chat-files; `fn_update_group_info`). App: group info
+  at `/chat/<id>/info`, starred at `/chat/<id>/starred` and `/starred`, search in a chat,
+  in-app camera, downloads kept on the phone. These calls are online only (not queued).
+
 ## 16b. Calls (migration 0017)
 
 Voice and video calls in any chat, on LiveKit Cloud. A chat's call is the room
@@ -481,7 +493,25 @@ hangs up in the app. `conversation_calls` (0017) is no longer written.
   (milliseconds when raised, `0` when lowered; `livekit-token` grants
   `canUpdateOwnMetadata`), shown on tiles and in order of raising.
 
+- **Chair controls (edge function `call-admin`):** `{conversation_id, action, identity?}` with
+  the user's sign-in; actions `mute`, `mute_all`, `lower` (one hand, or all without
+  identity), `remove`, `end`, `check` (`{chair}`). The chair is the meeting's chair or
+  `meetings.manage` while a meeting is on (15 minutes before to an hour after), else whoever
+  started the live group call or a chat owner; direct calls have none. It calls LiveKit's
+  RoomService (MutePublishedTrack, UpdateParticipant, RemoveParticipant, DeleteRoom) and
+  sends the person a reliable data message on topic `chair` (`{a: muted|removed|ended}`).
+  Video quality (Auto, Low 360p, Audio only) is kept on the device
+  (`call_video_quality`); Android shows picture-in-picture when leaving the app in a call.
+- **Add people (migration 0047):** `fn_call_ring(p_conversation, p_users uuid[])` rings
+  chat members not in the call (type `call`, link `call:<chat>`); only someone in the live
+  call can. The screen before joining offers microphone, camera (with preview) and
+  speaker or earpiece.
+
 ## 16c. Meetings (migration 0022)
+
+All meetings across chats: `/meetings` (Menu → Meetings). Talking time per person is
+estimated from live captions (about 2.5 words a second) and shown under Present and in
+the minutes PDF.
 
 Meetings live inside group chats. Someone with `meetings.manage` schedules one from a chat
 (⋮ → Schedule a meeting); everyone in the chat is invited and joins with the chat's call.
