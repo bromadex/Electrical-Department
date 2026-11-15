@@ -507,6 +507,24 @@ hangs up in the app. `conversation_calls` (0017) is no longer written.
   call can. The screen before joining offers microphone, camera (with preview) and
   speaker or earpiece.
 
+- **Guests by link (migration 0048, edge function `guest-join`):** `fn_create_guest_link(
+  p_conversation, p_hours 1–72)` (group chats; owner, `chat.manage`/`meetings.manage`, the
+  live call's starter or the meeting's chair — `_can_admit`) returns `{token, expires_at}`;
+  the link is `<web>/guest/<token>`. `fn_revoke_guest_link(p_link)`. An outsider opens it in
+  a browser (no account): `guest-join` (`verify_jwt = false`) `{token, name}` records them in
+  `call_guests` as waiting (secret kept as SHA-256) and tells the link's maker;
+  `{guest_id, secret}` returns `waiting | denied | ended`, or once admitted a LiveKit pass
+  (identity `guest-<id>`, name `<name> (guest)`, that call only, until the link ends, two
+  hours at most). People who can admit see waiting guests in the call (realtime) and call
+  `fn_decide_guest(p_guest, p_admit)`. `call-admin` accepts guest identities.
+- **Recording is back** (`meeting-record`, LiveKit Egress to the private `meeting-audio`
+  bucket through Supabase Storage's S3 endpoint): the chair taps Record / Stop recording on
+  the meeting page while it is on; Listen plays it. Needs the secrets
+  `MEETING_S3_ENDPOINT`, `MEETING_S3_REGION`, `MEETING_S3_ACCESS_KEY`,
+  `MEETING_S3_SECRET_KEY` (Supabase → Storage → S3 connection); until then it answers
+  "Recording is not set up yet". Background blur is not available: LiveKit's Flutter SDK
+  has no background-segmentation processor for Android.
+
 ## 16c. Meetings (migration 0022)
 
 All meetings across chats: `/meetings` (Menu → Meetings). Talking time per person is
@@ -550,8 +568,8 @@ Meetings live inside group chats. Someone with `meetings.manage` schedules one f
   `TRANSCRIBE_URL`, `TRANSCRIBE_MODEL`, `GROQ_BASE_URL`. Without a key both answer 503
   `UNAVAILABLE` and minutes can still be written by hand. Both accept `{check: true}` to report
   whether the key works (no secret shown).
-- The recording columns of 0022 (`recording_status`, `egress_id`, `audio_path`) are unused;
-  the `meeting-record` function is gone. Not yet: attendees from outside the chat.
+- The recording columns of 0022 (`recording_status`, `egress_id`, `audio_path`) are used
+  again by `meeting-record` (see 16b). Not yet: attendees from outside the chat.
 
 - **Minutes format (15 November 2026):** `meetings.minutes` follows the department's paper minutes. Keys: `summary` (executive summary), `decisions`, `actions` `[{text, owner_id, owner_name, due, status}]` (`owner_name` may name several people, "A / B", or a team; `status` like "Ongoing"), `meeting_type`, `venue`, `minutes_by`, `attendance` `[{name, position, organisation}]`, `updates` (site updates paragraph), `status_summary` `[{area, status}]`, `next_agenda`, `reviewed_by`, `approved_by`. Older minutes without the new keys still load. The `meeting-minutes` function drafts updates, summary, decisions, actions with status, status summary and next agenda, and keeps the details, attendance and sign-off the chair already entered. The app fills attendance from who joined the call (positions as in the chat's last minutes) and prints the PDF in the department layout (logo, attendance table, lettered sections, numbered action table with initials, sign-off).
 

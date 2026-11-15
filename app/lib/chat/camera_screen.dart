@@ -4,6 +4,7 @@ import 'package:camera/camera.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart' as picker;
+import 'package:photo_manager/photo_manager.dart';
 
 import 'chat_video.dart';
 
@@ -31,11 +32,33 @@ class _ChatCameraScreenState extends State<ChatCameraScreen>
   Timer? _tick;
   String? _error;
 
+  /// The latest photos and videos on the phone, for the strip.
+  List<AssetEntity> _recent = const [];
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     unawaited(_start());
+    unawaited(_loadRecent());
+  }
+
+  Future<void> _loadRecent() async {
+    try {
+      final perm = await PhotoManager.requestPermissionExtend();
+      if (!perm.hasAccess) return;
+      final list = await PhotoManager.getAssetListPaged(page: 0, pageCount: 30);
+      if (mounted) setState(() => _recent = list);
+    } catch (_) {}
+  }
+
+  Future<void> _pickRecent(AssetEntity a) async {
+    final f = await a.file;
+    if (f == null || !mounted) return;
+    Navigator.pop<CameraShot>(context, (
+      file: XFile(f.path),
+      video: a.type == AssetType.video,
+    ));
   }
 
   @override
@@ -228,6 +251,21 @@ class _ChatCameraScreenState extends State<ChatCameraScreen>
                   ],
                 ),
                 const Spacer(),
+                if (_recent.isNotEmpty && !_recording)
+                  SizedBox(
+                    height: 64,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      itemCount: _recent.length,
+                      separatorBuilder: (_, _) => const SizedBox(width: 6),
+                      itemBuilder: (_, i) => _RecentThumb(
+                        asset: _recent[i],
+                        onTap: () => _pickRecent(_recent[i]),
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 10),
                 Text(
                   _recording
                       ? 'Let go to stop'
@@ -283,6 +321,52 @@ class _ChatCameraScreenState extends State<ChatCameraScreen>
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// One of the latest photos or videos in the strip.
+class _RecentThumb extends StatelessWidget {
+  const _RecentThumb({required this.asset, required this.onTap});
+
+  final AssetEntity asset;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: SizedBox(
+          width: 64,
+          height: 64,
+          child: FutureBuilder(
+            future: asset.thumbnailDataWithSize(const ThumbnailSize(160, 160)),
+            builder: (_, snap) => Stack(
+              fit: StackFit.expand,
+              children: [
+                if (snap.data != null)
+                  Image.memory(snap.data!, fit: BoxFit.cover)
+                else
+                  const ColoredBox(color: Colors.white12),
+                if (asset.type == AssetType.video)
+                  const Align(
+                    alignment: Alignment.bottomLeft,
+                    child: Padding(
+                      padding: EdgeInsets.all(3),
+                      child: Icon(
+                        CupertinoIcons.video_camera_solid,
+                        color: Colors.white,
+                        size: 14,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

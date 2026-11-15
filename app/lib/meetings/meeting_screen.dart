@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:printing/printing.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 
 import '../chat/chat_repository.dart';
@@ -180,6 +181,13 @@ class _MeetingScreenState extends ConsumerState<MeetingScreen> {
                             icon: CupertinoIcons.captions_bubble_fill,
                             dense: true,
                           ),
+                        if (m.recording == 'recording')
+                          const Pill(
+                            label: 'Recording',
+                            color: Colors.red,
+                            icon: CupertinoIcons.circle_fill,
+                            dense: true,
+                          ),
                         if (m.minutesStatus != 'none')
                           Pill(
                             label: m.approved ? 'Minutes out' : 'Minutes draft',
@@ -228,8 +236,50 @@ class _MeetingScreenState extends ConsumerState<MeetingScreen> {
                               context.push('/chat/${m.conversationId}'),
                           color: BrandColors.info,
                         ),
+                        if (canRun)
+                          (
+                            icon: m.recording == 'recording'
+                                ? CupertinoIcons.stop_circle_fill
+                                : CupertinoIcons.recordingtape,
+                            label: m.recording == 'recording'
+                                ? 'Stop recording'
+                                : 'Record',
+                            onTap: !m.open
+                                ? null
+                                : () => _run(
+                                    () => actions.record(
+                                      m.id,
+                                      start: m.recording != 'recording',
+                                    ),
+                                    done: m.recording == 'recording'
+                                        ? 'Recording stopped. It is ready to '
+                                              'play in a minute or two.'
+                                        : 'Recording. The chat is told.',
+                                  ),
+                            color: Colors.red,
+                          ),
+                        if (m.audioPath != null && m.recording != 'recording')
+                          (
+                            icon: CupertinoIcons.play_circle_fill,
+                            label: 'Listen',
+                            onTap: () => _run(() async {
+                              final url = await ref.read(
+                                meetingAudioUrlProvider(m.audioPath!).future,
+                              );
+                              await launchUrl(Uri.parse(url));
+                            }),
+                            color: BrandColors.maroon,
+                          ),
                       ],
                     ).entrance(context, index: 1),
+                    if (m.recording == 'failed' && m.recordingError != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: Space.sm),
+                        child: Text(
+                          'Recording failed: ${m.recordingError}',
+                          style: const TextStyle(color: Colors.red),
+                        ),
+                      ),
                     const SizedBox(height: Space.md),
                     GlassSegmented<_Tab>(
                       value: _tab,

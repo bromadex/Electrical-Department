@@ -18,6 +18,13 @@ class Env {
     defaultValue: 'dev',
   );
 
+  /// The web app's address, for links people open in a browser (guest
+  /// call links).
+  static const webUrl = String.fromEnvironment(
+    'WEB_URL',
+    defaultValue: 'https://electrical-department-lake.vercel.app',
+  );
+
   static bool get isProd => flavor == 'prod';
 
   static bool get hasSupabase =>

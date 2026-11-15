@@ -119,7 +119,7 @@ jobs:
 
           # Functions removed from the repository are deleted from Supabase too
           # (already gone is fine).
-          for f in meeting-record call-ringing; do
+          for f in call-ringing; do
             if [ ! -d "supabase/functions/$f" ]; then
               supabase functions delete "$f" --project-ref "$ref" \
                 && echo "Deleted retired function $f" \

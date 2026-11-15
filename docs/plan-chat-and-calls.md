@@ -261,7 +261,7 @@ phone.
 
 ---
 
-## Phase 4: meeting extras (done 15 November 2026 apart from the microphone level before joining; not yet released)
+## Phase 4: meeting extras (done 15 November 2026, not yet released)
 
 ### 4.1 Before joining
 - A small screen before joining:
@@ -285,7 +285,7 @@ phone.
   the live captions we already collect.
 - **Source:** Jitsi `speakerstats`.
 
-### Later or optional
+### Later or optional (join by link and recording done 15 November 2026; background blur not possible yet with LiveKit for Flutter on Android)
 - **Background blur** on video.
 - **Join by link for outsiders** (contractors, clients) in the browser,
   with a time limit, a waiting room and chair approval (Jitsi `lobby`).

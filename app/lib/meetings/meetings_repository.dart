@@ -273,6 +273,16 @@ final meetingProvider = StreamProvider.autoDispose.family<Meeting?, String>((
       .map((rows) => rows.isEmpty ? null : Meeting.fromJson(rows.first));
 });
 
+/// A short-lived link to play a meeting's recording.
+final meetingAudioUrlProvider = FutureProvider.autoDispose
+    .family<String, String>(
+      (ref, path) => ref
+          .watch(supabaseProvider)
+          .storage
+          .from('meeting-audio')
+          .createSignedUrl(path, 3600),
+    );
+
 /// A chat's meetings, newest first.
 final chatMeetingsProvider = StreamProvider.autoDispose
     .family<List<Meeting>, String>((ref, conversationId) {
@@ -371,6 +381,13 @@ class MeetingActions {
 
   Future<void> approve(String id) =>
       _db.rpc('fn_approve_minutes', params: {'p_meeting': id});
+
+  /// Starts or stops recording the meeting's audio (meeting-record edge
+  /// function; needs the MEETING_S3_* secrets).
+  Future<void> record(String id, {required bool start}) => _invoke(
+    'meeting-record',
+    {'meeting_id': id, 'action': start ? 'start' : 'stop'},
+  );
 
   Future<void> _invoke(String fn, Map<String, dynamic> body) async {
     try {

@@ -25,6 +25,7 @@ import 'assets/asset_detail_screen.dart';
 import 'assets/equipment_screen.dart';
 import 'chat/call_screen.dart';
 import 'chat/calls_screen.dart';
+import 'chat/guest_call_screen.dart';
 import 'chat/group_info_screen.dart';
 import 'meetings/meetings_list_screen.dart';
 import 'chat/chat_list_screen.dart';
@@ -103,6 +104,8 @@ GoRouter buildRouter(WidgetRef ref) {
     redirect: (context, state) {
       final atLogin = state.matchedLocation == '/login';
       final atFirst = state.matchedLocation == '/first-password';
+      // Guests join a call by link without an account.
+      if (state.matchedLocation.startsWith('/guest/')) return null;
       if (!signedIn.value) return atLogin ? null : '/login';
       if (mustChange.value) return atFirst ? null : '/first-password';
       if (atLogin || atFirst || state.matchedLocation == '/') return '/home';
@@ -199,6 +202,10 @@ GoRouter buildRouter(WidgetRef ref) {
       ...jobCardRoutes,
       jobCardDetailRoute,
       GoRoute(path: '/calls', builder: (_, _) => const CallsScreen()),
+      GoRoute(
+        path: '/guest/:token',
+        builder: (_, s) => GuestCallScreen(token: s.pathParameters['token']!),
+      ),
       GoRoute(path: '/meetings', builder: (_, _) => const MeetingsListScreen()),
       GoRoute(path: '/starred', builder: (_, _) => const StarredScreen()),
       GoRoute(

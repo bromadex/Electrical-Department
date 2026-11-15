@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:livekit_client/livekit_client.dart';
+import 'package:record/record.dart';
 
 import '../data/site_data.dart';
 import '../services/core_providers.dart';
@@ -17,6 +18,7 @@ import '../meetings/captions.dart';
 import '../meetings/meetings_repository.dart';
 import 'call_controller.dart';
 import 'chat_repository.dart';
+import 'guest_call_screen.dart';
 
 /// The call stage is always dark, like a phone's own call screen, so faces
 /// and controls stand out in both themes.
@@ -66,6 +68,52 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   bool _preSpeaker = false;
   LocalVideoTrack? _preview;
 
+  /// The microphone level before joining (0..1), so you can see it works.
+  AudioRecorder? _meter;
+  StreamSubscription<Amplitude>? _meterSub;
+  double _level = 0;
+
+  Future<void> _startMeter() async {
+    if (_meter != null || !_preMic || _call.inCallFor(widget.conversationId)) {
+      return;
+    }
+    final r = AudioRecorder();
+    try {
+      if (!await r.hasPermission()) {
+        await r.dispose();
+        return;
+      }
+      await r.startStream(
+        const RecordConfig(encoder: AudioEncoder.pcm16bits, numChannels: 1),
+      );
+      _meter = r;
+      _meterSub = r
+          .onAmplitudeChanged(const Duration(milliseconds: 120))
+          .listen((a) {
+            if (!mounted) return;
+            setState(
+              () => _level = ((a.current + 50) / 50).clamp(0.0, 1.0).toDouble(),
+            );
+          });
+    } catch (_) {
+      await r.dispose();
+    }
+  }
+
+  Future<void> _stopMeter() async {
+    final r = _meter;
+    _meter = null;
+    await _meterSub?.cancel();
+    _meterSub = null;
+    _level = 0;
+    if (r != null) {
+      try {
+        await r.stop();
+      } catch (_) {}
+      await r.dispose();
+    }
+  }
+
   /// Everyone in tiles (grid) instead of one large speaker.
   bool _grid = false;
 
@@ -83,6 +131,9 @@ class _CallScreenState extends ConsumerState<CallScreen> {
     _call.addListener(_changed);
     _wasIn = _call.inCallFor(widget.conversationId);
     if (_call.conversationId != widget.conversationId) _call.reset();
+    if (!widget.join && !_wasIn) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _startMeter());
+    }
     if (widget.join && !_wasIn) {
       WidgetsBinding.instance.addPostFrameCallback(
         (_) => _call.join(
@@ -98,6 +149,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   void dispose() {
     _call.removeListener(_changed);
     unawaited(_preview?.dispose());
+    unawaited(_stopMeter());
     super.dispose();
   }
 
@@ -123,6 +175,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   }
 
   Future<void> _joinFromPreview() async {
+    await _stopMeter();
     final t = _preview;
     _preview = null;
     await t?.dispose();
@@ -208,7 +261,11 @@ class _CallScreenState extends ConsumerState<CallScreen> {
         mic: _preMic,
         speaker: kIsWeb ? null : _preSpeaker,
         onCam: _togglePreviewCam,
-        onMic: () => setState(() => _preMic = !_preMic),
+        level: _level,
+        onMic: () {
+          setState(() => _preMic = !_preMic);
+          unawaited(_preMic ? _startMeter() : _stopMeter());
+        },
         onSpeaker: () => setState(() => _preSpeaker = !_preSpeaker),
         onJoin: _joinFromPreview,
         onBack: _close,
@@ -344,6 +401,8 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                         child: _HandsPill(hands: hands),
                       ),
                     ),
+                  if (call.isChair)
+                    WaitingGuestsBar(conversationId: widget.conversationId),
                   if (call.offerAudioOnly)
                     Padding(
                       padding: const EdgeInsets.only(top: Space.sm),
@@ -536,6 +595,15 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                 child: Text('You chair this call'),
               ),
               ListTile(
+                leading: const Icon(CupertinoIcons.link),
+                title: const Text('Invite a guest by link'),
+                subtitle: const Text('For people without an account'),
+                onTap: () {
+                  Navigator.pop(sheet);
+                  inviteGuest(context, ref, widget.conversationId);
+                },
+              ),
+              ListTile(
                 leading: const Icon(CupertinoIcons.mic_slash),
                 title: const Text('Mute everyone'),
                 subtitle: const Text('They can unmute themselves'),
@@ -703,8 +771,12 @@ class _Ringing extends StatefulWidget {
     required this.onMic,
     required this.onSpeaker,
     this.preview,
+    this.level = 0,
     this.otherCall = false,
   });
+
+  /// The microphone level, 0..1.
+  final double level;
 
   /// The camera as others will see it, while the camera is on.
   final LocalVideoTrack? preview;
@@ -838,6 +910,33 @@ class _RingingState extends State<_Ringing>
               color: Colors.white.withValues(alpha: 0.7),
             ),
           ),
+          if (widget.mic && !widget.connecting)
+            Padding(
+              padding: const EdgeInsets.only(top: Space.sm),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    CupertinoIcons.mic_fill,
+                    size: 14,
+                    color: Colors.white70,
+                  ),
+                  const SizedBox(width: 6),
+                  SizedBox(
+                    width: 120,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: widget.level,
+                        minHeight: 6,
+                        backgroundColor: Colors.white24,
+                        color: _live,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           if (widget.otherCall)
             Padding(
               padding: const EdgeInsets.only(top: Space.sm),

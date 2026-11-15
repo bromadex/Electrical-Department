@@ -97,7 +97,8 @@ Deno.serve(async (req) => {
   const identity = typeof body.identity === "string" ? body.identity : "";
   if (!uuid.test(conversationId)) return reply(400, { error: "INVALID: Unknown chat" });
   if (!actions.has(action)) return reply(400, { error: "INVALID: Unknown action" });
-  if ((action === "mute" || action === "remove") && !uuid.test(identity)) {
+  const person = /^(guest-)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if ((action === "mute" || action === "remove") && !person.test(identity)) {
     return reply(400, { error: "INVALID: Say who" });
   }
 

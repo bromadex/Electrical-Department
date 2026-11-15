@@ -801,6 +801,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                         autofocus: true,
                         textInputAction: TextInputAction.search,
                         onSubmitted: _runSearch,
+                        onChanged: (_) => setState(() {}),
                         decoration: InputDecoration(
                           hintText: 'Search this chat',
                           isDense: true,
@@ -1134,6 +1135,11 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                                         : null,
                                     selecting: _selected.isNotEmpty,
                                     starred: thread.starred.contains(m.id),
+                                    highlight:
+                                        _searching &&
+                                            _searchText.text.trim().length >= 2
+                                        ? _searchText.text.trim()
+                                        : null,
                                     onVideoTap: () {
                                       final url =
                                           thread.photoUrls[m.attachmentPath];
@@ -1626,6 +1632,7 @@ class _Bubble extends StatelessWidget {
     this.selecting = false,
     this.starred = false,
     this.onVideoTap,
+    this.highlight,
     this.onTap,
     this.onReplyTap,
     this.onPhotoTap,
@@ -1636,6 +1643,9 @@ class _Bubble extends StatelessWidget {
 
   final bool starred;
   final VoidCallback? onVideoTap;
+
+  /// Words searched for in this chat, marked in the text.
+  final String? highlight;
 
   /// Select mode: a tap picks the message instead of opening it.
   final bool selecting;
@@ -1863,9 +1873,12 @@ class _Bubble extends StatelessWidget {
         if (m.body != null)
           Padding(
             padding: EdgeInsets.only(top: m.kind == 'text' ? 0 : 6),
-            child: Text(
-              m.body!,
-              style: theme.textTheme.bodyMedium?.copyWith(color: fg),
+            child: Text.rich(
+              highlightMatches(
+                m.body!,
+                highlight,
+                theme.textTheme.bodyMedium?.copyWith(color: fg),
+              ),
             ),
           ),
         const SizedBox(height: 2),
@@ -2513,4 +2526,31 @@ String lastSeenLabel(BuildContext context, DateTime? t) {
     return 'Last seen yesterday at $time';
   }
   return 'Last seen ${MaterialLocalizations.of(context).formatShortMonthDay(t)}';
+}
+
+/// The text with every match of [query] (any case) marked in amber.
+TextSpan highlightMatches(String text, String? query, TextStyle? style) {
+  final q = query?.trim().toLowerCase() ?? '';
+  if (q.isEmpty) return TextSpan(text: text, style: style);
+  final lower = text.toLowerCase();
+  final parts = <TextSpan>[];
+  var from = 0;
+  while (true) {
+    final i = lower.indexOf(q, from);
+    if (i < 0) break;
+    if (i > from) parts.add(TextSpan(text: text.substring(from, i)));
+    parts.add(
+      TextSpan(
+        text: text.substring(i, i + q.length),
+        style: const TextStyle(
+          backgroundColor: Color(0xFFFFC145),
+          color: Color(0xFF1C0D12),
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+    from = i + q.length;
+  }
+  if (from < text.length) parts.add(TextSpan(text: text.substring(from)));
+  return TextSpan(style: style, children: parts);
 }

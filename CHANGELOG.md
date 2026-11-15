@@ -2,6 +2,17 @@
 
 ## 15 November 2026
 
+### More for calls and chat
+- **Guests by link:** whoever runs a group call can share a link (2 hours
+  to 3 days) with contractors or clients. They join in a browser without
+  an account, wait, and someone in the call lets them in or turns them
+  away (migration 0048).
+- **Recording is back:** the chair can record a meeting's sound and play it
+  later (needs the storage keys set in Supabase).
+- **Microphone level** shows before you join a call.
+- **Recent photos** in a strip in the chat camera.
+- **Search in a chat** now marks the words in the messages.
+
 ### Calls (Phase 2, second half)
 - **Grid view** (everyone in tiles, swipe for more) and your own picture
   can be dragged to any corner. The **⋯** button in a call holds the view,
