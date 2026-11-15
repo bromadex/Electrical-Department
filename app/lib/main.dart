@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:floating/floating.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -139,7 +140,14 @@ class _ElectricalDepartmentAppState
       scaffoldMessengerKey: appMessenger,
       // The "return to call" bar while a call is minimised.
       builder: (context, child) {
-        final app = CallBar(router: _router, child: child!);
+        Widget app = CallBar(router: _router, child: child!);
+        // Leaving the app during a call shows it in a small window.
+        if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+          app = PiPSwitcher(
+            childWhenDisabled: app,
+            childWhenEnabled: const CallPipView(),
+          );
+        }
         return const bool.fromEnvironment('E2E')
             ? MediaQuery(
                 data: MediaQuery.of(context).copyWith(disableAnimations: true),

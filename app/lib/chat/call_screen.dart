@@ -60,6 +60,13 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   /// Reaction bar open.
   bool _reactOpen = false;
 
+  /// Everyone in tiles (grid) instead of one large speaker.
+  bool _grid = false;
+
+  /// Your own small picture: which corner, and where it is while dragged.
+  Alignment _selfCorner = Alignment.topRight;
+  Offset _selfDrag = Offset.zero;
+
   /// This screen was showing the call; when it ends (hung up here, on the
   /// notification, or no answer) the screen closes.
   bool _wasIn = false;
@@ -172,7 +179,24 @@ class _CallScreenState extends ConsumerState<CallScreen> {
       final stage = Stack(
         fit: StackFit.expand,
         children: [
-          if (focus != null)
+          if (_grid)
+            Padding(
+              padding: EdgeInsets.only(
+                top: MediaQuery.paddingOf(context).top + 84,
+                bottom: 140,
+                left: Space.sm,
+                right: Space.sm,
+              ),
+              child: _Grid(
+                people: everyone,
+                perPage: wide ? 9 : 4,
+                onPin: (p) => setState(() {
+                  _pinned = p.identity;
+                  _grid = false;
+                }),
+              ),
+            )
+          else if (focus != null)
             _Face(
               participant: focus,
               large: true,
@@ -204,6 +228,46 @@ class _CallScreenState extends ConsumerState<CallScreen> {
               ],
             ),
           ),
+          // Your own picture: drag it to any corner.
+          if (!_grid && local != null && focus is! LocalParticipant)
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(Space.md, 76, Space.md, 150),
+                child: AnimatedAlign(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOut,
+                  alignment: _selfCorner,
+                  child: Transform.translate(
+                    offset: _selfDrag,
+                    child: GestureDetector(
+                      onTap: () => setState(() => _pinned = local.identity),
+                      onPanUpdate: (d) => setState(() => _selfDrag += d.delta),
+                      onPanEnd: (d) {
+                        final box = context.findRenderObject() as RenderBox?;
+                        final size = box?.size ?? MediaQuery.sizeOf(context);
+                        final x =
+                            (_selfCorner.x + 1) / 2 * size.width + _selfDrag.dx;
+                        final y =
+                            (_selfCorner.y + 1) / 2 * size.height +
+                            _selfDrag.dy;
+                        setState(() {
+                          _selfCorner = Alignment(
+                            x < size.width / 2 ? -1 : 1,
+                            y < size.height / 2 ? -1 : 1,
+                          );
+                          _selfDrag = Offset.zero;
+                        });
+                      },
+                      child: SizedBox(
+                        width: wide ? 160 : 104,
+                        height: wide ? 120 : 140,
+                        child: _Face(participant: local, you: true),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(Space.md),
@@ -219,6 +283,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                     // The timer starts when someone answers.
                     time: call.elapsed,
                     onBack: _minimise,
+                    onMore: () => _more(room),
                   ),
                   if (call.sharing)
                     Padding(
@@ -233,28 +298,21 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                         child: _HandsPill(hands: hands),
                       ),
                     ),
-                  const SizedBox(height: Space.sm),
-                  Align(
-                    alignment: Alignment.topRight,
-                    child: focus is LocalParticipant || local == null
-                        ? const SizedBox.shrink()
-                        : GestureDetector(
-                            onTap: () =>
-                                setState(() => _pinned = local.identity),
-                            child: SizedBox(
-                              width: wide ? 160 : 104,
-                              height: wide ? 120 : 140,
-                              child: _Face(participant: local, you: true),
-                            ),
-                          ),
-                  ),
+                  if (call.offerAudioOnly)
+                    Padding(
+                      padding: const EdgeInsets.only(top: Space.sm),
+                      child: _AudioOnlyOffer(
+                        onYes: () => call.setQuality(CallQuality.audio),
+                        onNo: call.dismissAudioOnly,
+                      ),
+                    ),
                   const Spacer(),
-                  if (focus != null && focus is! LocalParticipant)
+                  if (!_grid && focus != null && focus is! LocalParticipant)
                     Align(
                       alignment: Alignment.centerLeft,
                       child: _NameTag(participant: focus),
                     ),
-                  if (strip.isNotEmpty) ...[
+                  if (!_grid && strip.isNotEmpty) ...[
                     const SizedBox(height: Space.sm),
                     SizedBox(
                       height: 92,
@@ -368,6 +426,124 @@ class _CallScreenState extends ConsumerState<CallScreen> {
             ),
           ),
           child: body,
+        ),
+      ),
+    );
+  }
+
+  /// ⋯: speaker or grid view, video quality, and the chair's controls.
+  void _more(Room room) {
+    final call = _call;
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheet) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            ListTile(
+              leading: Icon(
+                _grid
+                    ? CupertinoIcons.person_crop_rectangle
+                    : CupertinoIcons.square_grid_2x2,
+              ),
+              title: Text(_grid ? 'Speaker view' : 'Grid view'),
+              subtitle: Text(
+                _grid
+                    ? 'Whoever is talking, large'
+                    : 'Everyone in tiles, swipe for more',
+              ),
+              onTap: () {
+                Navigator.pop(sheet);
+                setState(() {
+                  _grid = !_grid;
+                  _pinned = null;
+                });
+              },
+            ),
+            const Divider(),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 4, 16, 0),
+              child: Text('Video quality'),
+            ),
+            RadioGroup<CallQuality>(
+              groupValue: call.quality,
+              onChanged: (q) {
+                Navigator.pop(sheet);
+                if (q != null) call.setQuality(q);
+              },
+              child: Column(
+                children: [
+                  for (final q in CallQuality.values)
+                    RadioListTile<CallQuality>(
+                      value: q,
+                      title: Text(q.label),
+                      dense: true,
+                    ),
+                ],
+              ),
+            ),
+            if (call.isChair) ...[
+              const Divider(),
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 4, 16, 0),
+                child: Text('You chair this call'),
+              ),
+              ListTile(
+                leading: const Icon(CupertinoIcons.mic_slash),
+                title: const Text('Mute everyone'),
+                subtitle: const Text('They can unmute themselves'),
+                onTap: () async {
+                  Navigator.pop(sheet);
+                  final n = await call.chair('mute_all');
+                  if (n != null) {
+                    call.snack(
+                      n == 0 ? 'Everyone was already muted' : 'Muted $n',
+                    );
+                  }
+                },
+              ),
+              if (call.hands.isNotEmpty)
+                ListTile(
+                  leading: const Icon(CupertinoIcons.hand_raised_slash),
+                  title: const Text('Lower all hands'),
+                  onTap: () {
+                    Navigator.pop(sheet);
+                    call.chair('lower');
+                  },
+                ),
+              ListTile(
+                leading: const Icon(CupertinoIcons.stop_circle, color: _hangUp),
+                title: const Text(
+                  'End the call for everyone',
+                  style: TextStyle(color: _hangUp),
+                ),
+                onTap: () async {
+                  Navigator.pop(sheet);
+                  final ok = await showDialog<bool>(
+                    context: context,
+                    builder: (d) => AlertDialog(
+                      title: const Text('End the call for everyone?'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(d, false),
+                          child: const Text('Cancel'),
+                        ),
+                        FilledButton(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: _hangUp,
+                          ),
+                          onPressed: () => Navigator.pop(d, true),
+                          child: const Text('End for everyone'),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (ok == true) await call.chair('end');
+                },
+              ),
+            ],
+          ],
         ),
       ),
     );
@@ -831,6 +1007,19 @@ class _Face extends StatelessWidget {
                   bottom: 6,
                   child: Row(
                     children: [
+                      if (p.connectionQuality == ConnectionQuality.poor ||
+                          p.connectionQuality == ConnectionQuality.lost)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 3),
+                          child: Icon(
+                            CupertinoIcons.wifi_exclamationmark,
+                            size: 12,
+                            color: p.connectionQuality == ConnectionQuality.lost
+                                ? _hangUp
+                                : const Color(0xFFFFC145),
+                            semanticLabel: 'Poor signal',
+                          ),
+                        ),
                       if (hand)
                         const Padding(
                           padding: EdgeInsets.only(right: 3),
@@ -919,8 +1108,10 @@ class _TopBar extends StatelessWidget {
     required this.subtitle,
     required this.time,
     required this.onBack,
+    this.onMore,
   });
 
+  final VoidCallback? onMore;
   final String title;
   final String subtitle;
 
@@ -990,6 +1181,15 @@ class _TopBar extends StatelessWidget {
               ],
             ),
           ),
+        if (onMore != null) ...[
+          const SizedBox(width: Space.xs),
+          _GlassButton(
+            icon: CupertinoIcons.ellipsis,
+            onTap: onMore!,
+            size: 44,
+            tooltip: 'More',
+          ),
+        ],
       ],
     );
   }
@@ -1270,6 +1470,13 @@ class _CallSideState extends ConsumerState<_CallSide> {
     final thread = ref.watch(chatThreadProvider(widget.conversationId));
     final me = ref.watch(authUserIdProvider);
     final names = ref.watch(peopleProvider).value ?? const {};
+    final call = ref.read(callControllerProvider);
+    final hands = call.hands;
+    final people = [
+      ...hands,
+      for (final p in widget.people)
+        if (!hands.contains(p)) p,
+    ];
     final messages = [
       for (final m in thread.messages)
         if (!m.archived) m,
@@ -1316,7 +1523,7 @@ class _CallSideState extends ConsumerState<_CallSide> {
                   ? ListView(
                       padding: const EdgeInsets.symmetric(horizontal: Space.md),
                       children: [
-                        for (final p in widget.people)
+                        for (final p in people)
                           ListenableBuilder(
                             listenable: p,
                             builder: (context, _) => ListTile(
@@ -1330,13 +1537,43 @@ class _CallSideState extends ConsumerState<_CallSide> {
                                     ? 'You'
                                     : (p.name.isNotEmpty ? p.name : 'Someone'),
                               ),
-                              trailing: Icon(
-                                p.isMicrophoneEnabled()
-                                    ? (p.isSpeaking
-                                          ? CupertinoIcons.waveform
-                                          : CupertinoIcons.mic)
-                                    : CupertinoIcons.mic_slash,
-                                color: p.isSpeaking ? _live : null,
+                              subtitle: CallController.handOf(p) == null
+                                  ? null
+                                  : const Text('✋ Hand raised'),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    p.isMicrophoneEnabled()
+                                        ? (p.isSpeaking
+                                              ? CupertinoIcons.waveform
+                                              : CupertinoIcons.mic)
+                                        : CupertinoIcons.mic_slash,
+                                    color: p.isSpeaking ? _live : null,
+                                  ),
+                                  if (call.isChair && p is RemoteParticipant)
+                                    PopupMenuButton<String>(
+                                      tooltip: 'Chair',
+                                      onSelected: (a) =>
+                                          call.chair(a, identity: p.identity),
+                                      itemBuilder: (_) => [
+                                        if (p.isMicrophoneEnabled())
+                                          const PopupMenuItem(
+                                            value: 'mute',
+                                            child: Text('Mute'),
+                                          ),
+                                        if (CallController.handOf(p) != null)
+                                          const PopupMenuItem(
+                                            value: 'lower',
+                                            child: Text('Lower hand'),
+                                          ),
+                                        const PopupMenuItem(
+                                          value: 'remove',
+                                          child: Text('Remove from call'),
+                                        ),
+                                      ],
+                                    ),
+                                ],
                               ),
                             ),
                           ),
@@ -1598,6 +1835,101 @@ class _CaptionsOverlay extends ConsumerWidget {
                   ],
                 ),
         ),
+      ),
+    );
+  }
+}
+
+/// Everyone in tiles, a page at a time (2×2 on phones, 3×3 on wide
+/// screens); swipe for the next page. Tap someone to see them large.
+class _Grid extends StatelessWidget {
+  const _Grid({
+    required this.people,
+    required this.perPage,
+    required this.onPin,
+  });
+
+  final List<Participant> people;
+  final int perPage;
+  final void Function(Participant) onPin;
+
+  @override
+  Widget build(BuildContext context) {
+    final pages = (people.length / perPage).ceil().clamp(1, 99);
+    final cols = perPage == 4 ? 2 : 3;
+    return PageView.builder(
+      itemCount: pages,
+      itemBuilder: (context, page) {
+        final shown = people.skip(page * perPage).take(perPage).toList();
+        final c = shown.length == 1 ? 1 : cols;
+        return LayoutBuilder(
+          builder: (context, box) {
+            final rows = (shown.length / c).ceil().clamp(1, 9);
+            final w = (box.maxWidth - (c - 1) * 8) / c;
+            final h = (box.maxHeight - (rows - 1) * 8) / rows;
+            return Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              alignment: WrapAlignment.center,
+              runAlignment: WrapAlignment.center,
+              children: [
+                for (final p in shown)
+                  GestureDetector(
+                    onTap: () => onPin(p),
+                    child: SizedBox(
+                      width: w,
+                      height: h,
+                      child: _Face(participant: p, you: p is LocalParticipant),
+                    ),
+                  ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+/// Your signal is poor: switch to audio only?
+class _AudioOnlyOffer extends StatelessWidget {
+  const _AudioOnlyOffer({required this.onYes, required this.onNo});
+
+  final VoidCallback onYes;
+  final VoidCallback onNo;
+
+  @override
+  Widget build(BuildContext context) {
+    return _Frost(
+      radius: Radii.lg,
+      padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
+      child: Row(
+        children: [
+          const Icon(
+            CupertinoIcons.wifi_exclamationmark,
+            color: Color(0xFFFFC145),
+            size: 18,
+          ),
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Text(
+              'Your signal is poor. Switch to audio only?',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+          TextButton(
+            onPressed: onNo,
+            child: const Text('No', style: TextStyle(color: Colors.white70)),
+          ),
+          TextButton(
+            onPressed: onYes,
+            style: TextButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: _stageTop,
+            ),
+            child: const Text('Audio only'),
+          ),
+        ],
       ),
     );
   }

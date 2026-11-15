@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:livekit_client/livekit_client.dart';
 
 import 'call_controller.dart';
 import 'chat_repository.dart';
@@ -131,6 +132,92 @@ class _CallBarState extends ConsumerState<CallBar> {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// What the small picture-in-picture window shows when you leave the app
+/// during a call (Android): the person talking (or the first other person),
+/// with the call's length.
+class CallPipView extends ConsumerStatefulWidget {
+  const CallPipView({super.key});
+
+  @override
+  ConsumerState<CallPipView> createState() => _CallPipViewState();
+}
+
+class _CallPipViewState extends ConsumerState<CallPipView> {
+  late final CallController _call = ref.read(callControllerProvider);
+
+  @override
+  void initState() {
+    super.initState();
+    _call.addListener(_changed);
+  }
+
+  @override
+  void dispose() {
+    _call.removeListener(_changed);
+    super.dispose();
+  }
+
+  void _changed() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final room = _call.room;
+    final others = room?.remoteParticipants.values.toList() ?? const [];
+    final who =
+        room?.activeSpeakers.whereType<RemoteParticipant>().firstOrNull ??
+        others.where((p) => p.isScreenShareEnabled()).firstOrNull ??
+        others.firstOrNull;
+    VideoTrack? video;
+    for (final pub in who?.videoTrackPublications ?? const []) {
+      final t = pub.track;
+      if (t is VideoTrack && !pub.muted) {
+        video = t;
+        if (pub.source == TrackSource.screenShareVideo) break;
+      }
+    }
+    final name = who == null || who.name.isEmpty ? 'Call' : who.name;
+    return ColoredBox(
+      color: const Color(0xFF0B1022),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (video != null)
+            VideoTrackRenderer(video, fit: VideoViewFit.cover)
+          else
+            Center(
+              child: Text(
+                name.isEmpty ? '?' : name.characters.first.toUpperCase(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 40,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          Positioned(
+            left: 6,
+            right: 6,
+            bottom: 6,
+            child: Text(
+              '$name · ${_call.elapsed ?? (_call.waiting ? 'Calling…' : '')}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                shadows: [Shadow(blurRadius: 6)],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

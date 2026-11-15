@@ -5,10 +5,12 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:floating/floating.dart';
 import 'package:flutter_background/flutter_background.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' show Helper;
 import 'package:livekit_client/livekit_client.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
@@ -31,6 +33,18 @@ final callControllerProvider = Provider<CallController>((ref) {
 });
 
 enum CallStage { idle, connecting, inCall }
+
+/// Video in calls: Auto, Low (360p, saves data on mine sites) or Audio only
+/// (no video sent or received; shared screens still show). Kept on the
+/// device.
+enum CallQuality {
+  auto('Auto'),
+  low('Low (saves data)'),
+  audio('Audio only');
+
+  const CallQuality(this.label);
+  final String label;
+}
 
 /// An emoji floating up the call screen.
 class FloatingReaction {
@@ -73,6 +87,16 @@ class CallController extends ChangeNotifier {
   bool? speaker;
   bool captionsOff = false;
   final floating = <FloatingReaction>[];
+
+  /// You chair this call (call-admin): mute, remove, lower hands, end.
+  bool isChair = false;
+
+  /// Video quality for calls (see [CallQuality]).
+  CallQuality quality = CallQuality.auto;
+
+  /// Your signal is poor: the call screen offers audio only, once.
+  bool offerAudioOnly = false;
+  bool _offeredAudioOnly = false;
 
   /// The screen is being shared from this phone (Android needs a
   /// foreground service while it lasts).
@@ -176,6 +200,31 @@ class CallController extends ChangeNotifier {
         } catch (_) {}
       })
       ..on<ParticipantAttributesChanged>((_) => _changed())
+      ..on<DataReceivedEvent>((e) {
+        if (e.topic != 'chair') return;
+        try {
+          final a = (jsonDecode(utf8.decode(e.data)) as Map)['a'];
+          snack(switch (a) {
+            'muted' => 'The chair muted you. Tap the microphone to talk again.',
+            'removed' => 'The chair removed you from the call.',
+            'ended' => 'The chair ended the call for everyone.',
+            _ => 'The chair changed something in the call.',
+          });
+        } catch (_) {}
+        _changed();
+      })
+      ..on<TrackPublishedEvent>((e) => _applyQuality(e.publication))
+      ..on<TrackSubscribedEvent>((e) => _applyQuality(e.publication))
+      ..on<ParticipantConnectionQualityUpdatedEvent>((e) {
+        if (e.participant is LocalParticipant &&
+            e.connectionQuality == ConnectionQuality.poor &&
+            quality != CallQuality.audio &&
+            !_offeredAudioOnly) {
+          _offeredAudioOnly = true;
+          offerAudioOnly = true;
+        }
+        _changed();
+      })
       ..on<RoomDisconnectedEvent>((e) {
         if (room == r && e.reason != DisconnectReason.clientInitiated) {
           snack('The call ended.');
@@ -207,12 +256,21 @@ class CallController extends ChangeNotifier {
     _changed();
     unawaited(_startOngoing(serverTitle, video));
     if (!kIsWeb) unawaited(setSpeaker(video));
+    unawaited(_checkChair(conversation));
+    unawaited(_pipOnLeave(true));
+    await _loadQuality();
+    video = video && quality != CallQuality.audio;
 
     // 3. Microphone (and camera for a video call). If the browser or phone
     // blocks them you stay in the call, muted.
     try {
       await r.localParticipant?.setMicrophoneEnabled(true);
-      if (video) await r.localParticipant?.setCameraEnabled(true);
+      if (video) {
+        await r.localParticipant?.setCameraEnabled(
+          true,
+          cameraCaptureOptions: _cameraOptions,
+        );
+      }
     } catch (_) {
       snack(
         'Your microphone or camera is blocked. Allow it for this app and '
@@ -324,6 +382,10 @@ class CallController extends ChangeNotifier {
     waiting = false;
     rang = false;
     floating.clear();
+    isChair = false;
+    offerAudioOnly = false;
+    _offeredAudioOnly = false;
+    unawaited(_pipOnLeave(false));
     _changed();
     if (r != null) {
       r.removeListener(_changed);
@@ -357,7 +419,10 @@ class CallController extends ChangeNotifier {
     final local = room?.localParticipant;
     if (local == null) return;
     try {
-      await local.setCameraEnabled(!local.isCameraEnabled());
+      await local.setCameraEnabled(
+        !local.isCameraEnabled(),
+        cameraCaptureOptions: _cameraOptions,
+      );
     } catch (_) {
       snack('Your camera is blocked. Allow it for this app.');
     }
@@ -524,6 +589,130 @@ class CallController extends ChangeNotifier {
     try {
       if (FlutterBackground.isBackgroundExecutionEnabled) {
         await FlutterBackground.disableBackgroundExecution();
+      }
+    } catch (_) {}
+  }
+
+  // ---- Chair controls (call-admin edge function).
+
+  Future<void> _checkChair(String conversation) async {
+    try {
+      final res = await _db.functions.invoke(
+        'call-admin',
+        body: {'conversation_id': conversation, 'action': 'check'},
+      );
+      isChair = (res.data as Map?)?['chair'] == true;
+      _changed();
+    } catch (_) {
+      isChair = false;
+    }
+  }
+
+  /// mute, mute_all, lower (one or, with no identity, everyone), remove,
+  /// end. Returns how many people it changed, or null on failure.
+  Future<int?> chair(String action, {String? identity}) async {
+    final id = conversationId;
+    if (id == null) return null;
+    try {
+      final res = await _db.functions.invoke(
+        'call-admin',
+        body: {'conversation_id': id, 'action': action, 'identity': ?identity},
+      );
+      return ((res.data as Map?)?['changed'] as num?)?.toInt() ?? 0;
+    } on FunctionException catch (e) {
+      final d = e.details;
+      final msg = d is Map ? '${d['error'] ?? ''}' : '$d';
+      snack(
+        msg.isEmpty
+            ? 'That did not work (${e.status}).'
+            : msg.replaceFirst(RegExp(r'^[A-Z_]+: '), ''),
+      );
+    } catch (_) {
+      snack('That needs signal. Try again.');
+    }
+    return null;
+  }
+
+  // ---- Video quality and audio only (mine sites with poor signal).
+
+  static const _qualityKey = 'call_video_quality';
+
+  CameraCaptureOptions? get _cameraOptions => quality == CallQuality.low
+      ? const CameraCaptureOptions(params: VideoParametersPresets.h360_169)
+      : null;
+
+  Future<void> _loadQuality() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      final v = p.getString(_qualityKey);
+      quality =
+          CallQuality.values.where((q) => q.name == v).firstOrNull ??
+          CallQuality.auto;
+    } catch (_) {}
+  }
+
+  Future<void> setQuality(CallQuality q) async {
+    quality = q;
+    offerAudioOnly = false;
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.setString(_qualityKey, q.name);
+    } catch (_) {}
+    final r = room;
+    if (r != null) {
+      if (q == CallQuality.audio &&
+          (r.localParticipant?.isCameraEnabled() ?? false)) {
+        try {
+          await r.localParticipant?.setCameraEnabled(false);
+        } catch (_) {}
+      }
+      for (final p in r.remoteParticipants.values) {
+        for (final pub in p.videoTrackPublications) {
+          await _applyQuality(pub);
+        }
+      }
+    }
+    _changed();
+  }
+
+  void dismissAudioOnly() {
+    offerAudioOnly = false;
+    _changed();
+  }
+
+  /// Audio only stops receiving cameras (shared screens still come);
+  /// Low asks for the smallest video layer.
+  Future<void> _applyQuality(TrackPublication pub) async {
+    if (pub is! RemoteTrackPublication || pub.kind != TrackType.VIDEO) return;
+    try {
+      if (pub.source == TrackSource.screenShareVideo) return;
+      if (quality == CallQuality.audio) {
+        await pub.disable();
+      } else {
+        await pub.enable();
+        await pub.setVideoQuality(
+          quality == CallQuality.low ? VideoQuality.LOW : VideoQuality.HIGH,
+        );
+      }
+    } catch (_) {}
+  }
+
+  // ---- Picture-in-picture (Android): leaving the app during a call shows
+  // a small window with the call.
+
+  bool get _pipSupported =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
+  Future<void> _pipOnLeave(bool on) async {
+    if (!_pipSupported) return;
+    try {
+      final f = Floating();
+      if (on) {
+        if (await f.isPipAvailable) {
+          await f.enable(const OnLeavePiP(aspectRatio: Rational.vertical()));
+        }
+      } else {
+        await f.cancelOnLeavePiP();
       }
     } catch (_) {}
   }
