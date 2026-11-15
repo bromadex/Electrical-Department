@@ -2,6 +2,12 @@
 
 ## 15 November 2026
 
+### Calls show Calling, then Ringing (as on WhatsApp)
+- A direct call shows **Calling…** until the other phone actually rings,
+  then **Ringing…**; the timer starts only when they answer.
+- The other phone reports that it is ringing as soon as the incoming call
+  shows, even when the app is closed (migration 0043, `call-ringing`).
+
 ### Minutes in the department's format
 - Meeting minutes now follow the department's paper minutes: meeting type,
   venue, chairperson and minute-taker; an attendance table with positions;

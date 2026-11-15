@@ -63,7 +63,18 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   _Stage _stage = _Stage.ready;
   String? _error;
   String? _title;
+
+  /// When someone else first joined (the call timer runs from here, as on
+  /// WhatsApp); null while calling or ringing.
   DateTime? _since;
+
+  /// When you connected (how long it has been ringing).
+  DateTime? _dialedAt;
+
+  /// The other phone reported that it is ringing (calls.rang_at, set by the
+  /// call-ringing function); until then the caller sees "Calling…".
+  bool _rang = false;
+  bool _checkingRang = false;
   Timer? _clock;
   String? _pinned;
   bool _front = true;
@@ -174,8 +185,12 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   void _tick() {
     final room = _room;
     if (room == null) return;
-    if (room.remoteParticipants.isNotEmpty) _waiting = false;
-    final since = _since;
+    if (room.remoteParticipants.isNotEmpty) {
+      _waiting = false;
+      _since ??= DateTime.now();
+    }
+    if (_waiting && !_rang) unawaited(_checkRang());
+    final since = _dialedAt;
     if (_waiting &&
         since != null &&
         DateTime.now().difference(since) > _ringFor) {
@@ -192,6 +207,30 @@ class _CallScreenState extends ConsumerState<CallScreen> {
       }
     }
     _changed();
+  }
+
+  /// Every other second while calling: is the other phone ringing yet?
+  Future<void> _checkRang() async {
+    final id = _callId;
+    if (id == null || _checkingRang) return;
+    if ((DateTime.now().second % 2) != 0) return;
+    _checkingRang = true;
+    try {
+      final row = await _db
+          .from('calls')
+          .select('rang_at, answered_at')
+          .eq('id', id)
+          .maybeSingle();
+      if (row != null &&
+          (row['rang_at'] != null || row['answered_at'] != null) &&
+          mounted) {
+        setState(() => _rang = true);
+      }
+    } catch (_) {
+      // No signal: keep showing "Calling…".
+    } finally {
+      _checkingRang = false;
+    }
   }
 
   Future<void> _join({bool video = false}) async {
@@ -250,7 +289,16 @@ class _CallScreenState extends ConsumerState<CallScreen> {
           _float('${m['e']}', e.participant?.name);
         } catch (_) {}
       });
-    _waiting = data['new_call'] == true;
+    // You started it, or it is a direct call nobody else is in yet: it is
+    // calling the other person.
+    final direct =
+        (ref.read(conversationsProvider).value ?? const [])
+            .where((c) => c.id == widget.conversationId)
+            .firstOrNull
+            ?.isDirect ??
+        false;
+    _waiting =
+        (data['new_call'] == true || direct) && room.remoteParticipants.isEmpty;
     _clock = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
     _beat = Timer.periodic(const Duration(seconds: 30), (_) {
       final id = _callId;
@@ -267,7 +315,8 @@ class _CallScreenState extends ConsumerState<CallScreen> {
     setState(() {
       _room = room;
       _title = data['title'] as String?;
-      _since = DateTime.now();
+      _dialedAt = DateTime.now();
+      _since = room.remoteParticipants.isEmpty ? null : DateTime.now();
       _stage = _Stage.inCall;
     });
 
@@ -514,10 +563,13 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                 children: [
                   _TopBar(
                     title: title,
-                    subtitle: everyone.length == 1
-                        ? (_waiting ? 'Ringing…' : 'Waiting for others to join')
-                        : '${everyone.length} in the call',
-                    time: _elapsed(),
+                    subtitle: everyone.length > 1
+                        ? '${everyone.length} in the call'
+                        : _waiting
+                        ? (_rang ? 'Ringing…' : 'Calling…')
+                        : 'Waiting for others to join',
+                    // The timer starts when someone answers.
+                    time: _since == null ? null : _elapsed(),
                     onBack: _leave,
                   ),
                   const SizedBox(height: Space.sm),
@@ -1126,7 +1178,9 @@ class _TopBar extends StatelessWidget {
 
   final String title;
   final String subtitle;
-  final String time;
+
+  /// Call length; null (hidden) while calling or ringing.
+  final String? time;
   final VoidCallback onBack;
 
   @override
@@ -1164,32 +1218,33 @@ class _TopBar extends StatelessWidget {
             ],
           ),
         ),
-        _Frost(
-          radius: 99,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: const BoxDecoration(
-                  color: _hangUp,
-                  shape: BoxShape.circle,
+        if (time != null)
+          _Frost(
+            radius: 99,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    color: _hangUp,
+                    shape: BoxShape.circle,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                time,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontFeatures: [FontFeature.tabularFigures()],
+                const SizedBox(width: 6),
+                Text(
+                  time!,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontFeatures: [FontFeature.tabularFigures()],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
       ],
     );
   }

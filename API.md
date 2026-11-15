@@ -442,6 +442,8 @@ A call nobody else answered is missed and the others get "Missed call from <name
 (live | missed | ended) and `in_call`. A direct call that rings 45 seconds with no answer
 hangs up in the app. `conversation_calls` (0017) is no longer written.
 
+- **Calling, ringing, timer (migration 0043):** `calls.rang_at` is set when the callee's Android phone shows the incoming call: the app posts `{notification_id}` (the call alert's id, which only that phone received) to the `call-ringing` edge function (`verify_jwt = false`, works from the background without a sign-in), which runs `fn_call_rang` (service role only). The caller's screen shows "Calling…" until then, "Ringing…" after, and starts the call timer only when someone joins. Browsers don't ring, so a call to someone on the web shows "Calling…" until they join.
+
 ## 16c. Meetings (migration 0022)
 
 Meetings live inside group chats. Someone with `meetings.manage` schedules one from a chat

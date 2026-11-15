@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -6,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_callkit_incoming/entities/entities.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 
+import '../config/env.dart';
 import '../config/firebase_config.dart';
 
 /// Ringing calls on Android. A direct call arrives as a high-priority data
@@ -96,6 +99,31 @@ class IncomingCalls {
         ),
       ),
     );
+    unawaited(reportRinging('${data['notification_id'] ?? ''}'));
+  }
+
+  /// Tells the caller's screen that this phone is ringing ("Calling…"
+  /// becomes "Ringing…"). Works without a sign-in, from the background:
+  /// the call alert's id is the proof. Best effort; a failure only leaves
+  /// the caller seeing "Calling…".
+  static Future<void> reportRinging(String notificationId) async {
+    if (notificationId.isEmpty || Env.supabaseUrl.isEmpty) return;
+    final client = HttpClient()..connectionTimeout = const Duration(seconds: 8);
+    try {
+      final req = await client.postUrl(
+        Uri.parse('${Env.supabaseUrl}/functions/v1/call-ringing'),
+      );
+      req.headers
+        ..contentType = ContentType.json
+        ..set('apikey', Env.supabaseAnonKey);
+      req.write(jsonEncode({'notification_id': notificationId}));
+      await (await req.close().timeout(const Duration(seconds: 10)))
+          .drain<void>();
+    } catch (_) {
+      // No signal: the caller keeps seeing "Calling…".
+    } finally {
+      client.close(force: true);
+    }
   }
 
   /// The call screen while in a call: Android's "call in progress"

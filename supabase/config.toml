@@ -397,6 +397,11 @@ verify_jwt = false
 [functions.push-send]
 verify_jwt = false
 
+# The callee's phone reports that a call is ringing, also from the
+# background where nobody is signed in; the call alert's id is the proof.
+[functions.call-ringing]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327
