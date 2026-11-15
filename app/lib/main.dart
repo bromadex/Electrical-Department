@@ -86,9 +86,19 @@ class _ElectricalDepartmentAppState
   StreamSubscription<RemoteMessage>? _foreground;
   StreamSubscription<Object?>? _answered;
 
+  /// "Last seen": tells the server when the app goes to the background.
+  AppLifecycleListener? _life;
+
+  void _seen() {
+    final db = ref.read(supabaseProvider);
+    if (db.auth.currentUser == null) return;
+    unawaited(db.rpc('fn_seen').then((_) {}, onError: (_) {}));
+  }
+
   @override
   void initState() {
     super.initState();
+    _life = AppLifecycleListener(onHide: _seen, onDetach: _seen);
     ErrorReporter.currentRoute = () =>
         _router.routerDelegate.currentConfiguration.uri.toString();
     if (PushSupport.ready) {
@@ -114,6 +124,7 @@ class _ElectricalDepartmentAppState
     _opened?.cancel();
     _foreground?.cancel();
     _answered?.cancel();
+    _life?.dispose();
     super.dispose();
   }
 

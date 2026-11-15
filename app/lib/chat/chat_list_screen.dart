@@ -105,6 +105,7 @@ class _ChatList extends ConsumerStatefulWidget {
 
 class _ChatListState extends ConsumerState<_ChatList> {
   final _search = TextEditingController();
+  bool _showArchived = false;
 
   @override
   void dispose() {
@@ -181,6 +182,12 @@ class _ChatListState extends ConsumerState<_ChatList> {
               ),
               const SizedBox(width: Space.xs),
               IconButton.filledTonal(
+                tooltip: 'Starred messages',
+                onPressed: () => context.push('/starred'),
+                icon: const Icon(CupertinoIcons.star),
+              ),
+              const SizedBox(width: Space.xs),
+              IconButton.filledTonal(
                 tooltip: 'New chat',
                 onPressed: () => showFormSheet(context, const _NewChatSheet()),
                 icon: const Icon(CupertinoIcons.square_pencil),
@@ -236,13 +243,17 @@ class _ChatListState extends ConsumerState<_ChatList> {
                 ),
               ];
             }
+            final archived = [
+              for (final c in list)
+                if (c.archived) c,
+            ];
             final pinned = [
               for (final c in list)
-                if (c.pinned) c,
+                if (c.pinned && !c.archived) c,
             ];
             final rest = [
               for (final c in list)
-                if (!c.pinned) c,
+                if (!c.pinned && !c.archived) c,
             ];
             return [
               if (pinned.isNotEmpty) ...[
@@ -251,6 +262,21 @@ class _ChatListState extends ConsumerState<_ChatList> {
                 label('All chats'),
               ],
               ...tiles(rest, pinned.length),
+              if (archived.isNotEmpty) ...[
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                  leading: const Icon(CupertinoIcons.archivebox),
+                  title: Text('Archived (${archived.length})'),
+                  trailing: Icon(
+                    _showArchived
+                        ? CupertinoIcons.chevron_up
+                        : CupertinoIcons.chevron_down,
+                  ),
+                  onTap: () => setState(() => _showArchived = !_showArchived),
+                ),
+                if (_showArchived || q.isNotEmpty)
+                  ...tiles(archived, pinned.length + rest.length),
+              ],
             ];
           },
         ),
@@ -460,6 +486,48 @@ class _ChatTile extends ConsumerWidget {
                 );
               },
             ),
+            ListTile(
+              leading: Icon(
+                chat.muted ? CupertinoIcons.bell : CupertinoIcons.bell_slash,
+              ),
+              title: Text(chat.muted ? 'Unmute' : 'Mute for 8 hours'),
+              subtitle: chat.muted
+                  ? null
+                  : const Text('More choices in the chat\'s info'),
+              onTap: () {
+                Navigator.pop(sheet);
+                unawaited(
+                  chat.muted
+                      ? ref.read(chatActionsProvider).mute(chat.id)
+                      : ref
+                            .read(chatActionsProvider)
+                            .mute(chat.id, until: const Duration(hours: 8)),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(CupertinoIcons.archivebox),
+              title: Text(chat.archived ? 'Unarchive' : 'Archive'),
+              subtitle: chat.archived
+                  ? null
+                  : const Text('Hidden until a new message comes'),
+              onTap: () {
+                Navigator.pop(sheet);
+                unawaited(
+                  ref
+                      .read(chatActionsProvider)
+                      .archive(chat.id, !chat.archived),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(CupertinoIcons.info),
+              title: Text(chat.isDirect ? 'Chat info' : 'Group info'),
+              onTap: () {
+                Navigator.pop(sheet);
+                context.push('/chat/${chat.id}/info');
+              },
+            ),
             if (chat.unread > 0)
               ListTile(
                 leading: const Icon(CupertinoIcons.checkmark_alt_circle),
@@ -527,6 +595,15 @@ class _ChatTile extends ConsumerWidget {
                           ),
                         ),
                       ),
+                      if (c.muted)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 4),
+                          child: Icon(
+                            CupertinoIcons.bell_slash_fill,
+                            size: 13,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
                       if (c.callLive)
                         const Padding(
                           padding: EdgeInsets.only(right: 4),

@@ -39,6 +39,8 @@ class ChatComposer extends ConsumerStatefulWidget {
     required this.onTag,
     this.onDocument,
     required this.onVoice,
+    this.onCamera,
+    this.onVideo,
   });
 
   final String conversationId;
@@ -56,6 +58,12 @@ class ChatComposer extends ConsumerStatefulWidget {
 
   /// Share an SOP or drawing from Documents (null hides the option).
   final VoidCallback? onDocument;
+
+  /// Our own camera (phones): tap for a photo, hold for a video.
+  final VoidCallback? onCamera;
+
+  /// A video from the phone, up to 2 minutes.
+  final VoidCallback? onVideo;
   final void Function(ChatAttachment voice) onVoice;
 
   @override
@@ -240,8 +248,28 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (widget.onCamera != null)
+              ListTile(
+                leading: const Icon(CupertinoIcons.camera_fill),
+                title: const Text('Camera'),
+                subtitle: const Text('Tap for a photo, hold for a video'),
+                onTap: () {
+                  Navigator.pop(sheet);
+                  widget.onCamera!();
+                },
+              ),
+            if (widget.onVideo != null)
+              ListTile(
+                leading: const Icon(CupertinoIcons.film),
+                title: const Text('Video'),
+                subtitle: const Text('Up to 2 minutes'),
+                onTap: () {
+                  Navigator.pop(sheet);
+                  widget.onVideo!();
+                },
+              ),
             ListTile(
-              leading: const Icon(CupertinoIcons.photo_camera),
+              leading: const Icon(CupertinoIcons.photo_on_rectangle),
               title: const Text('Photo'),
               onTap: () {
                 Navigator.pop(sheet);

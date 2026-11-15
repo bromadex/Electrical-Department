@@ -28,7 +28,29 @@ class Conversation {
       callLive = j['call_live'] as bool? ?? false,
       lastReadAt = j['last_read_at'] == null
           ? null
-          : DateTime.parse(j['last_read_at'] as String).toLocal();
+          : DateTime.parse(j['last_read_at'] as String).toLocal(),
+      mutedUntil = _time(j['muted_until']),
+      archived = j['archived'] as bool? ?? false,
+      description = j['description'] as String?,
+      photoPath = j['photo_path'] as String?;
+
+  static DateTime? _time(Object? v) {
+    if (v == null) return null;
+    final t = DateTime.tryParse(v as String);
+    // 'infinity' (muted always).
+    return t?.toLocal() ?? DateTime(9999);
+  }
+
+  /// Muted until then (no push or sound; the unread count stays).
+  final DateTime? mutedUntil;
+  bool get muted => mutedUntil != null && mutedUntil!.isAfter(DateTime.now());
+
+  /// Archived: out of the list until a new message comes.
+  final bool archived;
+
+  /// Group description and picture (chat-files path).
+  final String? description;
+  final String? photoPath;
 
   final String id;
   final String kind;
@@ -68,6 +90,7 @@ class ChatMessage {
     this.archived = false,
     this.pending = false,
     this.forwarded = false,
+    this.editedAt,
     this.bytes,
   });
 
@@ -85,6 +108,9 @@ class ChatMessage {
       durationMs = (j['duration_ms'] as num?)?.toInt(),
       archived = j['is_archived'] as bool? ?? false,
       forwarded = j['forwarded'] as bool? ?? false,
+      editedAt = j['edited_at'] == null
+          ? null
+          : DateTime.parse(j['edited_at'] as String).toLocal(),
       createdAt = DateTime.parse(j['created_at'] as String).toLocal(),
       pending = false,
       bytes = null;
@@ -110,6 +136,16 @@ class ChatMessage {
 
   /// Copied from another chat ("Forwarded").
   final bool forwarded;
+
+  /// Changed after sending ("edited").
+  final DateTime? editedAt;
+
+  /// Your own text message, still within the 15 minutes it can be edited.
+  bool canEdit(String? me) =>
+      authorId == me &&
+      kind == 'text' &&
+      !pending &&
+      DateTime.now().difference(createdAt) < const Duration(minutes: 15);
 
   /// The photo's bytes while it waits to upload.
   final Uint8List? bytes;
@@ -325,6 +361,7 @@ class ChatThread {
     this.photoUrls = const {},
     this.ticks = const {},
     this.hidden = const {},
+    this.starred = const {},
     this.loading = true,
     this.error,
   });
@@ -341,6 +378,9 @@ class ChatThread {
 
   /// Messages you deleted for yourself.
   final Set<String> hidden;
+
+  /// Messages you starred.
+  final Set<String> starred;
   final bool loading;
   final Object? error;
 
@@ -358,6 +398,7 @@ class ChatThread {
     Map<String, String>? photoUrls,
     Map<String, Ticks>? ticks,
     Set<String>? hidden,
+    Set<String>? starred,
     bool? loading,
     Object? error,
   }) => ChatThread(
@@ -366,6 +407,7 @@ class ChatThread {
     photoUrls: photoUrls ?? this.photoUrls,
     ticks: ticks ?? this.ticks,
     hidden: hidden ?? this.hidden,
+    starred: starred ?? this.starred,
     loading: loading ?? this.loading,
     error: error,
   );
@@ -462,6 +504,7 @@ class ChatThreadNotifier extends Notifier<ChatThread> {
         _loadReactions(),
         loadTicks(),
         _loadHidden(),
+        _loadStarred(),
       ]);
     } catch (e) {
       if (!ref.mounted) return;
@@ -533,6 +576,51 @@ class ChatThreadNotifier extends Notifier<ChatThread> {
     } catch (_) {}
   }
 
+  Future<void> _loadStarred() async {
+    try {
+      final rows = await _db
+          .from('message_stars')
+          .select('message_id')
+          .eq('conversation_id', id);
+      if (!ref.mounted) return;
+      state = state.copyWith(
+        starred: {for (final r in rows) r['message_id'] as String},
+      );
+    } catch (_) {}
+  }
+
+  void setStarred(String messageId, bool on) {
+    final s = {...state.starred};
+    on ? s.add(messageId) : s.remove(messageId);
+    state = state.copyWith(starred: s);
+  }
+
+  /// Shows an edit at once (the server confirms over realtime).
+  void edited(String messageId, String body) {
+    final list = [
+      for (final m in state.messages)
+        m.id == messageId
+            ? ChatMessage(
+                id: m.id,
+                conversationId: m.conversationId,
+                authorId: m.authorId,
+                kind: m.kind,
+                body: body,
+                attachmentPath: m.attachmentPath,
+                replyTo: m.replyTo,
+                recordLink: m.recordLink,
+                attachmentName: m.attachmentName,
+                attachmentSize: m.attachmentSize,
+                durationMs: m.durationMs,
+                createdAt: m.createdAt,
+                forwarded: m.forwarded,
+                editedAt: DateTime.now(),
+              )
+            : m,
+    ];
+    state = state.copyWith(messages: list);
+  }
+
   /// Hides messages for you at once (the server is told through the outbox).
   void hideForMe(Iterable<String> ids) {
     state = state.copyWith(hidden: {...state.hidden, ...ids});
@@ -556,7 +644,7 @@ class ChatThreadNotifier extends Notifier<ChatThread> {
   Future<void> _signPhotos(List<ChatMessage> list) async {
     final paths = [
       for (final m in list)
-        if ({'photo', 'voice', 'file'}.contains(m.kind) &&
+        if ({'photo', 'voice', 'file', 'video'}.contains(m.kind) &&
             m.attachmentPath != null &&
             !state.photoUrls.containsKey(m.attachmentPath))
           m.attachmentPath!,
@@ -782,6 +870,7 @@ class ChatActions {
     Uint8List? photo,
     ChatAttachment? voice,
     ChatAttachment? file,
+    ChatAttachment? video,
     String? recordLink,
     String? replyTo,
     List<String> mentions = const [],
@@ -791,7 +880,7 @@ class ChatActions {
     final id = _uuid.v4();
     final ChatAttachment? attachment = photo != null
         ? ChatAttachment(bytes: photo, name: 'photo.jpg', type: 'image/jpeg')
-        : voice ?? file;
+        : voice ?? file ?? video;
     String? path;
     if (attachment != null) {
       final safe = attachment.name.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
@@ -810,6 +899,8 @@ class ChatActions {
         ? 'voice'
         : file != null
         ? 'file'
+        : video != null
+        ? 'video'
         : recordLink != null
         ? 'record'
         : 'text';
@@ -826,7 +917,7 @@ class ChatActions {
             attachmentPath: path,
             attachmentName: attachment?.name,
             attachmentSize: attachment?.bytes.length,
-            durationMs: voice?.durationMs,
+            durationMs: (voice ?? video)?.durationMs,
             replyTo: replyTo,
             recordLink: recordLink,
             createdAt: DateTime.now(),
@@ -842,7 +933,7 @@ class ChatActions {
       'p_attachment_path': path,
       'p_attachment_name': attachment?.name,
       'p_attachment_size': attachment?.bytes.length,
-      'p_duration_ms': voice?.durationMs,
+      'p_duration_ms': (voice ?? video)?.durationMs,
       'p_reply_to': replyTo,
       'p_record_link': recordLink,
       'p_mentions': mentions.isEmpty ? null : mentions,
@@ -886,7 +977,8 @@ class ChatActions {
         final id = _uuid.v4();
         String? path;
         final from = m.attachmentPath;
-        if (from != null && {'photo', 'voice', 'file'}.contains(m.kind)) {
+        if (from != null &&
+            {'photo', 'voice', 'file', 'video'}.contains(m.kind)) {
           path = '$target/$id/${from.split('/').last}';
           await db.storage.from('chat-files').copy(from, path);
         }
@@ -904,6 +996,131 @@ class ChatActions {
     }
     unawaited(_ref.read(conversationsProvider.notifier).refresh());
     return sent;
+  }
+
+  /// Changes your own text message (within 15 minutes; online).
+  Future<void> edit(
+    String conversationId,
+    String messageId,
+    String body,
+  ) async {
+    await _ref
+        .read(supabaseProvider)
+        .rpc(
+          'fn_edit_message',
+          params: {'p_message': messageId, 'p_body': body},
+        );
+    _ref
+        .read(chatThreadProvider(conversationId).notifier)
+        .edited(messageId, body.trim());
+    unawaited(_ref.read(conversationsProvider.notifier).refresh());
+  }
+
+  Future<void> star(String conversationId, String messageId, bool on) async {
+    _ref
+        .read(chatThreadProvider(conversationId).notifier)
+        .setStarred(messageId, on);
+    try {
+      await _ref
+          .read(supabaseProvider)
+          .rpc('fn_star_message', params: {'p_message': messageId, 'p_on': on});
+    } catch (_) {
+      _ref
+          .read(chatThreadProvider(conversationId).notifier)
+          .setStarred(messageId, !on);
+      rethrow;
+    }
+  }
+
+  /// [until] null unmutes; [always] mutes for good.
+  Future<void> mute(
+    String conversationId, {
+    Duration? until,
+    bool always = false,
+  }) async {
+    await _ref
+        .read(supabaseProvider)
+        .rpc(
+          'fn_mute_conversation',
+          params: {
+            'p_conversation': conversationId,
+            'p_until': always
+                ? 'infinity'
+                : until == null
+                ? null
+                : DateTime.now().add(until).toUtc().toIso8601String(),
+          },
+        );
+    await _ref.read(conversationsProvider.notifier).refresh();
+  }
+
+  Future<void> archive(String conversationId, bool on) async {
+    await _ref
+        .read(supabaseProvider)
+        .rpc(
+          'fn_archive_conversation',
+          params: {'p_conversation': conversationId, 'p_on': on},
+        );
+    await _ref.read(conversationsProvider.notifier).refresh();
+  }
+
+  /// Group name, members (fn_update_group), description and picture.
+  Future<void> updateGroup(
+    String conversationId, {
+    String? title,
+    List<String> add = const [],
+    List<String> remove = const [],
+  }) async {
+    await _ref
+        .read(supabaseProvider)
+        .rpc(
+          'fn_update_group',
+          params: {
+            'p_conversation': conversationId,
+            'p_title': title,
+            'p_add': add,
+            'p_remove': remove,
+          },
+        );
+    await _ref.read(conversationsProvider.notifier).refresh();
+  }
+
+  Future<void> updateGroupInfo(
+    String conversationId, {
+    String? description,
+    Uint8List? photo,
+  }) async {
+    String? path;
+    final db = _ref.read(supabaseProvider);
+    if (photo != null) {
+      path = '$conversationId/group/${_uuid.v4()}.jpg';
+      await db.storage
+          .from('chat-files')
+          .uploadBinary(
+            path,
+            photo,
+            fileOptions: const FileOptions(contentType: 'image/jpeg'),
+          );
+    }
+    await db.rpc(
+      'fn_update_group_info',
+      params: {
+        'p_conversation': conversationId,
+        'p_description': description,
+        'p_photo_path': path,
+      },
+    );
+    await _ref.read(conversationsProvider.notifier).refresh();
+  }
+
+  Future<void> leave(String conversationId) async {
+    await _ref
+        .read(supabaseProvider)
+        .rpc(
+          'fn_leave_conversation',
+          params: {'p_conversation': conversationId},
+        );
+    await _ref.read(conversationsProvider.notifier).refresh();
   }
 
   /// Who should get a message, when it reached them and when they read it.
@@ -982,3 +1199,79 @@ class ChatActions {
     return (row as Map)['id'] as String;
   }
 }
+
+/// When someone was last in the app (profiles.last_seen_at).
+final lastSeenProvider = FutureProvider.autoDispose.family<DateTime?, String>((
+  ref,
+  userId,
+) async {
+  try {
+    final row = await ref
+        .read(supabaseProvider)
+        .from('profiles')
+        .select('last_seen_at')
+        .eq('id', userId)
+        .maybeSingle();
+    final v = row?['last_seen_at'] as String?;
+    return v == null ? null : DateTime.parse(v).toLocal();
+  } catch (_) {
+    return null;
+  }
+});
+
+/// Your starred messages: in one chat, or (null) across all chats.
+final starredProvider = FutureProvider.autoDispose
+    .family<List<ChatMessage>, String?>((ref, conversationId) async {
+      var q = ref
+          .read(supabaseProvider)
+          .from('message_stars')
+          .select('created_at, messages(*)')
+          .eq('user_id', ref.read(authUserIdProvider) ?? '');
+      if (conversationId != null) q = q.eq('conversation_id', conversationId);
+      final rows = await q.order('created_at', ascending: false).limit(200);
+      return [
+        for (final r in rows)
+          if (r['messages'] is Map)
+            ChatMessage.fromJson(
+              Map<String, dynamic>.from(r['messages'] as Map),
+            ),
+      ];
+    });
+
+/// Messages in a chat containing some words (newest first; the server
+/// searches all of them, not only those on the phone).
+final chatSearchProvider = FutureProvider.autoDispose
+    .family<List<ChatMessage>, ({String conversationId, String query})>((
+      ref,
+      a,
+    ) async {
+      if (a.query.trim().length < 2) return const [];
+      final rows = await ref
+          .read(supabaseProvider)
+          .from('messages')
+          .select()
+          .eq('conversation_id', a.conversationId)
+          .eq('is_archived', false)
+          .ilike(
+            'body',
+            '%${a.query.trim().replaceAll('%', '').replaceAll('_', '')}%',
+          )
+          .order('created_at', ascending: false)
+          .limit(100);
+      return [for (final r in rows) ChatMessage.fromJson(r)];
+    });
+
+/// Photos, videos, files and links shared in a chat (group info).
+final chatMediaProvider = FutureProvider.autoDispose
+    .family<List<ChatMessage>, String>((ref, conversationId) async {
+      final rows = await ref
+          .read(supabaseProvider)
+          .from('messages')
+          .select()
+          .eq('conversation_id', conversationId)
+          .eq('is_archived', false)
+          .or('kind.in.(photo,video,file),body.ilike.%http%')
+          .order('created_at', ascending: false)
+          .limit(300);
+      return [for (final r in rows) ChatMessage.fromJson(r)];
+    });

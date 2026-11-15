@@ -25,6 +25,7 @@ import 'assets/asset_detail_screen.dart';
 import 'assets/equipment_screen.dart';
 import 'chat/call_screen.dart';
 import 'chat/calls_screen.dart';
+import 'chat/group_info_screen.dart';
 import 'chat/chat_list_screen.dart';
 import 'chat/conversation_screen.dart';
 import 'checklists/checklist_run_screen.dart';
@@ -197,6 +198,16 @@ GoRouter buildRouter(WidgetRef ref) {
       ...jobCardRoutes,
       jobCardDetailRoute,
       GoRoute(path: '/calls', builder: (_, _) => const CallsScreen()),
+      GoRoute(path: '/starred', builder: (_, _) => const StarredScreen()),
+      GoRoute(
+        path: '/chat/:id/info',
+        builder: (_, s) => GroupInfoScreen(id: s.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/chat/:id/starred',
+        builder: (_, s) =>
+            StarredScreen(conversationId: s.pathParameters['id']!),
+      ),
       GoRoute(
         path: '/chat/:id/call',
         builder: (_, s) => CallScreen(
