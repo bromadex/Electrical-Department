@@ -6,13 +6,15 @@ import 'package:uuid/uuid.dart';
 
 import '../services/core_providers.dart';
 
-/// One action from the minutes.
+/// One action from the minutes: what, who is responsible, by when, and
+/// where it stands (Ongoing, Awaiting drawings, ...).
 class MeetingAction {
   const MeetingAction({
     required this.text,
     this.ownerId,
     this.ownerName,
     this.due,
+    this.status = '',
   });
 
   factory MeetingAction.fromJson(Map<String, dynamic> j) => MeetingAction(
@@ -20,12 +22,16 @@ class MeetingAction {
     ownerId: j['owner_id'] as String?,
     ownerName: j['owner_name'] as String?,
     due: DateTime.tryParse(j['due'] as String? ?? ''),
+    status: j['status'] as String? ?? '',
   );
 
   final String text;
   final String? ownerId;
+
+  /// The responsible person or people as written ("L.K / T.C" is fine).
   final String? ownerName;
   final DateTime? due;
+  final String status;
 
   Map<String, dynamic> toJson() => {
     'text': text,
@@ -34,33 +40,129 @@ class MeetingAction {
     'due': due == null
         ? null
         : '${due!.year}-${due!.month.toString().padLeft(2, '0')}-${due!.day.toString().padLeft(2, '0')}',
+    'status': status,
   };
 }
 
-/// Summary, decisions and actions (API.md section 16c).
+/// Someone at the meeting, as listed under Attendance.
+class Attendee {
+  const Attendee({
+    required this.name,
+    this.position = '',
+    this.organisation = 'Bravura',
+  });
+
+  factory Attendee.fromJson(Map<String, dynamic> j) => Attendee(
+    name: j['name'] as String? ?? '',
+    position: j['position'] as String? ?? '',
+    organisation: j['organisation'] as String? ?? '',
+  );
+
+  final String name;
+  final String position;
+  final String organisation;
+
+  /// "C. Mpala" from "Clement Mpala".
+  String get shortName => minutesShortName(name);
+
+  /// "C.M" from "Clement Mpala".
+  String get initials => minutesInitials(name);
+
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'position': position,
+    'organisation': organisation,
+  };
+}
+
+/// "C.M" from "Clement Mpala" (the department's minutes use initials).
+String minutesInitials(String name) {
+  final parts = name
+      .replaceAll('.', ' ')
+      .split(RegExp(r'\s+'))
+      .where((p) => p.isNotEmpty)
+      .toList();
+  if (parts.isEmpty) return '';
+  if (parts.length == 1) return parts.first[0].toUpperCase();
+  return '${parts.first[0].toUpperCase()}.${parts.last[0].toUpperCase()}';
+}
+
+/// "C. Mpala" from "Clement Mpala".
+String minutesShortName(String name) {
+  final parts = name.trim().split(RegExp(r'\s+'));
+  if (parts.length < 2) return name.trim();
+  return '${parts.first[0].toUpperCase()}. ${parts.sublist(1).join(' ')}';
+}
+
+/// One line of the project status table.
+typedef StatusLine = ({String area, String status});
+
+/// The minutes, in the department's format (API.md section 16c): details,
+/// attendance, updates, executive summary, decisions, the numbered action
+/// table, a project status table, the next meeting's agenda and sign-off.
 class Minutes {
   const Minutes({
     this.summary = '',
     this.decisions = const [],
     this.actions = const [],
+    this.meetingType = '',
+    this.venue = '',
+    this.minutesBy = '',
+    this.attendance = const [],
+    this.updates = '',
+    this.statusSummary = const [],
+    this.nextAgenda = const [],
+    this.reviewedBy = '',
+    this.approvedBy = '',
   });
 
-  factory Minutes.fromJson(Map<String, dynamic>? j) => j == null
-      ? const Minutes()
-      : Minutes(
-          summary: j['summary'] as String? ?? '',
-          decisions: [
-            for (final d in (j['decisions'] as List? ?? const [])) '$d',
-          ],
-          actions: [
-            for (final a in (j['actions'] as List? ?? const []))
-              MeetingAction.fromJson(Map<String, dynamic>.from(a as Map)),
-          ],
-        );
+  factory Minutes.fromJson(Map<String, dynamic>? j) {
+    if (j == null) return const Minutes();
+    List<String> strings(String k) => [
+      for (final d in (j[k] as List? ?? const [])) '$d',
+    ];
+    return Minutes(
+      summary: j['summary'] as String? ?? '',
+      decisions: strings('decisions'),
+      actions: [
+        for (final a in (j['actions'] as List? ?? const []))
+          MeetingAction.fromJson(Map<String, dynamic>.from(a as Map)),
+      ],
+      meetingType: j['meeting_type'] as String? ?? '',
+      venue: j['venue'] as String? ?? '',
+      minutesBy: j['minutes_by'] as String? ?? '',
+      attendance: [
+        for (final a in (j['attendance'] as List? ?? const []))
+          Attendee.fromJson(Map<String, dynamic>.from(a as Map)),
+      ],
+      updates: j['updates'] as String? ?? '',
+      statusSummary: [
+        for (final s in (j['status_summary'] as List? ?? const []))
+          (area: '${(s as Map)['area'] ?? ''}', status: '${s['status'] ?? ''}'),
+      ],
+      nextAgenda: strings('next_agenda'),
+      reviewedBy: j['reviewed_by'] as String? ?? '',
+      approvedBy: j['approved_by'] as String? ?? '',
+    );
+  }
 
+  /// The executive summary and overview.
   final String summary;
   final List<String> decisions;
   final List<MeetingAction> actions;
+  final String meetingType;
+  final String venue;
+
+  /// Who took (prepared) the minutes.
+  final String minutesBy;
+  final List<Attendee> attendance;
+
+  /// Site updates reported at the start of the meeting.
+  final String updates;
+  final List<StatusLine> statusSummary;
+  final List<String> nextAgenda;
+  final String reviewedBy;
+  final String approvedBy;
 
   bool get isEmpty => summary.trim().isEmpty;
 
@@ -68,6 +170,17 @@ class Minutes {
     'summary': summary,
     'decisions': decisions,
     'actions': [for (final a in actions) a.toJson()],
+    'meeting_type': meetingType,
+    'venue': venue,
+    'minutes_by': minutesBy,
+    'attendance': [for (final a in attendance) a.toJson()],
+    'updates': updates,
+    'status_summary': [
+      for (final s in statusSummary) {'area': s.area, 'status': s.status},
+    ],
+    'next_agenda': nextAgenda,
+    'reviewed_by': reviewedBy,
+    'approved_by': approvedBy,
   };
 }
 
@@ -93,6 +206,26 @@ class Meeting {
             : Map<String, dynamic>.from(j['minutes'] as Map),
       ),
       minutesStatus = j['minutes_status'] as String? ?? 'none';
+
+  Meeting._copy(Meeting m, this.minutes)
+    : id = m.id,
+      siteId = m.siteId,
+      conversationId = m.conversationId,
+      code = m.code,
+      title = m.title,
+      agenda = m.agenda,
+      startsAt = m.startsAt,
+      durationMin = m.durationMin,
+      chairId = m.chairId,
+      cancelled = m.cancelled,
+      recording = m.recording,
+      recordingError = m.recordingError,
+      audioPath = m.audioPath,
+      transcript = m.transcript,
+      minutesStatus = m.minutesStatus;
+
+  /// The same meeting with other minutes (to preview a draft as PDF).
+  Meeting withMinutes(Minutes minutes) => Meeting._copy(this, minutes);
 
   final String id;
   final String siteId;

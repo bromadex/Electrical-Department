@@ -38,9 +38,14 @@ function projectKey(legacy: string, current: string): string {
   }
 }
 
+// The department's minutes format (Bravura Electrical): site updates, an
+// executive summary, decisions, the numbered action table (responsible,
+// due date and/or status), a project status table and the next meeting's
+// agenda. Attendance, venue and sign-off are filled in the app.
 const minutesSchema = {
   type: "object",
   properties: {
+    updates: { type: "string" },
     summary: { type: "string" },
     decisions: { type: "array", items: { type: "string" } },
     actions: {
@@ -51,21 +56,57 @@ const minutesSchema = {
           text: { type: "string" },
           owner_name: { type: "string" },
           due: { type: "string" },
+          status: { type: "string" },
         },
-        required: ["text", "owner_name", "due"],
+        required: ["text", "owner_name", "due", "status"],
         additionalProperties: false,
       },
     },
+    status_summary: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: { area: { type: "string" }, status: { type: "string" } },
+        required: ["area", "status"],
+        additionalProperties: false,
+      },
+    },
+    next_agenda: { type: "array", items: { type: "string" } },
   },
-  required: ["summary", "decisions", "actions"],
+  required: ["updates", "summary", "decisions", "actions", "status_summary", "next_agenda"],
   additionalProperties: false,
 };
 
 type Minutes = {
+  updates: string;
   summary: string;
   decisions: string[];
-  actions: { text: string; owner_name: string; due: string }[];
+  actions: { text: string; owner_name: string; due: string; status: string }[];
+  status_summary: { area: string; status: string }[];
+  next_agenda: string[];
 };
+
+/** Whatever a model returned, in the shape above. */
+function tidy(j: Partial<Minutes>): Minutes {
+  const str = (v: unknown) => (typeof v === "string" ? v : v == null ? "" : String(v));
+  const list = (v: unknown) => (Array.isArray(v) ? v : []);
+  return {
+    updates: str(j.updates),
+    summary: str(j.summary),
+    decisions: list(j.decisions).map(str).filter((d) => d),
+    actions: list(j.actions).map((a) => ({
+      text: str(a?.text),
+      owner_name: str(a?.owner_name),
+      due: str(a?.due),
+      status: str(a?.status),
+    })).filter((a) => a.text),
+    status_summary: list(j.status_summary).map((s) => ({
+      area: str(s?.area),
+      status: str(s?.status),
+    })).filter((s) => s.area || s.status),
+    next_agenda: list(j.next_agenda).map(str).filter((a) => a),
+  };
+}
 
 /** Groq's OpenAI-compatible API (GROQ_BASE_URL overrides it for tests). */
 const groqBase = () => (Deno.env.get("GROQ_BASE_URL") ?? "https://api.groq.com/openai/v1").replace(/\/+$/, "");
@@ -87,12 +128,26 @@ async function groqModel(key: string): Promise<string> {
 }
 
 const instructions =
-  "You write the minutes of an electrical department's work meeting at a mine. " +
-  "Be brief and factual, in plain English. The summary is 2 to 6 sentences. " +
-  "Decisions are what was agreed. Actions are concrete tasks; owner_name is one of " +
-  "the people listed when the source makes the owner clear, otherwise an empty " +
-  "string; due is a date as YYYY-MM-DD when one was said, otherwise an empty string. " +
-  "Never invent decisions, owners or dates that the source does not support.";
+  "You write the minutes of the Bravura Electrical Department's work meetings at mine " +
+  "sites, in the department's format. Be factual, in plain formal English, with numbers, " +
+  "sizes and dates exactly as said. " +
+  "updates: the site progress reported at the start of the meeting, as one short " +
+  "paragraph in reported speech naming who reported (e.g. 'C.M. reported that ...'); " +
+  "empty if none. " +
+  "summary: the executive summary and overview, 2 to 4 sentences on what the meeting " +
+  "reviewed. " +
+  "decisions: what was agreed, if anything was clearly decided. " +
+  "actions: every action or discussion point in the order raised, each a complete " +
+  "sentence or two; owner_name is the responsible person's full name from the people " +
+  "listed, or several joined with ' / ', or a team such as 'Procurement', or empty if " +
+  "unclear; due is YYYY-MM-DD when a date was said, else empty; status is a short state " +
+  "such as 'Ongoing', 'Pending civil works', 'Awaiting drawings', 'Progress update', " +
+  "'Approval pending'. " +
+  "status_summary: one line per work area discussed (e.g. Storage tanks, Civil works, " +
+  "Earthing, Lighting, MCC, Grid connection) with its current status in one sentence; " +
+  "empty when the meeting was not a project review. " +
+  "next_agenda: short items to review at the next meeting, from the open actions. " +
+  "Never invent facts, owners, dates or figures that the source does not support.";
 
 /** Free: Groq, JSON mode. */
 async function groqDraft(key: string, prompt: string): Promise<Minutes> {
@@ -107,8 +162,10 @@ async function groqDraft(key: string, prompt: string): Promise<Minutes> {
         {
           role: "system",
           content: instructions +
-            ' Answer with JSON only: {"summary": string, "decisions": [string], ' +
-            '"actions": [{"text": string, "owner_name": string, "due": string}]}.',
+            ' Answer with JSON only: {"updates": string, "summary": string, ' +
+            '"decisions": [string], "actions": [{"text": string, "owner_name": string, ' +
+            '"due": string, "status": string}], "status_summary": [{"area": string, ' +
+            '"status": string}], "next_agenda": [string]}.',
         },
         { role: "user", content: prompt },
       ],
@@ -117,18 +174,7 @@ async function groqDraft(key: string, prompt: string): Promise<Minutes> {
   const text = await res.text();
   if (!res.ok) throw new Error(`FAILED: Drafting ${res.status}: ${text.slice(0, 200)}`);
   const content = JSON.parse(text).choices?.[0]?.message?.content ?? "{}";
-  const j = JSON.parse(content) as Partial<Minutes>;
-  return {
-    summary: String(j.summary ?? ""),
-    decisions: Array.isArray(j.decisions) ? j.decisions.map(String) : [],
-    actions: Array.isArray(j.actions)
-      ? j.actions.map((a) => ({
-        text: String(a?.text ?? ""),
-        owner_name: String(a?.owner_name ?? ""),
-        due: String(a?.due ?? ""),
-      })).filter((a) => a.text)
-      : [],
-  };
+  return tidy(JSON.parse(content) as Partial<Minutes>);
 }
 
 /** Claude, when ANTHROPIC_API_KEY is set. */
@@ -154,7 +200,7 @@ async function claudeDraft(prompt: string): Promise<Minutes> {
     .filter((b) => b.type === "text")
     .map((b) => (b as { text: string }).text)
     .join("");
-  return JSON.parse(text) as Minutes;
+  return tidy(JSON.parse(text) as Partial<Minutes>);
 }
 
 Deno.serve(async (req) => {
@@ -238,15 +284,36 @@ Deno.serve(async (req) => {
       return people.find((p) => p.full_name.toLowerCase() === n) ??
         people.find((p) => p.full_name.toLowerCase().split(" ")[0] === n.split(" ")[0]) ?? null;
     };
+    // Keep what the chair already filled in (details, attendance, sign-off).
+    const { data: before } = await caller.from("meetings").select("minutes").eq("id", meetingId)
+      .maybeSingle();
+    const kept = (before?.minutes ?? {}) as Record<string, unknown>;
     const saved = {
+      meeting_type: kept.meeting_type ?? "",
+      venue: kept.venue ?? "",
+      minutes_by: kept.minutes_by ?? "",
+      attendance: kept.attendance ?? [],
+      reviewed_by: kept.reviewed_by ?? "",
+      approved_by: kept.approved_by ?? "",
+      updates: minutes.updates,
       summary: minutes.summary,
       decisions: minutes.decisions,
-      actions: minutes.actions.map((a) => ({
-        text: a.text,
-        owner_id: match(a.owner_name)?.id ?? null,
-        owner_name: match(a.owner_name)?.full_name ?? (a.owner_name || null),
-        due: /^\d{4}-\d{2}-\d{2}$/.test(a.due) ? a.due : null,
-      })),
+      actions: minutes.actions.map((a) => {
+        // "L. Karambwe / T. Chikuku": tag the first known person as owner
+        // (they get the reminder); keep the whole text as written.
+        const first = a.owner_name.split("/")[0] ?? "";
+        const who = match(first);
+        const several = a.owner_name.includes("/");
+        return {
+          text: a.text,
+          owner_id: who?.id ?? null,
+          owner_name: several ? a.owner_name : who?.full_name ?? (a.owner_name || null),
+          due: /^\d{4}-\d{2}-\d{2}$/.test(a.due) ? a.due : null,
+          status: a.status,
+        };
+      }),
+      status_summary: minutes.status_summary,
+      next_agenda: minutes.next_agenda,
     };
     const { error } = await caller.rpc("fn_save_minutes", {
       p_meeting: meetingId,

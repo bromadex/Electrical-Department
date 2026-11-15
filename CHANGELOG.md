@@ -1,5 +1,21 @@
 # What's new
 
+## 15 November 2026
+
+### Minutes in the department's format
+- Meeting minutes now follow the department's paper minutes: meeting type,
+  venue, chairperson and minute-taker; an attendance table with positions;
+  site updates; an executive summary; the numbered action table with who is
+  responsible (as initials) and the due date or status; a project status
+  table; the next meeting's proposed agenda; and prepared, reviewed and
+  approved by.
+- The AI draft fills the updates, actions with status, status table and next
+  agenda; attendance comes from who joined the call, with positions kept
+  from the chat's last minutes. **Preview PDF** shows the result before
+  approving.
+- Database backups now run nightly (passphrase set); captions and AI minutes
+  are on with a free Groq key.
+
 ## 14 November 2026
 
 ### Safer permissions (issue #35)

@@ -401,8 +401,98 @@ class _MinutesPanelState extends ConsumerState<_MinutesPanel> {
   late final _actions = [
     for (final a in widget.meeting.minutes.actions) _ActionDraft.from(a),
   ];
+  late final _type = TextEditingController(
+    text: widget.meeting.minutes.meetingType,
+  );
+  late final _venue = TextEditingController(text: widget.meeting.minutes.venue);
+  late final _minutesBy = TextEditingController(
+    text: widget.meeting.minutes.minutesBy,
+  );
+  late final _reviewedBy = TextEditingController(
+    text: widget.meeting.minutes.reviewedBy,
+  );
+  late final _approvedBy = TextEditingController(
+    text: widget.meeting.minutes.approvedBy,
+  );
+  late final _updates = TextEditingController(
+    text: widget.meeting.minutes.updates,
+  );
+  late final _attendance = [
+    for (final a in widget.meeting.minutes.attendance) _AttendeeDraft.from(a),
+  ];
+  late final _statusLines = [
+    for (final l in widget.meeting.minutes.statusSummary) _StatusDraft.from(l),
+  ];
+  late final _nextAgenda = [
+    for (final a in widget.meeting.minutes.nextAgenda)
+      TextEditingController(text: a),
+  ];
   late bool _editing = !widget.meeting.minutes.isEmpty;
   bool _busy = false;
+  bool _prefilled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_editing) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _prefill());
+    }
+  }
+
+  /// Fills what the department's format needs and the draft lacks:
+  /// attendance from who joined the call (positions as in this chat's last
+  /// minutes), meeting type and venue as last time, and who takes the
+  /// minutes. Never overwrites what is already there.
+  Future<void> _prefill() async {
+    if (_prefilled || !mounted) return;
+    _prefilled = true;
+    final m = widget.meeting;
+    Minutes? last;
+    try {
+      final all = await ref.read(chatMeetingsProvider(m.conversationId).future);
+      final earlier = [
+        for (final x in all)
+          if (x.id != m.id &&
+              x.startsAt.isBefore(m.startsAt) &&
+              x.minutes.attendance.isNotEmpty)
+            x,
+      ]..sort((a, b) => b.startsAt.compareTo(a.startsAt));
+      last = earlier.firstOrNull?.minutes;
+    } catch (_) {}
+    List<({String id, String name})> joined = const [];
+    if (_attendance.isEmpty) {
+      try {
+        joined = await ref.read(meetingAttendanceProvider(m.id).future);
+      } catch (_) {}
+    }
+    if (!mounted) return;
+    final me = ref.read(sessionProvider).profile?.fullName ?? '';
+    setState(() {
+      if (_attendance.isEmpty) {
+        for (final p in joined) {
+          final before = last?.attendance
+              .where((a) => a.name.toLowerCase() == p.name.toLowerCase())
+              .firstOrNull;
+          _attendance.add(
+            _AttendeeDraft.from(
+              before ?? Attendee(name: p.name, organisation: 'Bravura'),
+            ),
+          );
+        }
+      }
+      if (_type.text.trim().isEmpty) {
+        _type.text = last?.meetingType ?? '';
+      }
+      if (_venue.text.trim().isEmpty) {
+        _venue.text = (last?.venue ?? '').isNotEmpty
+            ? last!.venue
+            : 'Online Meeting';
+      }
+      if (_minutesBy.text.trim().isEmpty && me.isNotEmpty) {
+        _minutesBy.text = minutesShortName(me);
+      }
+    });
+  }
 
   @override
   void didUpdateWidget(_MinutesPanel old) {
@@ -423,19 +513,51 @@ class _MinutesPanelState extends ConsumerState<_MinutesPanel> {
       _actions
         ..clear()
         ..addAll([for (final a in m.actions) _ActionDraft.from(a)]);
+      if (m.updates.trim().isNotEmpty) _updates.text = m.updates;
+      if (m.statusSummary.isNotEmpty) {
+        _statusLines
+          ..clear()
+          ..addAll([for (final l in m.statusSummary) _StatusDraft.from(l)]);
+      }
+      if (m.nextAgenda.isNotEmpty) {
+        _nextAgenda
+          ..clear()
+          ..addAll([
+            for (final a in m.nextAgenda) TextEditingController(text: a),
+          ]);
+      }
       _editing = true;
     });
+    _prefill();
   }
 
   @override
   void dispose() {
     _notes.dispose();
     _summary.dispose();
+    for (final c in [
+      _type,
+      _venue,
+      _minutesBy,
+      _reviewedBy,
+      _approvedBy,
+      _updates,
+      ..._nextAgenda,
+    ]) {
+      c.dispose();
+    }
+    for (final a in _attendance) {
+      a.dispose();
+    }
+    for (final l in _statusLines) {
+      l.dispose();
+    }
     for (final c in _decisions) {
       c.dispose();
     }
     for (final a in _actions) {
       a.text.dispose();
+      a.status.dispose();
     }
     super.dispose();
   }
@@ -454,7 +576,32 @@ class _MinutesPanelState extends ConsumerState<_MinutesPanel> {
             ownerId: a.ownerId,
             ownerName: names[a.ownerId] ?? a.ownerName,
             due: a.due,
+            status: a.status.text.trim(),
           ),
+    ],
+    meetingType: _type.text.trim(),
+    venue: _venue.text.trim(),
+    minutesBy: _minutesBy.text.trim(),
+    reviewedBy: _reviewedBy.text.trim(),
+    approvedBy: _approvedBy.text.trim(),
+    updates: _updates.text.trim(),
+    attendance: [
+      for (final a in _attendance)
+        if (a.name.text.trim().isNotEmpty)
+          Attendee(
+            name: a.name.text.trim(),
+            position: a.position.text.trim(),
+            organisation: a.organisation.text.trim(),
+          ),
+    ],
+    statusSummary: [
+      for (final l in _statusLines)
+        if (l.area.text.trim().isNotEmpty || l.status.text.trim().isNotEmpty)
+          (area: l.area.text.trim(), status: l.status.text.trim()),
+    ],
+    nextAgenda: [
+      for (final c in _nextAgenda)
+        if (c.text.trim().isNotEmpty) c.text.trim(),
     ],
   );
 
@@ -482,18 +629,9 @@ class _MinutesPanelState extends ConsumerState<_MinutesPanel> {
 
   Future<void> _pdf(Map<String, String> names) async {
     final m = widget.meeting;
-    List<String> present = const [];
-    try {
-      present = [
-        for (final p in await ref.read(meetingAttendanceProvider(m.id).future))
-          p.name,
-      ];
-    } catch (_) {}
     final bytes = await buildMinutesPdf(
       meeting: m,
-      chatName: widget.chatName,
       chairName: names[m.chairId] ?? '—',
-      attendance: present,
     );
     await Printing.sharePdf(bytes: bytes, filename: '${m.code}-minutes.pdf');
   }
@@ -525,6 +663,12 @@ class _MinutesPanelState extends ConsumerState<_MinutesPanel> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (min.updates.trim().isNotEmpty) ...[
+                  Text('Updates', style: theme.textTheme.titleSmall),
+                  const SizedBox(height: 4),
+                  SelectableText(min.updates),
+                  const SizedBox(height: Space.md),
+                ],
                 Text('Summary', style: theme.textTheme.titleSmall),
                 const SizedBox(height: 4),
                 SelectableText(min.summary),
@@ -572,6 +716,7 @@ class _MinutesPanelState extends ConsumerState<_MinutesPanel> {
                                 a.ownerName ?? 'No one named',
                                 if (a.due != null)
                                   'by ${MaterialLocalizations.of(context).formatMediumDate(a.due!)}',
+                                if (a.status.isNotEmpty) a.status,
                               ].join(' · '),
                               style: theme.textTheme.labelSmall,
                             ),
@@ -679,7 +824,10 @@ class _MinutesPanelState extends ConsumerState<_MinutesPanel> {
                 ),
                 const SizedBox(width: Space.sm),
                 TextButton(
-                  onPressed: () => setState(() => _editing = true),
+                  onPressed: () {
+                    setState(() => _editing = true);
+                    _prefill();
+                  },
                   child: const Text('Write them myself'),
                 ),
               ],
@@ -700,7 +848,118 @@ class _MinutesPanelState extends ConsumerState<_MinutesPanel> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('Summary', style: theme.textTheme.titleSmall),
+              Text('Details', style: theme.textTheme.titleSmall),
+              const SizedBox(height: Space.xs),
+              TextField(
+                controller: _type,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(
+                  labelText: 'Meeting type',
+                  hintText: 'e.g. Technical Project Review Meeting',
+                ),
+              ),
+              TextField(
+                controller: _venue,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(labelText: 'Venue'),
+              ),
+              TextField(
+                controller: _minutesBy,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(
+                  labelText: 'Minutes taken by',
+                ),
+              ),
+              const SizedBox(height: Space.md),
+              Text('Attendance', style: theme.textTheme.titleSmall),
+              for (final (i, a) in _attendance.indexed)
+                Padding(
+                  key: ObjectKey(a),
+                  padding: const EdgeInsets.only(top: Space.xs),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: TextField(
+                          controller: a.name,
+                          textCapitalization: TextCapitalization.words,
+                          decoration: const InputDecoration(
+                            labelText: 'Name',
+                            isDense: true,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: Space.xs),
+                      Expanded(
+                        flex: 3,
+                        child: TextField(
+                          controller: a.position,
+                          textCapitalization: TextCapitalization.words,
+                          decoration: const InputDecoration(
+                            labelText: 'Position',
+                            isDense: true,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: Space.xs),
+                      Expanded(
+                        flex: 2,
+                        child: TextField(
+                          controller: a.organisation,
+                          textCapitalization: TextCapitalization.words,
+                          decoration: const InputDecoration(
+                            labelText: 'Organisation',
+                            isDense: true,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Remove',
+                        onPressed: () =>
+                            setState(() => _attendance.removeAt(i)),
+                        icon: const Icon(CupertinoIcons.minus_circle),
+                      ),
+                    ],
+                  ),
+                ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () => setState(
+                    () => _attendance.add(
+                      _AttendeeDraft.from(
+                        const Attendee(name: '', organisation: 'Bravura'),
+                      ),
+                    ),
+                  ),
+                  icon: const Icon(CupertinoIcons.person_add),
+                  label: const Text('Add a person'),
+                ),
+              ),
+              const SizedBox(height: Space.sm),
+              Text('Updates', style: theme.textTheme.titleSmall),
+              const SizedBox(height: Space.xs),
+              TextField(
+                controller: _updates,
+                minLines: 2,
+                maxLines: 10,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(
+                  hintText: 'Site updates reported at the start (optional)',
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: Space.sm),
+        SurfaceCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Executive summary & overview',
+                style: theme.textTheme.titleSmall,
+              ),
               const SizedBox(height: Space.xs),
               TextField(
                 controller: _summary,
@@ -814,6 +1073,15 @@ class _MinutesPanelState extends ConsumerState<_MinutesPanel> {
                       ),
                     ],
                   ),
+                  TextField(
+                    controller: a.status,
+                    textCapitalization: TextCapitalization.sentences,
+                    decoration: const InputDecoration(
+                      labelText: 'Status',
+                      hintText: 'e.g. Ongoing, Awaiting drawings',
+                      isDense: true,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -825,6 +1093,138 @@ class _MinutesPanelState extends ConsumerState<_MinutesPanel> {
             icon: const Icon(CupertinoIcons.add),
             label: const Text('Add an action'),
           ),
+        ),
+        const SectionHeader('Project status summary'),
+        SurfaceCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final (i, l) in _statusLines.indexed)
+                Padding(
+                  key: ObjectKey(l),
+                  padding: const EdgeInsets.only(bottom: Space.xs),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: TextField(
+                          controller: l.area,
+                          textCapitalization: TextCapitalization.sentences,
+                          decoration: const InputDecoration(
+                            labelText: 'Area',
+                            isDense: true,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: Space.xs),
+                      Expanded(
+                        flex: 5,
+                        child: TextField(
+                          controller: l.status,
+                          minLines: 1,
+                          maxLines: 3,
+                          textCapitalization: TextCapitalization.sentences,
+                          decoration: const InputDecoration(
+                            labelText: 'Current status',
+                            isDense: true,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Remove',
+                        onPressed: () =>
+                            setState(() => _statusLines.removeAt(i)),
+                        icon: const Icon(CupertinoIcons.minus_circle),
+                      ),
+                    ],
+                  ),
+                ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () => setState(
+                    () => _statusLines.add(
+                      _StatusDraft.from((area: '', status: '')),
+                    ),
+                  ),
+                  icon: const Icon(CupertinoIcons.add),
+                  label: const Text('Add an area'),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SectionHeader('Next meeting – proposed agenda'),
+        SurfaceCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final (i, c) in _nextAgenda.indexed)
+                Row(
+                  key: ObjectKey(c),
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: c,
+                        textCapitalization: TextCapitalization.sentences,
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Remove',
+                      onPressed: () => setState(() => _nextAgenda.removeAt(i)),
+                      icon: const Icon(CupertinoIcons.minus_circle),
+                    ),
+                  ],
+                ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () =>
+                      setState(() => _nextAgenda.add(TextEditingController())),
+                  icon: const Icon(CupertinoIcons.add),
+                  label: const Text('Add an item'),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SectionHeader('Sign-off'),
+        SurfaceCard(
+          child: Column(
+            children: [
+              TextField(
+                controller: _reviewedBy,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(
+                  labelText: 'Document reviewed by',
+                ),
+              ),
+              TextField(
+                controller: _approvedBy,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(
+                  labelText: 'Minutes approved by',
+                  hintText: 'Leave empty to show the chair',
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: Space.sm),
+        OutlinedButton.icon(
+          onPressed: () async {
+            final saved = Minutes.fromJson(_current(names).toJson());
+            final bytes = await buildMinutesPdf(
+              meeting: m.withMinutes(saved),
+              chairName: names[m.chairId] ?? '—',
+            );
+            await Printing.sharePdf(
+              bytes: bytes,
+              filename: '${m.code}-minutes-draft.pdf',
+            );
+          },
+          icon: const Icon(CupertinoIcons.eye),
+          label: const Text('Preview PDF'),
         ),
         if ((m.transcript ?? '').isNotEmpty)
           ExpansionTile(
@@ -870,17 +1270,25 @@ class _MinutesPanelState extends ConsumerState<_MinutesPanel> {
 }
 
 class _ActionDraft {
-  _ActionDraft({String text = '', this.ownerId, this.ownerName, this.due})
-    : text = TextEditingController(text: text);
+  _ActionDraft({
+    String text = '',
+    this.ownerId,
+    this.ownerName,
+    this.due,
+    String status = '',
+  }) : text = TextEditingController(text: text),
+       status = TextEditingController(text: status);
 
   factory _ActionDraft.from(MeetingAction a) => _ActionDraft(
     text: a.text,
     ownerId: a.ownerId,
     ownerName: a.ownerName,
     due: a.due,
+    status: a.status,
   );
 
   final TextEditingController text;
+  final TextEditingController status;
   String? ownerId;
   String? ownerName;
   DateTime? due;
@@ -1092,5 +1500,36 @@ class _ScheduleMeetingSheetState extends ConsumerState<ScheduleMeetingSheet> {
         ],
       ),
     );
+  }
+}
+
+class _AttendeeDraft {
+  _AttendeeDraft.from(Attendee a)
+    : name = TextEditingController(text: a.name),
+      position = TextEditingController(text: a.position),
+      organisation = TextEditingController(text: a.organisation);
+
+  final TextEditingController name;
+  final TextEditingController position;
+  final TextEditingController organisation;
+
+  void dispose() {
+    name.dispose();
+    position.dispose();
+    organisation.dispose();
+  }
+}
+
+class _StatusDraft {
+  _StatusDraft.from(StatusLine l)
+    : area = TextEditingController(text: l.area),
+      status = TextEditingController(text: l.status);
+
+  final TextEditingController area;
+  final TextEditingController status;
+
+  void dispose() {
+    area.dispose();
+    status.dispose();
   }
 }

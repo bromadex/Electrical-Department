@@ -484,6 +484,8 @@ Meetings live inside group chats. Someone with `meetings.manage` schedules one f
 - The recording columns of 0022 (`recording_status`, `egress_id`, `audio_path`) are unused;
   the `meeting-record` function is gone. Not yet: attendees from outside the chat.
 
+- **Minutes format (15 November 2026):** `meetings.minutes` follows the department's paper minutes. Keys: `summary` (executive summary), `decisions`, `actions` `[{text, owner_id, owner_name, due, status}]` (`owner_name` may name several people, "A / B", or a team; `status` like "Ongoing"), `meeting_type`, `venue`, `minutes_by`, `attendance` `[{name, position, organisation}]`, `updates` (site updates paragraph), `status_summary` `[{area, status}]`, `next_agenda`, `reviewed_by`, `approved_by`. Older minutes without the new keys still load. The `meeting-minutes` function drafts updates, summary, decisions, actions with status, status summary and next agenda, and keeps the details, attendance and sign-off the chair already entered. The app fills attendance from who joined the call (positions as in the chat's last minutes) and prints the PDF in the department layout (logo, attendance table, lettered sections, numbered action table with initials, sign-off).
+
 ## 17. Job Cards Version 2 (migrations 0012–0014)
 
 The job card & maintenance management system from Tafara's PR #19 and its phase 2.
