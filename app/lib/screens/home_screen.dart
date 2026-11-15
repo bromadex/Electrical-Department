@@ -394,7 +394,7 @@ class _Shortcuts extends ConsumerWidget {
                 subtitle: unreadChat > 0 ? '$unreadChat unread' : 'Your team',
                 badge: unreadChat,
                 colors: const [Color(0xFF5B4B8A), BrandColors.info],
-                onTap: () => context.go('/chat'),
+                onTap: () => context.push('/chat'),
               ),
             if (can('req.submit'))
               ShortcutTile(

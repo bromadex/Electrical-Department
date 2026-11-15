@@ -2,6 +2,13 @@
 
 ## 15 November 2026
 
+### Chat behind a floating button
+- Chat is no longer a tab. A green chat button sits bottom right on every
+  screen, with a red badge counting chats with unread messages; tap it for
+  your chats, and back returns to where you were. Long-press it (or hover
+  with a mouse) for your last three chats.
+- The bottom bar and side menu now hold Home, Jobs and Menu.
+
 ### Chat looks like WhatsApp on iPhone
 - The Chat tab and chats are WhatsApp for iPhone green: flat bubbles (yours
   light green, or dark green in the dark theme; others white or dark grey)

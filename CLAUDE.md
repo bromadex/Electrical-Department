@@ -9,8 +9,10 @@ in `API.md`.
   October" in `docs/tasks/handover-from-tafara.md` for what is still open.
 
 ## Working rules
-- Main app tabs: Home `/home`, Jobs `/jobs`, Chat `/chat`, Menu `/menu`. The
-  ➕ New sheet is `app/lib/widgets/create_sheet.dart`.
+- Main app tabs: Home `/home`, Jobs `/jobs`, Menu `/menu`. Chat is not a
+  tab: it opens at `/chat` from the floating green button on every screen
+  (`app/lib/chat/chat_fab.dart`). The ➕ New sheet is
+  `app/lib/widgets/create_sheet.dart`.
 - Job cards are the one job system: code in `app/lib/v2/`, screens at
   `/jobs` (list, the Jobs tab), `/jobs/<number>`, `/jobs/mine`, `/jobs/new`,
   `/requests`, `/my-requests`, `/job-stats` (see `app/lib/v2/routes.dart`).

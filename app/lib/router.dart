@@ -58,12 +58,7 @@ import 'widgets/app_shell.dart';
 const shellTabs = [
   ShellTab('/home', 'Home', CupertinoIcons.house, CupertinoIcons.house_fill),
   ShellTab('/jobs', 'Jobs', CupertinoIcons.hammer, CupertinoIcons.hammer_fill),
-  ShellTab(
-    '/chat',
-    'Chat',
-    CupertinoIcons.chat_bubble_2,
-    CupertinoIcons.chat_bubble_2_fill,
-  ),
+  // Chat is not a tab: it opens from the floating button (chat_fab.dart).
   ShellTab(
     '/menu',
     'Menu',
@@ -95,7 +90,6 @@ GoRouter buildRouter(WidgetRef ref) {
 
   final screens = <String, Widget>{
     '/home': const HomeScreen(),
-    '/chat': const ChatListScreen(),
     '/menu': const MoreScreen(),
   };
 
@@ -203,6 +197,8 @@ GoRouter buildRouter(WidgetRef ref) {
       ...jobCardRoutes,
       jobCardDetailRoute,
       GoRoute(path: '/calls', builder: (_, _) => const CallsScreen()),
+      // The chat list, opened from the floating chat button.
+      GoRoute(path: '/chat', builder: (_, _) => const ChatHomeScreen()),
       GoRoute(
         path: '/guest/:token',
         builder: (_, s) => GuestCallScreen(token: s.pathParameters['token']!),

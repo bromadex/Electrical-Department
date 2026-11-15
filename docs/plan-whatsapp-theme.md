@@ -11,7 +11,7 @@ released to phones only when Clement says.
 
 ---
 
-## Phase A: Chat behind a floating button
+## Phase A: Chat behind a floating button (done 15 November 2026, not yet released)
 
 Goal: chat is one tap away from anywhere, like a messenger bubble, and the
 menu bar has room for work screens.

@@ -119,7 +119,7 @@ class _CreateSheet extends ConsumerWidget {
           title: 'Send a message',
           hint: 'Team or one person',
           colors: const [Color(0xFF5B4B8A), BrandColors.info],
-          run: (c) => then(c, (h) => h.go('/chat')),
+          run: (c) => then(c, (h) => h.push('/chat')),
         ),
       (
         icon: CupertinoIcons.alarm_fill,

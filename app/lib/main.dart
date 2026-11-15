@@ -14,6 +14,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'config/env.dart';
 import 'data/local_db.dart';
 import 'chat/call_bar.dart';
+import 'chat/chat_fab.dart';
 import 'chat/call_controller.dart';
 import 'router.dart';
 import 'screens/setup_required_screen.dart';
@@ -151,7 +152,12 @@ class _ElectricalDepartmentAppState
       scaffoldMessengerKey: appMessenger,
       // The "return to call" bar while a call is minimised.
       builder: (context, child) {
-        Widget app = CallBar(router: _router, child: child!);
+        // The floating chat button on every screen, and the "return to
+        // call" bar while a call is minimised.
+        Widget app = CallBar(
+          router: _router,
+          child: ChatFabLayer(router: _router, child: child!),
+        );
         // Leaving the app during a call shows it in a small window.
         if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
           app = PiPSwitcher(

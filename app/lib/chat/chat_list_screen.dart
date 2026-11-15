@@ -16,6 +16,7 @@ import '../ui/bits.dart';
 import '../ui/motion.dart';
 import '../ui/page.dart';
 import '../ui/surfaces.dart';
+import '../widgets/app_back_button.dart';
 import 'calls_screen.dart';
 import 'chat_repository.dart';
 import 'conversation_screen.dart';
@@ -47,6 +48,29 @@ void openChat(BuildContext context, WidgetRef ref, String id) {
     ref.read(selectedChatProvider.notifier).open(id);
   } else {
     context.push('/chat/$id');
+  }
+}
+
+/// The chat list as its own page (from the floating chat button): back
+/// returns to the screen you were on.
+class ChatHomeScreen extends StatelessWidget {
+  const ChatHomeScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ChatThemed(
+      child: Scaffold(
+        appBar: AppBar(
+          leading: const AppBackButton(fallback: '/home'),
+          title: const Text('Chats'),
+          flexibleSpace: const GlassSurface(
+            radius: 0,
+            child: SizedBox.expand(),
+          ),
+        ),
+        body: const MeshBackground(child: ChatListScreen()),
+      ),
+    );
   }
 }
 
