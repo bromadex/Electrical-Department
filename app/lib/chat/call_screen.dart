@@ -22,8 +22,8 @@ import 'guest_call_screen.dart';
 
 /// The call stage is always dark, like a phone's own call screen, so faces
 /// and controls stand out in both themes.
-const _stageTop = Color(0xFF1C0D12);
-const _stageBottom = Color(0xFF0B1022);
+const _stageTop = Color(0xFF0A2A24);
+const _stageBottom = Color(0xFF0B141A);
 const _hangUp = Color(0xFFE5484D);
 const _live = Color(0xFF2FBF71);
 

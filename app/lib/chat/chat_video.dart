@@ -111,7 +111,7 @@ class VideoBubble extends StatelessWidget {
           height: 160,
           decoration: const BoxDecoration(
             gradient: LinearGradient(
-              colors: [Color(0xFF1C0D12), Color(0xFF0B1022)],
+              colors: [Color(0xFF0A2A24), Color(0xFF0B141A)],
             ),
           ),
           child: Stack(

@@ -2,6 +2,11 @@
 
 ## 15 November 2026
 
+### WhatsApp green
+- The whole app is now WhatsApp green with the same liquid glass: deep
+  night green behind the glass in the dark theme, green buttons and your
+  own chat bubbles, teal accents and blue for links and read ticks.
+
 ### More for calls and chat
 - **Guests by link:** whoever runs a group call can share a link (2 hours
   to 3 days) with contractors or clients. They join in a browser without

@@ -774,7 +774,7 @@ class _NavButton extends StatelessWidget {
           margin: const EdgeInsets.symmetric(horizontal: 1, vertical: 1),
           decoration: BoxDecoration(
             // Dark glass: the open tab is a brighter pane with a top
-            // highlight and a soft burgundy glow underneath.
+            // highlight and a soft green glow underneath.
             color: selected && !dark
                 ? scheme.primary.withValues(alpha: 0.16)
                 : Colors.transparent,

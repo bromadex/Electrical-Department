@@ -23,28 +23,28 @@ class AppTheme {
           secondary: dark ? AppColors.blueLight : BrandColors.info,
           tertiary: BrandColors.coral,
           // Dark glass (issue #26): near-white text with two muted levels
-          // (onSurfaceVariant, outline), all white over the burgundy night.
-          onSurface: dark ? const Color(0xFFFBF4F6) : null,
+          // (onSurfaceVariant, outline), all white over the green night.
+          onSurface: dark ? const Color(0xFFE9EDEF) : null,
           onSurfaceVariant: dark
-              ? const Color(0xFFD9C9CE)
-              : const Color(0xFF3E3944),
-          outline: dark ? const Color(0xFFA9969B) : null,
+              ? const Color(0xFFC3CED3)
+              : const Color(0xFF3B4A54),
+          outline: dark ? const Color(0xFF8696A0) : null,
           outlineVariant: dark
-              ? const Color(0xFF55383F)
-              : const Color(0xFFD9D6DF),
-          surface: dark ? AppColors.night : const Color(0xFFFAFAFC),
-          surfaceContainerLowest: dark ? const Color(0xFF16070A) : Colors.white,
+              ? const Color(0xFF2E4048)
+              : const Color(0xFFD1D7DB),
+          surface: dark ? AppColors.night : const Color(0xFFF7F8FA),
+          surfaceContainerLowest: dark ? const Color(0xFF070D11) : Colors.white,
           surfaceContainerLow: dark
-              ? const Color(0xFF2A1318)
-              : const Color(0xFFF6F6F9),
+              ? const Color(0xFF111B21)
+              : const Color(0xFFF3F5F6),
           surfaceContainer: dark
-              ? const Color(0xFF33191F)
-              : const Color(0xFFF1F1F5),
+              ? const Color(0xFF182329)
+              : const Color(0xFFEEF1F2),
           surfaceContainerHigh: dark
-              ? const Color(0xFF3D2228)
-              : const Color(0xFFEAEAF0),
-          surfaceContainerHighest: dark ? const Color(0xFF482A31) : null,
-          inverseSurface: dark ? const Color(0xFFFBF4F6) : null,
+              ? const Color(0xFF202C33)
+              : const Color(0xFFE7EBED),
+          surfaceContainerHighest: dark ? const Color(0xFF2A3942) : null,
+          inverseSurface: dark ? const Color(0xFFE9EDEF) : null,
           onInverseSurface: dark ? AppColors.night : null,
         );
 
@@ -82,7 +82,7 @@ class AppTheme {
     final outline = dark
         ? Colors.white.withValues(alpha: 0.17)
         : scheme.outlineVariant.withValues(alpha: 0.6);
-    // Modals, sheets and menus: the most solid glass, a burgundy tint.
+    // Modals, sheets and menus: the most solid glass, a green tint.
     final modal = dark
         ? BrandColors.maroonDeep.withValues(alpha: 0.94)
         : scheme.surfaceContainerLowest;
@@ -195,7 +195,7 @@ class AppTheme {
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         elevation: 0,
-        backgroundColor: dark ? const Color(0xFF4A1A23) : scheme.onSurface,
+        backgroundColor: dark ? const Color(0xFF233138) : scheme.onSurface,
         contentTextStyle: text.bodyMedium?.copyWith(
           color: dark ? scheme.onSurface : scheme.surface,
         ),

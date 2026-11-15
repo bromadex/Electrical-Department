@@ -1,21 +1,24 @@
 import 'package:flutter/material.dart';
 
-/// Colours sampled from the Bravura rhino logo.
+/// WhatsApp green with liquid glass (15 November 2026; before that the
+/// burgundy of the Bravura logo). The names stay from then: maroon is the
+/// main green, maroonDeep the darkest, coral the teal accent and blush the
+/// light green that reads on dark glass.
 class BrandColors {
-  static const maroon = Color(0xFF7A1F2B);
-  static const maroonDeep = Color(0xFF4E1019);
-  static const coral = Color(0xFFB5566E);
-  static const blush = Color(0xFFE7A1B3);
+  static const maroon = Color(0xFF008069);
+  static const maroonDeep = Color(0xFF075E54);
+  static const coral = Color(0xFF00A884);
+  static const blush = Color(0xFF7AE2B8);
 
   /// Status colours used by pills and charts.
   static const success = Color(0xFF1F9D6B);
   static const warning = Color(0xFFE59A1A);
-  static const info = Color(0xFF2F6FDB);
+  static const info = Color(0xFF027EB5);
 
   static const brandGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [maroonDeep, maroon, Color(0xFF2F6FDB)],
+    colors: [maroonDeep, maroon, Color(0xFF25D366)],
     stops: [0, 0.55, 1],
   );
 }
@@ -65,48 +68,49 @@ class Motion {
       reduced(context) ? Duration.zero : d;
 }
 
-/// The palette by meaning (job cards and charts): burgundy, dark rose and
-/// blue as in [BrandColors], one colour per status. Meaning is never shown by
+/// The palette by meaning (job cards and charts): WhatsApp greens and
+/// blue as in [BrandColors] (the names are from the old burgundy palette),
+/// one colour per status. Meaning is never shown by
 /// colour alone (see v2/ui/status.dart).
 class AppColors {
   /// Primary: buttons, selected items, record numbers (light theme).
-  static const burgundy = Color(0xFF7A1F2B);
-  static const burgundyDeep = Color(0xFF4E1019);
+  static const burgundy = Color(0xFF008069);
+  static const burgundyDeep = Color(0xFF075E54);
 
   /// Primary on dark surfaces, light enough to read.
-  static const burgundyLight = Color(0xFFE7A1B3);
+  static const burgundyLight = Color(0xFF7AE2B8);
 
   /// Accent: highlights, the selected menu marker, soft tints.
-  static const rose = Color(0xFFB5566E);
-  static const roseSoft = Color(0xFFF6E8EB);
+  static const rose = Color(0xFF00A884);
+  static const roseSoft = Color(0xFFE7F8EE);
 
   /// Secondary: links and information.
-  static const blue = Color(0xFF2F6FDB);
-  static const blueLight = Color(0xFF8AB4FF);
+  static const blue = Color(0xFF027EB5);
+  static const blueLight = Color(0xFF53BDEB);
 
   /// Chrome: the side menu in both themes, tooltips, snack bars.
-  static const black = Color(0xFF161113);
-  static const blackRaised = Color(0xFF241B1F);
+  static const black = Color(0xFF111B21);
+  static const blackRaised = Color(0xFF202C33);
 
-  /// The dark glass backdrop (issue #26): a very deep burgundy, and the
-  /// slightly lighter shade its gradient starts from.
-  static const night = Color(0xFF1E0A0E);
-  static const nightLift = Color(0xFF2C1016);
+  /// The dark glass backdrop (issue #26): WhatsApp's deep night green, and
+  /// the slightly lighter shade its gradient starts from.
+  static const night = Color(0xFF0B141A);
+  static const nightLift = Color(0xFF0F2A26);
 
-  static const canvas = Color(0xFFFAF7F8);
-  static const canvasDark = Color(0xFF0F0B0D);
-  static const panelDark = Color(0xFF1B1517);
-  static const line = Color(0xFFEBE1E4);
-  static const lineDark = Color(0xFF362B30);
+  static const canvas = Color(0xFFF0F2F5);
+  static const canvasDark = Color(0xFF0B141A);
+  static const panelDark = Color(0xFF111B21);
+  static const line = Color(0xFFE9EDEF);
+  static const lineDark = Color(0xFF2A3942);
 
   // Statuses keep their usual meaning colours so a critical red never looks
-  // like the burgundy of an ordinary button.
+  // like the green of an ordinary button.
   static const critical = Color(0xFFD92D20);
   static const warning = Color(0xFFE59A1A);
   static const success = Color(0xFF1F9D6B);
   static const info = blue;
   static const review = Color(0xFF6938EF);
-  static const neutral = Color(0xFF6B6266);
+  static const neutral = Color(0xFF667781);
 
   /// Bravura logo colour.
   static const brand = Color(0xFF982329);

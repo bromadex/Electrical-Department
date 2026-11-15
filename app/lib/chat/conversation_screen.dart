@@ -2198,7 +2198,7 @@ class _TickIcon extends StatelessWidget {
   final TickState tick;
   final Color color;
 
-  /// Readable on the burgundy bubble and in both themes.
+  /// Readable on the green bubble and in both themes.
   static const readBlue = Color(0xFF7FD3FF);
 
   @override
@@ -2544,7 +2544,7 @@ TextSpan highlightMatches(String text, String? query, TextStyle? style) {
         text: text.substring(i, i + q.length),
         style: const TextStyle(
           backgroundColor: Color(0xFFFFC145),
-          color: Color(0xFF1C0D12),
+          color: Color(0xFF0A2A24),
           fontWeight: FontWeight.w700,
         ),
       ),

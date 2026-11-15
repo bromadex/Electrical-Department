@@ -7,7 +7,7 @@ import '../theme/tokens.dart';
 
 /// Colours for glass on the ambient backdrop, per brightness. In the dark
 /// theme (the liquid glass of issue #26) every layer is white or black at
-/// low opacity over the burgundy backdrop, in four levels, each more solid:
+/// low opacity over the green backdrop, in four levels, each more solid:
 /// panel, tile, control, modal.
 class Glass {
   const Glass._(this.dark);
@@ -26,7 +26,7 @@ class Glass {
   /// Inputs: a dark well.
   Color get fillInset => dark
       ? Colors.black.withValues(alpha: 0.30)
-      : const Color(0xFF1B1D2A).withValues(alpha: 0.04);
+      : const Color(0xFF111B21).withValues(alpha: 0.04);
 
   /// Behind a card's sheen; in the dark the sheen is the whole fill.
   Color get panelFill => dark ? Colors.transparent : _w(0.66);
@@ -34,7 +34,7 @@ class Glass {
   Color get hairline =>
       dark ? _w(0.07) : BrandColors.maroon.withValues(alpha: 0.08);
 
-  /// Modals, sheets and menus: the most solid layer, a dark burgundy tint.
+  /// Modals, sheets and menus: the most solid layer, a dark green tint.
   Color get modal => dark
       ? BrandColors.maroonDeep.withValues(alpha: 0.76)
       : Colors.white.withValues(alpha: 0.94);
