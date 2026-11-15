@@ -254,11 +254,14 @@ class _NewUserFormState extends ConsumerState<_NewUserForm> {
             keyboardType: TextInputType.emailAddress,
             autocorrect: false,
           ),
-          _label(context, 'First password'),
+          _label(context, 'Temporary password'),
           TextField(
             controller: _password,
             decoration: const InputDecoration(
               hintText: 'At least 8 characters; share it privately',
+              helperText:
+                  'They choose their own password the first time they sign in.',
+              helperMaxLines: 2,
             ),
           ),
           if (_error != null)
@@ -347,7 +350,11 @@ class _UserFormState extends ConsumerState<_UserForm> {
         content: TextField(
           controller: controller,
           autofocus: true,
-          decoration: const InputDecoration(hintText: 'At least 8 characters'),
+          decoration: const InputDecoration(
+            hintText: 'At least 8 characters',
+            helperText: 'Temporary: they choose their own at next sign-in.',
+            helperMaxLines: 2,
+          ),
         ),
         actions: [
           TextButton(
@@ -365,7 +372,12 @@ class _UserFormState extends ConsumerState<_UserForm> {
     if (password == null || !mounted) return;
     try {
       await ref.read(userAdminProvider).resetPassword(widget.user.id, password);
-      if (mounted) _toast(context, 'Password changed');
+      if (mounted) {
+        _toast(
+          context,
+          'Temporary password set; they choose their own at next sign-in',
+        );
+      }
     } catch (e) {
       if (mounted) setState(() => _error = AppError.from(e).message);
     }

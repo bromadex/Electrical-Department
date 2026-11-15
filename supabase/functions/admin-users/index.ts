@@ -116,7 +116,9 @@ Deno.serve(async (req) => {
           email: address,
           password,
           email_confirm: true,
-          user_metadata: { full_name: fullName },
+          // The password the admin chose is temporary: the app makes the
+          // person choose their own at first sign-in.
+          user_metadata: { full_name: fullName, must_change_password: true },
         });
         if (error) {
           if (error.status === 422 || /already/i.test(error.message)) {
@@ -131,7 +133,12 @@ Deno.serve(async (req) => {
         const userId = text(body, "user_id");
         if (!uuid.test(userId)) throw new Refusal(400, "INVALID", "Unknown user");
         const password = checkPassword(body.password);
-        const { error } = await admin.auth.admin.updateUserById(userId, { password });
+        // A reset password is temporary too (kept with the other metadata).
+        const { data: found } = await admin.auth.admin.getUserById(userId);
+        const { error } = await admin.auth.admin.updateUserById(userId, {
+          password,
+          user_metadata: { ...(found?.user?.user_metadata ?? {}), must_change_password: true },
+        });
         if (error) {
           if (error.status === 404) throw new Refusal(404, "NOT_FOUND", "User not found");
           throw new Refusal(400, "INVALID", error.message);

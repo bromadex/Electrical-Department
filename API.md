@@ -247,7 +247,7 @@ For system administrators only: `admin.users` at all sites (site-only admins are
 - `fn_admin_users()` → `id, email, full_name, phone, home_site_id, active, last_sign_in_at, created_at, roles` where `roles` is `[{role, site_id}]` (`site_id` null = all sites).
 - `fn_set_user_profile(p_user, p_full_name, p_phone, p_home_site, p_active)`: name needed; you cannot switch yourself off.
 - `fn_set_user_roles(p_user, p_roles jsonb)`: replaces all of a person's roles with `[{"role": "Technician", "site_id": uuid|null}]`. You cannot remove your own admin rights.
-- Edge function `admin-users` (POST, caller's token): `{action: "create", email, password, full_name}` → `{id}`; `{action: "reset_password", user_id, password}` → `{ok: true}`. Errors are `{error: "CODE: message"}`. The sign-up trigger creates the profile; roles are then set with `fn_set_user_roles`.
+- Edge function `admin-users` (POST, caller's token): `{action: "create", email, password, full_name}` → `{id}`; `{action: "reset_password", user_id, password}` → `{ok: true}`. Errors are `{error: "CODE: message"}`. The sign-up trigger creates the profile; roles are then set with `fn_set_user_roles`. Both actions set `user_metadata.must_change_password = true`: the password is temporary, and the app sends that person to `/first-password` (no way past but choosing their own password or signing out); `auth.updateUser` with the new password and `data: {must_change_password: false}` clears it (Settings → Change password clears it too).
 - App: More → Admin → People (`/admin/users`). Online only.
 
 **Settings (migration 0021).** `fn_update_my_profile(p_full_name, p_phone, p_home_site)`: your

@@ -529,7 +529,12 @@ class _PasswordSheetState extends ConsumerState<_PasswordSheet> {
       await ref
           .read(supabaseProvider)
           .auth
-          .updateUser(UserAttributes(password: _new.text));
+          .updateUser(
+            UserAttributes(
+              password: _new.text,
+              data: {'must_change_password': false},
+            ),
+          );
       if (!mounted) return;
       Navigator.pop(context);
       ScaffoldMessenger.of(context)

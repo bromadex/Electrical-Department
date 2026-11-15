@@ -11,6 +11,7 @@ import 'tools/tool_stats_screen.dart';
 import 'store/store_count_screen.dart';
 import 'store/store_counts_screen.dart';
 import 'search/search_screen.dart';
+import 'screens/first_password_screen.dart';
 import 'store/store_screen.dart';
 
 import 'package:flutter/cupertino.dart';
@@ -78,6 +79,14 @@ class ShellTab {
 GoRouter buildRouter(WidgetRef ref) {
   final signedIn = ValueNotifier(ref.read(authUserIdProvider) != null);
   ref.listenManual(authUserIdProvider, (_, id) => signedIn.value = id != null);
+  // Someone with an admin's temporary password chooses their own first.
+  final auth = ref.read(supabaseProvider).auth;
+  final mustChange = ValueNotifier(mustChangePassword(auth.currentUser));
+  // The router lives as long as the app, so this listener does too.
+  auth.onAuthStateChange.listen(
+    (s) => mustChange.value = mustChangePassword(s.session?.user),
+    onError: (_) {},
+  );
 
   final screens = <String, Widget>{
     '/home': const HomeScreen(),
@@ -87,15 +96,21 @@ GoRouter buildRouter(WidgetRef ref) {
 
   return GoRouter(
     initialLocation: '/home',
-    refreshListenable: signedIn,
+    refreshListenable: Listenable.merge([signedIn, mustChange]),
     redirect: (context, state) {
       final atLogin = state.matchedLocation == '/login';
+      final atFirst = state.matchedLocation == '/first-password';
       if (!signedIn.value) return atLogin ? null : '/login';
-      if (atLogin || state.matchedLocation == '/') return '/home';
+      if (mustChange.value) return atFirst ? null : '/first-password';
+      if (atLogin || atFirst || state.matchedLocation == '/') return '/home';
       return null;
     },
     routes: [
       GoRoute(path: '/', redirect: (_, _) => '/home'),
+      GoRoute(
+        path: '/first-password',
+        builder: (_, _) => const FirstPasswordScreen(),
+      ),
       // Old tab addresses, kept for bookmarks.
       GoRoute(path: '/today', redirect: (_, _) => '/home'),
       GoRoute(path: '/board', redirect: (_, _) => '/jobs'),

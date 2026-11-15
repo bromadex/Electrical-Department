@@ -2,6 +2,11 @@
 
 ## 15 November 2026
 
+### Temporary passwords
+- A password an admin sets (new account or reset) is temporary: at first
+  sign-in the person must choose their own (8+ characters, letters and a
+  number) before using the app.
+
 ### Calls show Calling, then Ringing (as on WhatsApp)
 - A direct call shows **Calling…** until the other phone actually rings,
   then **Ringing…**; the timer starts only when they answer.
