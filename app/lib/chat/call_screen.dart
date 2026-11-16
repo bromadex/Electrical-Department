@@ -22,10 +22,10 @@ import 'guest_call_screen.dart';
 
 /// The call stage is always dark, like a phone's own call screen, so faces
 /// and controls stand out in both themes.
-const _stageTop = Color(0xFF1C0D12);
-const _stageBottom = Color(0xFF0B1022);
-const _hangUp = Color(0xFFE5484D);
-const _live = Color(0xFF2FBF71);
+const _stageTop = Color(0xFF111B21);
+const _stageBottom = Color(0xFF0B141A);
+const _hangUp = Color(0xFFEA0038);
+const _live = Color(0xFF25D366);
 
 /// A chat's call (LiveKit). One person fills the stage (whoever is talking,
 /// or the one you tap), your own picture floats in the corner, everyone else

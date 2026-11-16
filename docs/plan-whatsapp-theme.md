@@ -74,7 +74,7 @@ From the iPhone screenshots:
 - **Inside chat, a bottom bar** like WhatsApp's: Chats, Calls, Meetings,
   Starred (our four), with outline icons and the selected one filled.
 
-## Phase D: Inside a chat (phones)
+## Phase D: Inside a chat (phones) (done 16 November 2026, not yet released)
 
 From the iPhone chat screenshots:
 
@@ -99,7 +99,7 @@ From the iPhone chat screenshots:
   Location, and later Poll. *Location and Poll are new features; decision
   needed.*
 
-## Phase E: Liquid glass for chat (iOS 26 style)
+## Phase E: Liquid glass for chat (iOS 26 style) (done 16 November 2026, not yet released)
 
 From the last two iPhone images:
 
@@ -112,7 +112,7 @@ From the last two iPhone images:
   *Decision needed: standard WhatsApp (Phases C–D) or the glass version as
   the default; the other can be a switch in Settings → Appearance.*
 
-## Phase F: Web and computer layout
+## Phase F: Web and computer layout (done 16 November 2026, not yet released)
 
 From the WhatsApp Desktop screenshots:
 
@@ -129,7 +129,7 @@ From the WhatsApp Desktop screenshots:
   window; Esc or ✕ closes it.
 - Right-click on a chat or message for its menu, as on Desktop.
 
-## Phase G: Calls in the WhatsApp look
+## Phase G: Calls in the WhatsApp look (done 16 November 2026, not yet released)
 
 From the Desktop call screenshots (and WhatsApp for iPhone calls):
 

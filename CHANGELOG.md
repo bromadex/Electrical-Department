@@ -2,6 +2,20 @@
 
 ## 15 November 2026
 
+### Inside chats, computers and calls like WhatsApp
+- **Inside a chat:** the message bar has ➕ on the left, a rounded field
+  with emoji, camera and microphone, and a green send button; ➕ opens
+  WhatsApp's grid of round coloured icons. Date pills, notices as small
+  cards, and one colour per person for names in groups.
+- **Liquid glass:** frosted header and message bar over the wallpaper, and
+  a floating frosted tab bar in chat.
+- **Computers:** WhatsApp Desktop's layout: a thin icon rail on the left
+  (Chats, Calls, Meetings, Starred, back to the app, Settings), the chat
+  list and the open chat side by side.
+- **Calls:** WhatsApp's dark call screen, green and red buttons; in a
+  browser an incoming call shows as a card at the top right with Accept
+  and decline.
+
 ### Chat list like WhatsApp on iPhone
 - A large **Chats** title that shrinks as you scroll, with … (new chat,
   starred, archived, read all), the camera (take a photo or video, pick a

@@ -1,10 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../services/core_providers.dart';
+import '../services/notifications_controller.dart';
 import '../services/session_controller.dart';
 import '../theme/tokens.dart';
 import '../ui/bits.dart';
@@ -41,6 +45,34 @@ class ChatFabLayer extends ConsumerStatefulWidget {
 class _ChatFabLayerState extends ConsumerState<ChatFabLayer> {
   bool _open = false;
 
+  /// Browsers do not ring: an incoming call shows as WhatsApp Desktop's
+  /// dark card at the top right (phones ring full screen instead).
+  AppNotification? _incoming;
+  Timer? _incomingTimer;
+  final _seenCalls = <String>{};
+
+  void _watchCalls() {
+    ref.listen(notificationsProvider, (_, next) {
+      if (!kIsWeb) return;
+      for (final n in next.items) {
+        if (n.type != 'call' ||
+            n.isRead ||
+            _seenCalls.contains(n.id) ||
+            DateTime.now().difference(n.createdAt.toLocal()) >
+                const Duration(seconds: 45)) {
+          continue;
+        }
+        _seenCalls.add(n.id);
+        setState(() => _incoming = n);
+        _incomingTimer?.cancel();
+        _incomingTimer = Timer(const Duration(seconds: 45), () {
+          if (mounted) setState(() => _incoming = null);
+        });
+        break;
+      }
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -50,6 +82,7 @@ class _ChatFabLayerState extends ConsumerState<ChatFabLayer> {
   @override
   void dispose() {
     widget.router.routerDelegate.removeListener(_changed);
+    _incomingTimer?.cancel();
     super.dispose();
   }
 
@@ -72,6 +105,32 @@ class _ChatFabLayerState extends ConsumerState<ChatFabLayer> {
 
   @override
   Widget build(BuildContext context) {
+    _watchCalls();
+    final call = _incoming;
+    final card = call == null
+        ? null
+        : Positioned(
+            top: MediaQuery.paddingOf(context).top + 16,
+            right: 16,
+            child: _IncomingCallCard(
+              call: call,
+              onAccept: () {
+                setState(() => _incoming = null);
+                final id = (call.link ?? '').replaceFirst('call:', '');
+                final video = (call.body ?? '').contains('video');
+                widget.router.push(
+                  '/chat/$id/call?join=1${video ? '&video=1' : ''}',
+                );
+              },
+              onDecline: () => setState(() => _incoming = null),
+            ),
+          );
+    return card == null
+        ? _withFab(context)
+        : Stack(children: [_withFab(context), card]);
+  }
+
+  Widget _withFab(BuildContext context) {
     final path = _path;
     final signedIn = ref.watch(authUserIdProvider) != null;
     final canChat = ref.watch(sessionProvider).can('chat.use');
@@ -242,6 +301,89 @@ class _RecentChip extends StatelessWidget {
                   ),
                 ),
               ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// WhatsApp Desktop's incoming call card: photo, name, "Video call",
+/// green Accept and red decline.
+class _IncomingCallCard extends StatelessWidget {
+  const _IncomingCallCard({
+    required this.call,
+    required this.onAccept,
+    required this.onDecline,
+  });
+
+  final AppNotification call;
+  final VoidCallback onAccept;
+  final VoidCallback onDecline;
+
+  @override
+  Widget build(BuildContext context) {
+    final video = (call.body ?? '').contains('video');
+    return Material(
+      color: const Color(0xFF1B1B1B),
+      elevation: 12,
+      borderRadius: BorderRadius.circular(16),
+      child: SizedBox(
+        width: 300,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AppAvatar(name: call.title, size: 64),
+              const SizedBox(height: 10),
+              Text(
+                call.title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                video ? 'Video call' : (call.body ?? 'Voice call'),
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white70),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF25D366),
+                        foregroundColor: Colors.black,
+                        shape: const StadiumBorder(),
+                      ),
+                      onPressed: onAccept,
+                      icon: Icon(
+                        video
+                            ? CupertinoIcons.video_camera_solid
+                            : CupertinoIcons.phone_fill,
+                      ),
+                      label: const Text('Accept'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  IconButton.filled(
+                    tooltip: 'Decline',
+                    style: IconButton.styleFrom(
+                      backgroundColor: const Color(0xFFEA0038),
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: onDecline,
+                    icon: const Icon(CupertinoIcons.phone_down_fill),
+                  ),
+                ],
+              ),
             ],
           ),
         ),

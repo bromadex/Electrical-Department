@@ -83,6 +83,34 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
           final theme = Theme.of(context);
           final unread = ref.watch(chatUnreadProvider);
           final missed = ref.watch(missedCallsProvider).value ?? 0;
+          final body = IndexedStack(
+            index: _tab,
+            children: const [
+              ChatListScreen(),
+              CallsScreen(),
+              MeetingsListScreen(plain: true),
+              StarredScreen(),
+            ],
+          );
+          // Computers: WhatsApp Desktop's layout, a thin icon rail on the
+          // left, then the chat list and the open chat.
+          if (MediaQuery.sizeOf(context).width >= 1000) {
+            return Scaffold(
+              body: Row(
+                children: [
+                  _Rail(
+                    tab: _tab,
+                    tabs: _tabs,
+                    unread: unread,
+                    missed: missed,
+                    onTab: (i) => setState(() => _tab = i),
+                  ),
+                  VerticalDivider(width: 1, color: theme.dividerColor),
+                  Expanded(child: body),
+                ],
+              ),
+            );
+          }
           return Scaffold(
             body: IndexedStack(
               index: _tab,
@@ -147,6 +175,105 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// The left icon rail on computers: Chats, Calls, Meetings, Starred, and
+/// at the bottom back to the app, Settings and your photo.
+class _Rail extends ConsumerWidget {
+  const _Rail({
+    required this.tab,
+    required this.tabs,
+    required this.unread,
+    required this.missed,
+    required this.onTab,
+  });
+
+  final int tab;
+  final List<(IconData, IconData, String)> tabs;
+  final int unread;
+  final int missed;
+  final void Function(int) onTab;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final dark = theme.brightness == Brightness.dark;
+    final me = ref.watch(authUserIdProvider);
+    final names = ref.watch(peopleProvider).value ?? const {};
+    Widget item(
+      IconData icon,
+      String tip,
+      VoidCallback onTap, {
+      bool on = false,
+      int badge = 0,
+    }) => Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Tooltip(
+        message: tip,
+        child: Material(
+          color: on
+              ? (dark ? ChatColors.selectedDark : ChatColors.selected)
+              : Colors.transparent,
+          shape: const CircleBorder(),
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: onTap,
+            child: SizedBox.square(
+              dimension: 44,
+              child: Badge(
+                isLabelVisible: badge > 0,
+                label: Text(badge > 99 ? '99+' : '$badge'),
+                child: Icon(
+                  icon,
+                  color: on
+                      ? theme.colorScheme.onSurface
+                      : theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    return Container(
+      width: 64,
+      color: dark ? const Color(0xFF111B21) : ChatColors.grouped,
+      child: SafeArea(
+        child: Column(
+          children: [
+            const SizedBox(height: 8),
+            for (final (i, t) in tabs.indexed)
+              item(
+                tab == i ? t.$2 : t.$1,
+                t.$3,
+                () => onTab(i),
+                on: tab == i,
+                badge: i == 0
+                    ? unread
+                    : i == 1
+                    ? missed
+                    : 0,
+              ),
+            const Spacer(),
+            item(
+              CupertinoIcons.square_arrow_left,
+              'Back to the app',
+              () => context.canPop() ? context.pop() : context.go('/home'),
+            ),
+            item(
+              CupertinoIcons.gear,
+              'Settings',
+              () => context.push('/settings'),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(0, 6, 0, 14),
+              child: AppAvatar(name: names[me] ?? 'You', size: 34),
+            ),
+          ],
+        ),
       ),
     );
   }
