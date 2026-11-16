@@ -20,6 +20,7 @@ import '../v2/reference/reference_data.dart';
 import 'brand_logo.dart';
 import 'create_sheet.dart';
 import 'notifications_button.dart';
+import 'side_bar.dart';
 import 'site_picker.dart';
 import 'sync_banner.dart';
 import 'theme_toggle.dart';
@@ -51,7 +52,10 @@ class AppShell extends ConsumerWidget {
     ref.watch(siteDataProvider);
     // Who is online and typing, for the chat list and headers.
     ref.watch(chatPresenceProvider);
-    final phone = MediaQuery.sizeOf(context).width < phoneMaxWidth;
+    // The app-wide side bar (side_bar.dart) does the navigation on
+    // computers; the phone layout only when it is not showing.
+    final sideBar = SideBarScope.shownOf(context);
+    final phone = !sideBar && MediaQuery.sizeOf(context).width < phoneMaxWidth;
     final title = shellTabs[shell.currentIndex].label;
 
     void go(int i) {
@@ -114,10 +118,12 @@ class AppShell extends ConsumerWidget {
             padding: const EdgeInsets.all(Space.lg),
             child: Row(
               children: [
-                Center(
-                  child: _NavCapsule(index: shell.currentIndex, onTap: go),
-                ),
-                const SizedBox(width: Space.lg),
+                if (!sideBar) ...[
+                  Center(
+                    child: _NavCapsule(index: shell.currentIndex, onTap: go),
+                  ),
+                  const SizedBox(width: Space.lg),
+                ],
                 Expanded(
                   child: GlassSurface(
                     radius: 34,

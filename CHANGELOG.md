@@ -1,5 +1,18 @@
 # What's new
 
+## 16 November 2026
+
+### Side bar on every page
+- On a computer or tablet (wider than 720 points) the side bar now shows on
+  every page, including Chats, Checklists, Inventory and the other Menu
+  pages, not only on Home, Jobs and Menu.
+- **Collapse** at the bottom shrinks it to icons; **Expand** brings the
+  names back. The app remembers your choice. On narrower screens it starts
+  collapsed.
+- It holds ➕ New, Home, Jobs, Menu, Chat (with unread count), your Menu
+  pages, Meetings and Settings. It hides on sign-in, guest links and calls.
+- Phones keep the bottom tab bar.
+
 ## 15 November 2026
 
 ### Location and polls; soft avatars everywhere

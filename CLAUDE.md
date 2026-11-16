@@ -13,6 +13,10 @@ in `API.md`.
   tab: it opens at `/chat` from the floating green button on every screen
   (`app/lib/chat/chat_fab.dart`). The ➕ New sheet is
   `app/lib/widgets/create_sheet.dart`.
+- Wider than 720 points, the side bar (`app/lib/widgets/side_bar.dart`,
+  `SideBarLayer` in `main.dart`) shows on every page and can be collapsed
+  to icons; screens check `SideBarScope.shownOf` instead of drawing their
+  own tab rail.
 - Job cards are the one job system: code in `app/lib/v2/`, screens at
   `/jobs` (list, the Jobs tab), `/jobs/<number>`, `/jobs/mine`, `/jobs/new`,
   `/requests`, `/my-requests`, `/job-stats` (see `app/lib/v2/routes.dart`).

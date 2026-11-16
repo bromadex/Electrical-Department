@@ -15,6 +15,7 @@ import 'config/env.dart';
 import 'data/local_db.dart';
 import 'chat/call_bar.dart';
 import 'chat/chat_fab.dart';
+import 'widgets/side_bar.dart';
 import 'chat/call_controller.dart';
 import 'router.dart';
 import 'screens/setup_required_screen.dart';
@@ -156,7 +157,11 @@ class _ElectricalDepartmentAppState
         // call" bar while a call is minimised.
         Widget app = CallBar(
           router: _router,
-          child: ChatFabLayer(router: _router, child: child!),
+          child: ChatFabLayer(
+            router: _router,
+            // The side bar on every page (computers and tablets).
+            child: SideBarLayer(router: _router, child: child!),
+          ),
         );
         // Leaving the app during a call shows it in a small window.
         if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
