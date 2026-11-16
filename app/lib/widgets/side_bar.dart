@@ -6,13 +6,14 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../chat/chat_repository.dart';
+import '../documents/documents_repository.dart';
 import '../router.dart';
 import '../services/core_providers.dart';
+import '../services/notifications_controller.dart';
 import '../services/session_controller.dart';
 import '../theme/tokens.dart';
 import '../ui/motion.dart';
 import '../ui/surfaces.dart';
-import 'app_shell.dart' show shellLinks;
 import 'brand_logo.dart';
 import 'create_sheet.dart';
 
@@ -178,12 +179,18 @@ class _SideBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     final session = ref.watch(sessionProvider);
-    final site = ref.watch(currentSiteProvider)?.id;
     final unreadChats = (ref.watch(conversationsProvider).value ?? const [])
         .where((c) => c.unread > 0 && !c.muted)
         .length;
-    final items = <(String, String, IconData, IconData, int)>[
-      for (final t in shellTabs) (t.path, t.label, t.icon, t.selectedIcon, 0),
+    final unreadAlerts = ref.watch(
+      notificationsProvider.select((s) => s.unread),
+    );
+    final toSign = ref.watch(toSignCountProvider);
+    // The bar is the menu on wide screens: every page from the Menu tab, in
+    // groups, and no "Menu" entry of its own.
+    final top = <_Item>[
+      for (final t in shellTabs)
+        if (t.path != '/menu') (t.path, t.label, t.icon, t.selectedIcon, 0),
       if (session.can('chat.use'))
         (
           '/chat',
@@ -193,28 +200,83 @@ class _SideBar extends ConsumerWidget {
           unreadChats,
         ),
     ];
-    final links = [
-      for (final (p, l, i) in shellLinks(session, site)) (p, l, i, i, 0),
+    _Item one(String p, String l, IconData i, [int badge = 0]) =>
+        (p, l, i, i, badge);
+    final groups = <(String, List<_Item>)>[
       (
-        '/meetings',
-        'Meetings',
-        CupertinoIcons.person_3,
-        CupertinoIcons.person_3_fill,
-        0,
+        'Work',
+        [
+          if (session.can('req.triage'))
+            one('/requests', 'Requests', CupertinoIcons.tray_arrow_down),
+          if (session.can('req.submit'))
+            one('/my-requests', 'My requests', CupertinoIcons.paperplane),
+          one('/checklists', 'Checklists', CupertinoIcons.checkmark_rectangle),
+          one('/reports', 'Daily report', CupertinoIcons.doc_chart),
+          if (session.can('jobs.assign'))
+            one(
+              '/jobs/recurring',
+              'Planned maintenance',
+              CupertinoIcons.arrow_2_circlepath,
+            ),
+          if (session.can('jc.view'))
+            one('/job-stats', 'Job statistics', CupertinoIcons.chart_bar),
+          one('/meetings', 'Meetings', CupertinoIcons.person_3),
+        ],
+      ),
+      (
+        'Stores',
+        [
+          one(
+            '/equipment',
+            'Equipment & tools',
+            Icons.home_repair_service_outlined,
+          ),
+          if (session.can('store.view')) ...[
+            one('/inventory', 'Inventory', CupertinoIcons.cube_box),
+            one('/materials', 'Materials', CupertinoIcons.cart),
+          ],
+          if (session.can('tools.view'))
+            one('/tools/stats', 'Tool stats', CupertinoIcons.graph_square),
+        ],
+      ),
+      (
+        'Planning',
+        [
+          if (session.can('jc.view')) ...[
+            one('/projects', 'Projects', CupertinoIcons.flag),
+            one('/calendar', 'Calendar', CupertinoIcons.calendar),
+            one('/roster', 'Roster', CupertinoIcons.person_2_square_stack),
+          ],
+          one('/documents', 'Documents', CupertinoIcons.book, toSign),
+        ],
+      ),
+      (
+        'Me',
+        [
+          one('/reminders', 'Reminders', CupertinoIcons.alarm),
+          one(
+            '/notifications',
+            'Notifications',
+            CupertinoIcons.bell,
+            unreadAlerts,
+          ),
+        ],
       ),
     ];
 
     bool on(String p) =>
         path == p ||
         (p != '/' && path.startsWith('$p/')) ||
-        (p == '/jobs' && path.startsWith('/jobs'));
+        (p == '/jobs' &&
+            path.startsWith('/jobs') &&
+            !path.startsWith('/jobs/recurring'));
 
     void go(String p) {
       HapticFeedback.selectionClick();
       router.go(p);
     }
 
-    Widget item((String, String, IconData, IconData, int) it) {
+    Widget item(_Item it) {
       final (p, label, icon, selected, badge) = it;
       final lit = on(p);
       final fg = lit ? Colors.white : scheme.onSurfaceVariant;
@@ -269,6 +331,30 @@ class _SideBar extends ConsumerWidget {
         ),
       );
     }
+
+    // A group's name; collapsed, just a thin line.
+    Widget heading(String title) => collapsed
+        ? Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Divider(
+              height: 1,
+              indent: 12,
+              endIndent: 12,
+              color: scheme.outlineVariant.withValues(alpha: 0.6),
+            ),
+          )
+        : Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 8, 4),
+            child: Text(
+              title.toUpperCase(),
+              style: TextStyle(
+                color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.8,
+              ),
+            ),
+          );
 
     return SafeArea(
       right: false,
@@ -331,17 +417,12 @@ class _SideBar extends ConsumerWidget {
                 child: ListView(
                   padding: EdgeInsets.zero,
                   children: [
-                    for (final it in items) item(it),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 6),
-                      child: Divider(
-                        height: 1,
-                        indent: 8,
-                        endIndent: 8,
-                        color: scheme.outlineVariant.withValues(alpha: 0.6),
-                      ),
-                    ),
-                    for (final it in links) item(it),
+                    for (final it in top) item(it),
+                    for (final (title, list) in groups)
+                      if (list.isNotEmpty) ...[
+                        heading(title),
+                        for (final it in list) item(it),
+                      ],
                   ],
                 ),
               ),
@@ -397,3 +478,5 @@ class _SideBar extends ConsumerWidget {
     );
   }
 }
+
+typedef _Item = (String, String, IconData, IconData, int);

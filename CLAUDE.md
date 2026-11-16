@@ -16,7 +16,8 @@ in `API.md`.
 - Wider than 720 points, the side bar (`app/lib/widgets/side_bar.dart`,
   `SideBarLayer` in `main.dart`) shows on every page and can be collapsed
   to icons; screens check `SideBarScope.shownOf` instead of drawing their
-  own tab rail.
+  own tab rail. It lists every page of the Menu tab in groups and has no
+  Menu entry: a new Menu page goes in both `more_screen.dart` and the bar.
 - Job cards are the one job system: code in `app/lib/v2/`, screens at
   `/jobs` (list, the Jobs tab), `/jobs/<number>`, `/jobs/mine`, `/jobs/new`,
   `/requests`, `/my-requests`, `/job-stats` (see `app/lib/v2/routes.dart`).

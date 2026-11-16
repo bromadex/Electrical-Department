@@ -9,9 +9,13 @@
 - **Collapse** at the bottom shrinks it to icons; **Expand** brings the
   names back. The app remembers your choice. On narrower screens it starts
   collapsed.
-- It holds ➕ New, Home, Jobs, Menu, Chat (with unread count), your Menu
-  pages, Meetings and Settings. It hides on sign-in, guest links and calls.
-- Phones keep the bottom tab bar.
+- The bar is the menu on wide screens: ➕ New, Home, Jobs and Chat (with
+  unread count), then every page from the Menu tab in groups — **Work**,
+  **Stores**, **Planning**, **Me** — and Settings at the bottom. There is
+  no separate "Menu" entry, so nothing is listed twice. Notifications and
+  Documents show their counts.
+- It hides on sign-in, guest links and calls. Phones keep the bottom tab
+  bar, where Menu still lists everything.
 
 ## 15 November 2026
 
