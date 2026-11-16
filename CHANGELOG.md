@@ -1,6 +1,6 @@
 # What's new
 
-## 16 November 2026
+## 16 November 2026 (v0.1.5)
 
 ### ➕ New: only things you start
 - New in the sheet: **New project** (who manages projects), **New
@@ -10,6 +10,9 @@
   and Menu already have: Do a checklist, Requests and Send a message.
 - The side bar now lights **Chat** (and any page opened on top) while
   you are on it.
+- On a computer, ➕ New opens beside the side bar, level with the button,
+  in three columns. Every card is in the brand colours (burgundy, rose,
+  blue); Lend a tool is no longer amber.
 
 ### Side bar on every page
 - On a computer or tablet (wider than 720 points) the side bar now shows on

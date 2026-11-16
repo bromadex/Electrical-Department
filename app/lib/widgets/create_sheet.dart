@@ -20,9 +20,31 @@ import '../ui/page.dart';
 
 /// One place to start anything: the + button in the middle of the tab bar
 /// (and at the top of the desktop menu). Shows only what the user may do.
-Future<void> showCreateSheet(BuildContext context) {
+///
+/// [top]: from the side bar on a computer, the button's height on screen;
+/// the panel then opens beside the bar, level with the button, in three
+/// columns, instead of in the middle of the screen.
+Future<void> showCreateSheet(BuildContext context, {double? top}) {
   HapticFeedback.mediumImpact();
-  return showFormSheet(context, const _CreateSheet());
+  if (top == null) return showFormSheet(context, const _CreateSheet());
+  final screen = MediaQuery.sizeOf(context).height;
+  return showDialog<void>(
+    context: context,
+    barrierColor: Colors.black26,
+    builder: (context) => Dialog(
+      alignment: Alignment.topLeft,
+      insetPadding: EdgeInsets.only(
+        left: Space.sm,
+        top: top.clamp(Space.sm, screen / 3),
+        right: Space.lg,
+        bottom: Space.lg,
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 620, maxHeight: 760),
+        child: const _CreateSheet(),
+      ),
+    ),
+  );
 }
 
 typedef _Action = ({
@@ -114,7 +136,7 @@ class _CreateSheet extends ConsumerWidget {
           icon: CupertinoIcons.wrench_fill,
           title: 'Lend a tool',
           hint: 'Issue or take one back',
-          colors: const [BrandColors.warning, Color(0xFFF2BE5C)],
+          colors: const [BrandColors.maroonDeep, BrandColors.coral],
           run: (c) => then(c, (h) => h.push('/equipment?side=tools')),
         ),
       if (can('projects.manage'))
@@ -191,7 +213,8 @@ class _CreateSheet extends ConsumerWidget {
             LayoutBuilder(
               builder: (context, c) {
                 const gap = Space.sm;
-                final w = (c.maxWidth - gap) / 2;
+                final columns = c.maxWidth >= 540 ? 3 : 2;
+                final w = (c.maxWidth - gap * (columns - 1)) / columns;
                 return Wrap(
                   spacing: gap,
                   runSpacing: gap,

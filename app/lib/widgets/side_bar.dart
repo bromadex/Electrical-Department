@@ -377,41 +377,49 @@ class _SideBar extends ConsumerWidget {
               Semantics(
                 label: 'New',
                 button: true,
-                child: Pressable(
-                  onTap: () {
-                    final ctx =
-                        router.routerDelegate.navigatorKey.currentContext;
-                    if (ctx != null) showCreateSheet(ctx);
-                  },
-                  scale: 0.94,
-                  child: Container(
-                    height: 44,
-                    decoration: BoxDecoration(
-                      gradient: BrandColors.brandGradient,
-                      borderRadius: BorderRadius.circular(Radii.pill),
-                      boxShadow: [
-                        BoxShadow(
-                          color: BrandColors.maroon.withValues(alpha: 0.35),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(CupertinoIcons.add, color: Colors.white),
-                        if (!collapsed) ...[
-                          const SizedBox(width: Space.xs),
-                          const Text(
-                            'New',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                            ),
+                child: Builder(
+                  builder: (button) => Pressable(
+                    onTap: () {
+                      final ctx =
+                          router.routerDelegate.navigatorKey.currentContext;
+                      if (ctx == null) return;
+                      // Open the panel beside the button, level with it.
+                      final box = button.findRenderObject() as RenderBox?;
+                      showCreateSheet(
+                        ctx,
+                        top: box?.localToGlobal(Offset.zero).dy,
+                      );
+                    },
+                    scale: 0.94,
+                    child: Container(
+                      height: 44,
+                      decoration: BoxDecoration(
+                        gradient: BrandColors.brandGradient,
+                        borderRadius: BorderRadius.circular(Radii.pill),
+                        boxShadow: [
+                          BoxShadow(
+                            color: BrandColors.maroon.withValues(alpha: 0.35),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
                           ),
                         ],
-                      ],
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(CupertinoIcons.add, color: Colors.white),
+                          if (!collapsed) ...[
+                            const SizedBox(width: Space.xs),
+                            const Text(
+                              'New',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
