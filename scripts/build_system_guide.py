@@ -263,7 +263,7 @@ def cover(canvas, doc):
         y -= 15
     canvas.setFont("Inter", 9)
     canvas.setFillColor(ROSE)
-    canvas.drawString(22 * mm, 22 * mm, "Version as of 15 November 2026  ·  web app and Android app v0.1.x")
+    canvas.drawString(22 * mm, 22 * mm, "Version as of 16 November 2026  ·  web app and Android app v0.1.x")
     canvas.restoreState()
 
 
@@ -407,8 +407,9 @@ table([
     ["Home", "Greeting, <i>Needs you</i> (critical, overdue, waiting for you), the day's numbers for "
              "the site, shortcuts."],
     ["Jobs", "The job card list with status chips, search and filters; <i>My jobs</i>; statistics."],
-    ["Chat", "Group and direct chats; the phone button opens the calls list (missed calls badge), "
-             "the star opens starred messages."],
+    ["Chat button", "The round green button at the bottom right of every screen opens chat, with "
+                    "a red count of chats with unread messages; long-press it for your last three "
+                    "chats. Chat has its own tabs: Chats, Calls, Meetings, Starred."],
     ["Search", "The search button on every tab finds job cards, equipment, tools, documents, inventory, "
                "projects, requests and purchases by code or name."],
     ["Menu", "Every other screen: Requests, Checklists, Daily report, Equipment &amp; tools, Inventory, "
@@ -604,7 +605,10 @@ bullets([
 # 11 ------------------------------------------------------------------------
 h1("Chat, calls and meetings")
 p("Chat, calls and meetings work like WhatsApp and Zoom, built for site work: weak signal, phones "
-  "and computers, and records like job cards that can be shared into a chat.")
+  "and computers, and records like job cards that can be shared into a chat. Chat also looks like "
+  "WhatsApp: its green, flat bubbles on a wallpaper of electrical doodles, light or dark as the "
+  "phone is set, frosted glass bars, and on computers WhatsApp Desktop's layout (an icon rail, the "
+  "chat list and the open chat). The rest of the app keeps the burgundy liquid glass.")
 h2("Chats")
 bullets([
     "<b>Who</b>: every site has a group (members follow roles), the department has one, owners and "
@@ -618,8 +622,8 @@ bullets([
     "<i>HD</i> is on. Videos up to 2 minutes are made smaller on phones. The chat's own camera takes a "
     "photo with a tap and a video with a hold, with flash, flip and a strip of recent photos. Tap a photo "
     "for full screen: zoom, swipe, share or save, forward, go to the message.",
-    "<b>Files</b> download with a progress ring (cancel any time) and open from the phone afterwards "
-    "without downloading again.",
+    "<b>Files</b> show as cards with <i>Open</i> and <i>Save as…</i>; they download with a progress "
+    "ring (cancel any time) and open from the phone afterwards without downloading again.",
     "<b>Messages</b>: reply (swipe), react, @mention, tag a record with #, forward to several chats "
     "(marked <i>Forwarded</i>), star (per chat and across chats), edit your own text for 15 minutes "
     "(shows <i>edited</i>), delete for yourself or for everyone, and select several to copy, forward or "
@@ -645,7 +649,9 @@ bullets([
     "muted or with the camera off, loudspeaker or earpiece.",
     "<b>Back keeps the call</b>: back or the down arrow minimises it, and a green <i>Tap to return to "
     "call</i> bar with the time, mute and hang up stays on every screen. Leaving the app shows the call "
-    "in a small picture-in-picture window on Android. Only the red button ends the call.",
+    "in a small picture-in-picture window on Android; on a computer the call becomes a small window "
+    "you can drag anywhere. Only the red button ends the call. In a browser an incoming call shows "
+    "as a card at the top right with Accept.",
     "<b>In the call</b>: speaker view or grid view (everyone in tiles, swipe for more), your own picture "
     "dragged to any corner, reactions, raise hand (shown in the order raised), chat beside the call, "
     "and a signal warning on people with a poor connection.",

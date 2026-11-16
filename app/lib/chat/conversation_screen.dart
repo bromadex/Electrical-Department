@@ -1966,11 +1966,13 @@ class _Bubble extends StatelessWidget {
                     padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
                     decoration: BoxDecoration(
                       color: bubble,
+                      // A tail only on the first message of a run, as on
+                      // WhatsApp.
                       borderRadius: BorderRadius.only(
-                        topLeft: const Radius.circular(16),
-                        topRight: const Radius.circular(16),
-                        bottomLeft: Radius.circular(mine ? 16 : 4),
-                        bottomRight: Radius.circular(mine ? 4 : 16),
+                        topLeft: Radius.circular(!mine && !tight ? 4 : 16),
+                        topRight: Radius.circular(mine && !tight ? 4 : 16),
+                        bottomLeft: const Radius.circular(16),
+                        bottomRight: const Radius.circular(16),
                       ),
                       boxShadow: const [
                         BoxShadow(

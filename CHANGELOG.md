@@ -2,6 +2,14 @@
 
 ## 15 November 2026
 
+### Last WhatsApp touches
+- Files show as cards with **Open** and **Save as…** (phones offer the
+  share sheet to keep the file anywhere).
+- Bubbles have a tail only on the first message of a run.
+- On computers a minimised call is a small window you can drag anywhere,
+  with the video, mute, hang up and full screen.
+- The system guide covers the chat button and the WhatsApp look.
+
 ### Inside chats, computers and calls like WhatsApp
 - **Inside a chat:** the message bar has ➕ on the left, a rounded field
   with emoji, camera and microphone, and a green send button; ➕ opens

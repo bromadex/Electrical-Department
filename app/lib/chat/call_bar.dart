@@ -24,6 +24,9 @@ class CallBar extends ConsumerStatefulWidget {
 class _CallBarState extends ConsumerState<CallBar> {
   late final CallController _call = ref.read(callControllerProvider);
 
+  /// Where the floating call window sits on computers (dragged).
+  Offset? _at;
+
   @override
   void initState() {
     super.initState();
@@ -68,6 +71,95 @@ class _CallBarState extends ConsumerState<CallBar> {
         _call.elapsed ??
         (_call.waiting ? (_call.rang ? 'Ringing…' : 'Calling…') : 'Waiting');
     final top = MediaQuery.paddingOf(context).top;
+    // Computers: WhatsApp Desktop's floating call window, dragged anywhere,
+    // with the video, mute, hang up and full screen.
+    if (MediaQuery.sizeOf(context).width >= 1000) {
+      final size = MediaQuery.sizeOf(context);
+      final at = _at ?? Offset(size.width - 360 - 24, size.height - 260 - 24);
+      return Stack(
+        children: [
+          widget.child,
+          Positioned(
+            left: at.dx.clamp(0, size.width - 360),
+            top: at.dy.clamp(0, size.height - 260),
+            child: GestureDetector(
+              onPanUpdate: (d) => setState(() => _at = at + d.delta),
+              child: Material(
+                elevation: 16,
+                color: const Color(0xFF111B21),
+                borderRadius: BorderRadius.circular(16),
+                clipBehavior: Clip.antiAlias,
+                child: SizedBox(
+                  width: 360,
+                  height: 260,
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 8, 6, 4),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                '$title · $status',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: 'Full screen',
+                              color: Colors.white,
+                              iconSize: 18,
+                              onPressed: () => unawaited(
+                                widget.router.push('/chat/$id/call'),
+                              ),
+                              icon: const Icon(
+                                CupertinoIcons.arrow_up_left_arrow_down_right,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Expanded(child: CallPipView()),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            IconButton.filledTonal(
+                              tooltip: mic ? 'Mute' : 'Unmute',
+                              onPressed: _call.toggleMic,
+                              icon: Icon(
+                                mic
+                                    ? CupertinoIcons.mic_fill
+                                    : CupertinoIcons.mic_slash_fill,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            IconButton.filled(
+                              tooltip: 'Hang up',
+                              style: IconButton.styleFrom(
+                                backgroundColor: const Color(0xFFEA0038),
+                                foregroundColor: Colors.white,
+                              ),
+                              onPressed: _call.leave,
+                              icon: const Icon(CupertinoIcons.phone_down_fill),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
     return Column(
       children: [
         Material(

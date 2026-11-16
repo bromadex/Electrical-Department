@@ -144,7 +144,7 @@ From the Desktop call screenshots (and WhatsApp for iPhone calls):
   buttons; keeps minimise, picture-in-picture and everything from the
   calls phases.
 
-## Phase H: Finish
+## Phase H: Finish (guide updated 16 November 2026; release waits for Clement)
 
 - Contrast and size checks for both themes, big text and screen readers.
 - Update the PDF guide, CHANGELOG and API.md (favourites flag if added).

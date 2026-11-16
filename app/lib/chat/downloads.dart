@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Chat files kept on the phone after the first download, so they open
@@ -56,16 +57,36 @@ class ChatDownloads extends ChangeNotifier {
 
   /// Downloads (with progress) and opens a chat file. A file already on
   /// the phone opens at once.
-  Future<void> open(String path, String? url, {String? name}) async {
+  /// Save as…: browsers download the file; phones download it (once) and
+  /// offer the share sheet to keep it in Files, Drive, WhatsApp…
+  Future<void> saveAs(String path, String? url, {String? name}) =>
+      open(path, url, name: name, share: true);
+
+  Future<void> open(
+    String path,
+    String? url, {
+    String? name,
+    bool share = false,
+  }) async {
     if (kIsWeb) {
       if (url != null) {
         await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
       }
       return;
     }
+    Future<void> done(String file) async {
+      if (share) {
+        await SharePlus.instance.share(
+          ShareParams(files: [XFile(file, name: name)]),
+        );
+      } else {
+        await OpenFilex.open(file);
+      }
+    }
+
     final have = await local(path);
     if (have != null) {
-      await OpenFilex.open(have);
+      await done(have);
       return;
     }
     if (url == null || progress.containsKey(path)) return;
@@ -98,7 +119,7 @@ class ChatDownloads extends ChangeNotifier {
       _local[path] = target.path;
       progress.remove(path);
       notifyListeners();
-      await OpenFilex.open(target.path);
+      await done(target.path);
     } catch (_) {
       progress.remove(path);
       notifyListeners();
@@ -208,7 +229,7 @@ class _FileBubbleState extends ConsumerState<FileBubble> {
         size: 30,
       );
     }
-    return InkWell(
+    final info = InkWell(
       onTap: p == null || prog != null
           ? null
           : () => _d.open(p, widget.url, name: widget.name),
@@ -252,6 +273,56 @@ class _FileBubbleState extends ConsumerState<FileBubble> {
             ),
           ],
         ),
+      ),
+    );
+    // WhatsApp's file card: the file, then Open and Save as….
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    Widget button(String label, VoidCallback? onTap) => Expanded(
+      child: Material(
+        color: dark
+            ? Colors.white.withValues(alpha: 0.08)
+            : Colors.black.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: widget.color,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    final busy = p == null || prog != null;
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 240, maxWidth: 320),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          info,
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              button(
+                'Open',
+                busy ? null : () => _d.open(p, widget.url, name: widget.name),
+              ),
+              const SizedBox(width: 6),
+              button(
+                'Save as…',
+                busy ? null : () => _d.saveAs(p, widget.url, name: widget.name),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
