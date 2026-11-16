@@ -152,7 +152,7 @@ class MeetingsListScreen extends ConsumerWidget {
                     const EmptyState(
                       icon: CupertinoIcons.calendar,
                       title: 'No meetings yet',
-                      message: 'Schedule one from a group chat: ⋮ → Schedule a meeting.',
+                      message: 'Schedule one with ➕ New → Schedule a meeting.',
                     ),
                   if (soon.isNotEmpty) ...[
                     label('On now and upcoming'),

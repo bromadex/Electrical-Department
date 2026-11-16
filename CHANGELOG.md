@@ -2,6 +2,15 @@
 
 ## 16 November 2026
 
+### ➕ New: only things you start
+- New in the sheet: **New project** (who manages projects), **New
+  purchase** (who manages purchases), **Schedule a meeting** (pick the
+  group, then the time) and **New chat or group**.
+- Gone from the sheet, because they only opened a page that the side bar
+  and Menu already have: Do a checklist, Requests and Send a message.
+- The side bar now lights **Chat** (and any page opened on top) while
+  you are on it.
+
 ### Side bar on every page
 - On a computer or tablet (wider than 720 points) the side bar now shows on
   every page, including Chats, Checklists, Inventory and the other Menu

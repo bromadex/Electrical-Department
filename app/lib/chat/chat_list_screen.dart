@@ -47,9 +47,16 @@ bool chatTwoPanes(BuildContext context) =>
     MediaQuery.sizeOf(context).width >= 1000;
 
 /// Opens a chat: beside the list on wide screens, on top on phones.
-void openChat(BuildContext context, WidgetRef ref, String id) {
+void openChat(
+  BuildContext context,
+  WidgetRef ref,
+  String id, {
+  bool fromOutside = false,
+}) {
   if (chatTwoPanes(context)) {
     ref.read(selectedChatProvider.notifier).open(id);
+    // From outside Chat (the ➕ sheet), go to Chat to show it.
+    if (fromOutside) context.push('/chat');
   } else {
     context.push('/chat/$id');
   }
@@ -367,7 +374,7 @@ class _ChatListState extends ConsumerState<_ChatList> {
               title: const Text('New chat or group'),
               onTap: () {
                 Navigator.pop(sheet);
-                showFormSheet(context, const _NewChatSheet());
+                showFormSheet(context, const NewChatSheet());
               },
             ),
             ListTile(
@@ -535,7 +542,7 @@ class _ChatListState extends ConsumerState<_ChatList> {
                   child: IconButton.filled(
                     tooltip: 'New chat',
                     onPressed: () =>
-                        showFormSheet(context, const _NewChatSheet()),
+                        showFormSheet(context, const NewChatSheet()),
                     // White on green (the bar's icons are green).
                     icon: Icon(
                       CupertinoIcons.add,
@@ -1149,14 +1156,17 @@ class _ChatTile extends ConsumerWidget {
 }
 
 /// Pick someone for a direct chat, or (supervisors) make a group.
-class _NewChatSheet extends ConsumerStatefulWidget {
-  const _NewChatSheet();
+/// [fromOutside]: opened from the ➕ sheet, so it goes to Chat afterwards.
+class NewChatSheet extends ConsumerStatefulWidget {
+  const NewChatSheet({super.key, this.fromOutside = false});
+
+  final bool fromOutside;
 
   @override
-  ConsumerState<_NewChatSheet> createState() => _NewChatSheetState();
+  ConsumerState<NewChatSheet> createState() => _NewChatSheetState();
 }
 
-class _NewChatSheetState extends ConsumerState<_NewChatSheet> {
+class _NewChatSheetState extends ConsumerState<NewChatSheet> {
   final _search = TextEditingController();
   final _name = TextEditingController();
   final _picked = <String>{};
@@ -1178,7 +1188,7 @@ class _NewChatSheetState extends ConsumerState<_NewChatSheet> {
       final id = await ref.read(chatActionsProvider).openDirect(userId);
       if (!mounted) return;
       Navigator.pop(context);
-      openChat(context, ref, id);
+      openChat(context, ref, id, fromOutside: widget.fromOutside);
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -1204,7 +1214,7 @@ class _NewChatSheetState extends ConsumerState<_NewChatSheet> {
       );
       if (!mounted) return;
       Navigator.pop(context);
-      openChat(context, ref, id);
+      openChat(context, ref, id, fromOutside: widget.fromOutside);
     } catch (e) {
       if (mounted) {
         setState(() {

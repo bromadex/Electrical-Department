@@ -4,7 +4,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../chat/chat_list_screen.dart' show NewChatSheet;
+import '../chat/chat_repository.dart';
 import '../documents/documents_screen.dart';
+import '../meetings/meeting_screen.dart' show ScheduleMeetingSheet;
+import '../projects/projects_screen.dart' show ProjectForm;
 import '../reports/daily_report_screen.dart';
 import '../ui/form_sheet.dart';
 import '../reports/reports_repository.dart';
@@ -75,6 +79,14 @@ class _CreateSheet extends ConsumerWidget {
           colors: const [BrandColors.coral, BrandColors.info],
           run: (c) => then(c, (h) => h.push('/materials/new')),
         ),
+      if (can('po.manage'))
+        (
+          icon: CupertinoIcons.bag_fill_badge_plus,
+          title: 'New purchase',
+          hint: 'Order from a supplier',
+          colors: const [BrandColors.info, BrandColors.maroon],
+          run: (c) => then(c, (h) => h.push('/purchases/new')),
+        ),
       if (can('jc.execute'))
         (
           icon: CupertinoIcons.person_crop_circle_badge_checkmark,
@@ -97,14 +109,6 @@ class _CreateSheet extends ConsumerWidget {
             ),
           ),
         ),
-      if (can('jc.view') && works)
-        (
-          icon: CupertinoIcons.checkmark_rectangle_fill,
-          title: 'Do a checklist',
-          hint: 'Daily rounds',
-          colors: const [BrandColors.success, Color(0xFF4CC195)],
-          run: (c) => then(c, (h) => h.push('/checklists')),
-        ),
       if (can('tools.issue'))
         (
           icon: CupertinoIcons.wrench_fill,
@@ -113,13 +117,37 @@ class _CreateSheet extends ConsumerWidget {
           colors: const [BrandColors.warning, Color(0xFFF2BE5C)],
           run: (c) => then(c, (h) => h.push('/equipment?side=tools')),
         ),
+      if (can('projects.manage'))
+        (
+          icon: CupertinoIcons.flag_fill,
+          title: 'New project',
+          hint: 'Plan, materials, BOQ',
+          colors: const [BrandColors.maroon, BrandColors.blush],
+          run: (c) => then(c, (h) => showFormSheet(h, const ProjectForm())),
+        ),
+      if (can('meetings.manage') && session.can('chat.use'))
+        (
+          icon: CupertinoIcons.calendar_badge_plus,
+          title: 'Schedule a meeting',
+          hint: 'In a group chat',
+          colors: const [BrandColors.maroonDeep, BrandColors.info],
+          run: (c) => then(c, (h) async {
+            final id = await showFormSheet<String>(h, const _PickGroupSheet());
+            if (id != null && h.mounted) {
+              await showFormSheet(h, ScheduleMeetingSheet(conversationId: id));
+            }
+          }),
+        ),
       if (session.can('chat.use'))
         (
           icon: CupertinoIcons.chat_bubble_2_fill,
-          title: 'Send a message',
-          hint: 'Team or one person',
-          colors: const [Color(0xFF5B4B8A), BrandColors.info],
-          run: (c) => then(c, (h) => h.push('/chat')),
+          title: 'New chat or group',
+          hint: 'One person or a team',
+          colors: const [BrandColors.info, Color(0xFF6A8FE8)],
+          run: (c) => then(
+            c,
+            (h) => showFormSheet(h, const NewChatSheet(fromOutside: true)),
+          ),
         ),
       (
         icon: CupertinoIcons.alarm_fill,
@@ -135,14 +163,6 @@ class _CreateSheet extends ConsumerWidget {
           hint: 'SOP or drawing',
           colors: const [BrandColors.coral, BrandColors.blush],
           run: (c) => then(c, (h) => showFormSheet(h, const DocumentForm())),
-        ),
-      if (can('req.triage'))
-        (
-          icon: CupertinoIcons.tray_arrow_down_fill,
-          title: 'Requests',
-          hint: 'From other departments',
-          colors: const [BrandColors.maroonDeep, BrandColors.maroon],
-          run: (c) => then(c, (h) => h.push('/requests')),
         ),
     ];
 
@@ -249,6 +269,89 @@ class _ActionCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Schedule a meeting from ➕: first pick the group chat it belongs to
+/// (groups where the user may run meetings). Pops the chat's id.
+class _PickGroupSheet extends ConsumerWidget {
+  const _PickGroupSheet();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final session = ref.watch(sessionProvider);
+    final here = ref.watch(currentSiteProvider)?.id;
+    final chats = ref.watch(conversationsProvider);
+    final groups = [
+      for (final c in chats.value ?? const <Conversation>[])
+        if (!c.isDirect &&
+            !c.archived &&
+            session.can('meetings.manage', siteId: c.siteId ?? here))
+          c,
+    ];
+    return SafeArea(
+      top: false,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              Space.lg,
+              Space.md,
+              Space.lg,
+              Space.xs,
+            ),
+            child: Text('Which group?', style: theme.textTheme.titleLarge),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: Space.lg),
+            child: Text(
+              'The meeting goes in its chat: everyone in it is invited.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          const SizedBox(height: Space.sm),
+          if (chats.isLoading && groups.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(Space.xl),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (groups.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(Space.lg),
+              child: Text(
+                'No group chats where you can run meetings yet.',
+                style: theme.textTheme.bodyMedium,
+              ),
+            )
+          else
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                padding: const EdgeInsets.only(bottom: Space.md),
+                children: [
+                  for (final g in groups)
+                    ListTile(
+                      leading: const Icon(CupertinoIcons.person_3_fill),
+                      title: Text(
+                        g.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Text('${g.memberCount} people'),
+                      trailing: const Icon(CupertinoIcons.chevron_right),
+                      onTap: () => Navigator.pop(context, g.id),
+                    ),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }
