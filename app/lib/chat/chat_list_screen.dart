@@ -779,42 +779,21 @@ class ChatGroupAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // In chat: WhatsApp's pale green group circle.
-    if (Theme.of(context).extension<ChatLook>() != null) {
-      final dark = Theme.of(context).brightness == Brightness.dark;
-      return Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: dark ? ChatColors.chipDark : ChatColors.chip,
-        ),
-        child: Icon(
-          chat.siteId == null && chat.isDefault
-              ? CupertinoIcons.bolt_fill
-              : CupertinoIcons.person_3_fill,
-          color: dark ? ChatColors.greenLight : ChatColors.greenDeep,
-          size: size * 0.5,
-        ),
-      );
-    }
+    // WhatsApp's pale green group circle (everywhere).
+    final dark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: chat.isDefault
-            ? BrandColors.brandGradient
-            : const LinearGradient(
-                colors: [BrandColors.coral, BrandColors.info],
-              ),
+        color: dark ? ChatColors.chipDark : ChatColors.chip,
       ),
       child: Icon(
         chat.siteId == null && chat.isDefault
             ? CupertinoIcons.bolt_fill
             : CupertinoIcons.person_3_fill,
-        color: Colors.white,
-        size: size * 0.46,
+        color: dark ? ChatColors.greenLight : ChatColors.greenDeep,
+        size: size * 0.5,
       ),
     );
   }
@@ -956,20 +935,29 @@ class _ChatTile extends ConsumerWidget {
     var body = c.preview ?? '';
     final colon = body.indexOf(': ');
     if (colon > 0 && colon < 60) body = body.substring(colon + 2);
-    body = body.replaceFirst(RegExp(r'^(📷|🎥|🎤|📎|🔖|📞) ?'), '');
+    final isLocation = body.startsWith('📍');
+    final isPoll = body.startsWith('📊');
+    body = body
+        .replaceFirst(RegExp(r'^(📷|🎥|🎤|📎|🔖|📞|📍|📊) ?'), '')
+        .split('\n')
+        .first;
     final who = c.isDirect || c.lastAuthorId == null
         ? null
         : mine
         ? 'You'
         : (names[c.lastAuthorId] ?? '').split(' ').first;
-    final kindIcon = switch (c.lastKind) {
-      'photo' => CupertinoIcons.camera_fill,
-      'video' => CupertinoIcons.video_camera_solid,
-      'voice' => CupertinoIcons.mic_fill,
-      'file' => CupertinoIcons.doc_fill,
-      'record' => CupertinoIcons.tag_fill,
-      _ => null,
-    };
+    final kindIcon = isLocation
+        ? CupertinoIcons.location_solid
+        : isPoll
+        ? CupertinoIcons.chart_bar_alt_fill
+        : switch (c.lastKind) {
+            'photo' => CupertinoIcons.camera_fill,
+            'video' => CupertinoIcons.video_camera_solid,
+            'voice' => CupertinoIcons.mic_fill,
+            'file' => CupertinoIcons.doc_fill,
+            'record' => CupertinoIcons.tag_fill,
+            _ => null,
+          };
     final tick = !mine
         ? null
         : switch (c.lastTick) {

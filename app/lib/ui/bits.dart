@@ -26,7 +26,7 @@ class AppAvatar extends ConsumerWidget {
     return parts.take(2).map((p) => p[0].toUpperCase()).join();
   }
 
-  /// WhatsApp's soft avatar colours (chat): a pale background with the
+  /// WhatsApp's soft avatar colours (everywhere): a pale background with the
   /// initials in a stronger shade of the same colour, chosen by name.
   static const _pastels = [
     (Color(0xFFFFE1E1), Color(0xFFC0392B)),
@@ -51,8 +51,7 @@ class AppAvatar extends ConsumerWidget {
         backgroundImage: NetworkImage(url),
       );
     }
-    final chat = Theme.of(context).extension<ChatLook>() != null;
-    if (chat) {
+    {
       final i = name.codeUnits.fold<int>(0, (a, c) => a + c) % _pastels.length;
       final (bg, fg) = _pastels[i];
       return Container(
@@ -70,24 +69,6 @@ class AppAvatar extends ConsumerWidget {
         ),
       );
     }
-    return Container(
-      width: size,
-      height: size,
-      alignment: Alignment.center,
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: BrandColors.brandGradient,
-      ),
-      child: Text(
-        initials(name),
-        style: TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w700,
-          fontSize: size * 0.36,
-          letterSpacing: 0.3,
-        ),
-      ),
-    );
   }
 }
 

@@ -458,6 +458,14 @@ triggers on `user_roles` and new sites).
   links for everyone's photo (`avatarUrlsProvider`, refreshed every 50 minutes) and
   `AppAvatar(userId: …)` shows them. Settings → your details → Change photo.
 
+- **Polls (migration 0052):** `polls` (question, `options text[]` 2–12, `multiple`) and
+  `poll_votes` (members read; realtime). `fn_create_poll(p_client_ref, p_conversation,
+  p_question, p_options, p_multiple)` posts the question as a text message (`📊 …`,
+  `record_link poll:<id>`); `fn_vote_poll(p_poll, p_options int[])` replaces your vote (empty
+  takes it back). Online only.
+- **Location:** a text message `📍 Location` + a Google Maps link (queued offline like any
+  text); the app shows it as a map card (one OpenStreetMap tile, attributed).
+
 ## 16b. Calls (migration 0017)
 
 Voice and video calls in any chat, on LiveKit Cloud. A chat's call is the room

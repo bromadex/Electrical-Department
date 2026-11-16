@@ -5,6 +5,7 @@ import 'package:electrical_department/chat/chat_list_screen.dart';
 import 'package:electrical_department/chat/chat_repository.dart';
 import 'package:electrical_department/chat/chat_video.dart';
 import 'package:electrical_department/chat/conversation_screen.dart';
+import 'package:electrical_department/chat/location_poll.dart';
 import 'package:electrical_department/data/avatars.dart';
 import 'package:electrical_department/meetings/meetings_list_screen.dart';
 import 'package:electrical_department/theme/app_theme.dart';
@@ -223,7 +224,7 @@ void main() {
       expect(find.text('NN'), findsOneWidget);
     });
 
-    testWidgets('outside chat, avatars keep the burgundy gradient', (
+    testWidgets('outside chat too, avatars are the soft colours', (
       tester,
     ) async {
       await tester.pumpWidget(
@@ -236,7 +237,7 @@ void main() {
         ),
       );
       final box = tester.widget<Container>(find.byType(Container).first);
-      expect((box.decoration as BoxDecoration).gradient, isNotNull);
+      expect((box.decoration as BoxDecoration).gradient, isNull);
     });
 
     testWidgets('a group in chat is a pale green circle', (tester) async {
@@ -262,6 +263,31 @@ void main() {
         AppTheme.chat(Brightness.dark).scaffoldBackgroundColor,
         Colors.black,
       );
+    });
+  });
+
+  group('location and polls', () {
+    test('a shared location reads back as the same point', () {
+      final text = locationMessage(-18.123456, 26.987654);
+      expect(text.startsWith('📍 Location'), isTrue);
+      expect(locationOf(text), (-18.123456, 26.987654));
+    });
+    test('ordinary text with a maps link is not a location card', () {
+      expect(locationOf('see https://maps.google.com/maps?q=1,2'), isNull);
+      expect(locationOf(null), isNull);
+    });
+    test('a poll counts each voter once', () {
+      const p = Poll(
+        id: 'p',
+        question: 'Which days?',
+        options: ['Mon', 'Tue'],
+        multiple: true,
+        votes: {
+          0: ['a', 'b'],
+          1: ['a'],
+        },
+      );
+      expect(p.voters, 2);
     });
   });
 }

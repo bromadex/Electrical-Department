@@ -41,6 +41,8 @@ class ChatComposer extends ConsumerStatefulWidget {
     required this.onVoice,
     this.onCamera,
     this.onVideo,
+    this.onLocation,
+    this.onPoll,
   });
 
   final String conversationId;
@@ -64,6 +66,10 @@ class ChatComposer extends ConsumerStatefulWidget {
 
   /// A video from the phone, up to 2 minutes.
   final VoidCallback? onVideo;
+
+  /// Share where you are, and make a poll.
+  final VoidCallback? onLocation;
+  final VoidCallback? onPoll;
   final void Function(ChatAttachment voice) onVoice;
 
   @override
@@ -276,6 +282,20 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
           'From Documents',
           const Color(0xFFFF9500),
           widget.onDocument!,
+        ),
+      if (widget.onLocation != null)
+        (
+          CupertinoIcons.location_solid,
+          'Location',
+          const Color(0xFF1DAB61),
+          widget.onLocation!,
+        ),
+      if (widget.onPoll != null)
+        (
+          CupertinoIcons.chart_bar_alt_fill,
+          'Poll',
+          const Color(0xFFFFBC38),
+          widget.onPoll!,
         ),
       (
         CupertinoIcons.tag_fill,

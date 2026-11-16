@@ -25,6 +25,7 @@ import 'chat_media.dart';
 import 'wallpaper.dart';
 import 'camera_screen.dart';
 import 'chat_video.dart';
+import 'location_poll.dart';
 import 'downloads.dart';
 import 'chat_repository.dart';
 import 'composer.dart';
@@ -328,6 +329,15 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
         context,
       ).showSnackBar(const SnackBar(content: Text('Starring needs signal.')));
     }
+  }
+
+  /// Shares where you are as a location message (a map card).
+  Future<void> _sendLocation() async {
+    final at = await currentLocation(context);
+    if (at == null) return;
+    await ref
+        .read(chatActionsProvider)
+        .send(widget.id, text: locationMessage(at.$1, at.$2));
   }
 
   Future<void> _sendVideo({bool record = false}) async {
@@ -1261,6 +1271,11 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                 onPhoto: _sendPhotos,
                 onCamera: kIsWeb ? null : _camera,
                 onVideo: _sendVideo,
+                onLocation: _sendLocation,
+                onPoll: () => showFormSheet(
+                  context,
+                  NewPollSheet(conversationId: widget.id),
+                ),
                 onFile: _sendFile,
                 onTag: _tagRecord,
                 onDocument:
@@ -1905,7 +1920,11 @@ class _Bubble extends StatelessWidget {
               ),
             ),
           ),
-        if (m.body != null)
+        if (m.recordLink?.startsWith('poll:') ?? false)
+          PollCard(pollId: m.recordLink!.substring(5), color: fg)
+        else if (locationOf(m.body) case final at?)
+          LocationCard(lat: at.$1, lng: at.$2)
+        else if (m.body != null)
           Padding(
             padding: EdgeInsets.only(top: m.kind == 'text' ? 0 : 6),
             child: Text.rich(

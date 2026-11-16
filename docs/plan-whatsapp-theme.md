@@ -152,7 +152,7 @@ From the Desktop call screenshots (and WhatsApp for iPhone calls):
 
 ---
 
-## Decisions before starting
+## Decisions (answered 16 November 2026: chat follows the phone; Location and Poll added; soft avatars everywhere)
 
 1. Chat light/dark: follow the phone (like WhatsApp) or the app's setting?
 2. Standard WhatsApp look or the liquid-glass version as the default?

@@ -2,6 +2,16 @@
 
 ## 15 November 2026
 
+### Location and polls; soft avatars everywhere
+- **Location** in the ➕ grid shares where you are as a map card; tap it
+  to open Maps.
+- **Poll** in the ➕ grid: a question with 2–12 options, one or several
+  answers; everyone in the chat votes and sees the counts and who voted,
+  live (migration 0052).
+- The soft avatar colours (pale circles with coloured initials) and the
+  pale green group circles are now used everywhere in the app.
+- Chat keeps following the phone's light or dark setting.
+
 ### Profile photos
 - Everyone can set their own profile photo in Settings → your details →
   **Change photo** (or Remove). It shows in chats, group info, calls and
