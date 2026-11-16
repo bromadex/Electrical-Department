@@ -81,7 +81,6 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
       child: Builder(
         builder: (context) {
           final theme = Theme.of(context);
-          final dark = theme.brightness == Brightness.dark;
           final unread = ref.watch(chatUnreadProvider);
           final missed = ref.watch(missedCallsProvider).value ?? 0;
           return Scaffold(
@@ -94,17 +93,15 @@ class _ChatHomeScreenState extends ConsumerState<ChatHomeScreen> {
                 StarredScreen(),
               ],
             ),
-            bottomNavigationBar: DecoratedBox(
-              decoration: BoxDecoration(
-                color: dark ? const Color(0xFF121212) : const Color(0xFFF7F7F7),
-                border: Border(
-                  top: BorderSide(color: theme.dividerColor, width: 0.5),
-                ),
-              ),
-              child: SafeArea(
-                top: false,
+            extendBody: true,
+            // A floating frosted tab bar, as in WhatsApp's liquid-glass look.
+            bottomNavigationBar: SafeArea(
+              top: false,
+              minimum: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+              child: ChatFrost(
+                radius: 30,
                 child: SizedBox(
-                  height: 58,
+                  height: 62,
                   child: Row(
                     children: [
                       for (final (i, t) in _tabs.indexed)

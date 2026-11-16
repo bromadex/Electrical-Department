@@ -1,3 +1,4 @@
+import 'dart:ui' show ImageFilter;
 import 'dart:math' as math;
 
 import 'package:flutter/cupertino.dart';
@@ -118,4 +119,51 @@ class ChatPlain extends StatelessWidget {
     color: Theme.of(context).scaffoldBackgroundColor,
     child: child,
   );
+}
+
+/// iOS-style frosted glass for chat bars (Phase E): the wallpaper blurs
+/// through a translucent white or black layer, like WhatsApp's liquid-glass
+/// header, message bar and tab bar.
+class ChatFrost extends StatelessWidget {
+  const ChatFrost({
+    super.key,
+    this.child,
+    this.radius = 0,
+    this.padding,
+    this.border = true,
+  });
+
+  final Widget? child;
+  final double radius;
+  final EdgeInsetsGeometry? padding;
+  final bool border;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+        child: Container(
+          padding: padding,
+          decoration: BoxDecoration(
+            color: dark
+                ? Colors.black.withValues(alpha: 0.62)
+                : Colors.white.withValues(alpha: 0.78),
+            borderRadius: BorderRadius.circular(radius),
+            border: border
+                ? Border.all(
+                    color: dark
+                        ? Colors.white.withValues(alpha: 0.10)
+                        : Colors.black.withValues(alpha: 0.06),
+                    width: 0.6,
+                  )
+                : null,
+          ),
+          child: child,
+        ),
+      ),
+    );
+  }
 }

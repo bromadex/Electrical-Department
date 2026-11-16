@@ -10,9 +10,9 @@ import '../data/site_data.dart';
 import '../services/core_providers.dart';
 import '../theme/tokens.dart';
 import '../ui/bits.dart';
-import '../ui/surfaces.dart';
 import 'chat_repository.dart';
 import 'voice.dart';
+import 'wallpaper.dart';
 
 /// How a voice note is being recorded: holding the microphone (let go to
 /// send, slide left to cancel, slide up to lock), or locked (hands free,
@@ -241,71 +241,110 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
 
+  /// The ➕ sheet as WhatsApp's grid of round coloured icons.
   void _attach() {
+    final items = <(IconData, String, Color, VoidCallback)>[
+      (
+        CupertinoIcons.photo_fill,
+        'Photos',
+        const Color(0xFF007AFF),
+        widget.onPhoto,
+      ),
+      if (widget.onCamera != null)
+        (
+          CupertinoIcons.camera_fill,
+          'Camera',
+          const Color(0xFFFF2D55),
+          widget.onCamera!,
+        ),
+      if (widget.onVideo != null)
+        (
+          CupertinoIcons.film_fill,
+          'Video',
+          const Color(0xFFAF52DE),
+          widget.onVideo!,
+        ),
+      (
+        CupertinoIcons.doc_fill,
+        'Document',
+        const Color(0xFF7F66FF),
+        widget.onFile,
+      ),
+      if (widget.onDocument != null)
+        (
+          CupertinoIcons.book_fill,
+          'From Documents',
+          const Color(0xFFFF9500),
+          widget.onDocument!,
+        ),
+      (
+        CupertinoIcons.tag_fill,
+        'Job card, tool…',
+        const Color(0xFF00A884),
+        widget.onTag,
+      ),
+    ];
     showModalBottomSheet<void>(
       context: context,
-      builder: (sheet) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (widget.onCamera != null)
-              ListTile(
-                leading: const Icon(CupertinoIcons.camera_fill),
-                title: const Text('Camera'),
-                subtitle: const Text('Tap for a photo, hold for a video'),
-                onTap: () {
-                  Navigator.pop(sheet);
-                  widget.onCamera!();
-                },
-              ),
-            if (widget.onVideo != null)
-              ListTile(
-                leading: const Icon(CupertinoIcons.film),
-                title: const Text('Video'),
-                subtitle: const Text('Up to 2 minutes'),
-                onTap: () {
-                  Navigator.pop(sheet);
-                  widget.onVideo!();
-                },
-              ),
-            ListTile(
-              leading: const Icon(CupertinoIcons.photo_on_rectangle),
-              title: const Text('Photo'),
-              onTap: () {
-                Navigator.pop(sheet);
-                widget.onPhoto();
-              },
+      showDragHandle: true,
+      builder: (sheet) {
+        final theme = Theme.of(sheet);
+        final dark = theme.brightness == Brightness.dark;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 16,
+              children: [
+                for (final (icon, label, color, run) in items)
+                  SizedBox(
+                    width: 84,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(16),
+                      onTap: () {
+                        Navigator.pop(sheet);
+                        run();
+                      },
+                      child: Column(
+                        children: [
+                          Container(
+                            width: 58,
+                            height: 58,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: dark
+                                  ? const Color(0xFF2C2C2E)
+                                  : Colors.white,
+                              boxShadow: dark
+                                  ? null
+                                  : const [
+                                      BoxShadow(
+                                        color: Color(0x14000000),
+                                        blurRadius: 6,
+                                      ),
+                                    ],
+                            ),
+                            child: Icon(icon, color: color, size: 28),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            label,
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: theme.colorScheme.onSurface,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
             ),
-            ListTile(
-              leading: const Icon(CupertinoIcons.doc),
-              title: const Text('File'),
-              subtitle: const Text('PDF, drawing, spreadsheet…'),
-              onTap: () {
-                Navigator.pop(sheet);
-                widget.onFile();
-              },
-            ),
-            if (widget.onDocument != null)
-              ListTile(
-                leading: const Icon(CupertinoIcons.book),
-                title: const Text('From Documents'),
-                subtitle: const Text('An SOP or drawing from the library'),
-                onTap: () {
-                  Navigator.pop(sheet);
-                  widget.onDocument!();
-                },
-              ),
-            ListTile(
-              leading: const Icon(CupertinoIcons.number),
-              title: const Text('Tag a job card, equipment or tool'),
-              onTap: () {
-                Navigator.pop(sheet);
-                widget.onTag();
-              },
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -331,9 +370,8 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
           id,
     ].take(5).toList();
 
-    return GlassSurface(
-      radius: 0,
-      strong: true,
+    return ChatFrost(
+      border: false,
       padding: EdgeInsets.fromLTRB(
         Space.xs,
         Space.xs,
@@ -419,7 +457,10 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
                       IconButton(
                         tooltip: 'Attach',
                         onPressed: _attach,
-                        icon: const Icon(CupertinoIcons.plus_circle),
+                        icon: Icon(
+                          CupertinoIcons.add,
+                          color: theme.colorScheme.onSurface,
+                        ),
                       ),
                       Expanded(
                         child: TextField(
@@ -455,7 +496,17 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 4),
+                      if (empty && widget.onCamera != null)
+                        IconButton(
+                          tooltip: 'Camera',
+                          onPressed: widget.onCamera,
+                          icon: Icon(
+                            CupertinoIcons.camera,
+                            color: theme.colorScheme.onSurface,
+                          ),
+                        )
+                      else
+                        const SizedBox(width: 4),
                     ],
                     // Keyed, so holding it survives the row changing around it.
                     KeyedSubtree(
@@ -475,6 +526,13 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
                         child: Transform.scale(
                           scale: _rec == _Rec.holding ? 1.35 : 1,
                           child: IconButton.filled(
+                            style: empty
+                                ? IconButton.styleFrom(
+                                    backgroundColor: Colors.transparent,
+                                    foregroundColor:
+                                        theme.colorScheme.onSurface,
+                                  )
+                                : null,
                             tooltip: empty
                                 ? 'Hold to record, tap for hands free'
                                 : 'Send',
@@ -485,8 +543,8 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
                                 : _send,
                             icon: Icon(
                               empty
-                                  ? CupertinoIcons.mic_fill
-                                  : CupertinoIcons.arrow_up,
+                                  ? CupertinoIcons.mic
+                                  : CupertinoIcons.paperplane_fill,
                             ),
                           ),
                         ),

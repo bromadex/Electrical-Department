@@ -996,8 +996,9 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                           ),
                         const SizedBox(width: Space.xs),
                       ],
-                flexibleSpace: const GlassSurface(
-                  radius: 0,
+                backgroundColor: Colors.transparent,
+                flexibleSpace: const ChatFrost(
+                  border: false,
                   child: SizedBox.expand(),
                 ),
                 bottom: live == null
@@ -1392,8 +1393,7 @@ class _SystemRow extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: Space.sm),
       child: Center(
-        child: GlassSurface(
-          radius: 99,
+        child: _Notice(
           padding: const EdgeInsets.fromLTRB(6, 6, 14, 6),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -1597,18 +1597,49 @@ class _DaySeparator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
+    final loc = MaterialLocalizations.of(context);
     final label = DateUtils.isSameDay(day, now)
         ? 'Today'
         : DateUtils.isSameDay(day, now.subtract(const Duration(days: 1)))
         ? 'Yesterday'
-        : '${day.day}/${day.month}/${day.year}';
+        : now.difference(day).inDays < 7
+        ? const [
+            'Monday',
+            'Tuesday',
+            'Wednesday',
+            'Thursday',
+            'Friday',
+            'Saturday',
+            'Sunday',
+          ][day.weekday - 1]
+        : day.year == now.year
+        ? loc.formatMediumDate(day).replaceFirst(RegExp(r',? \d{4}$'), '')
+        : loc.formatMediumDate(day);
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    // A small pill in the middle, as on WhatsApp.
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: Space.sm),
       child: Center(
-        child: GlassSurface(
-          radius: 99,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          child: Text(label, style: Theme.of(context).textTheme.labelSmall),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+          decoration: BoxDecoration(
+            color: dark ? ChatColors.bubbleOtherDark : Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x14000000),
+                blurRadius: 2,
+                offset: Offset(0, 1),
+              ),
+            ],
+          ),
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: dark ? ChatColors.subtextDark : ChatColors.subtext,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ),
       ),
     );
@@ -1694,7 +1725,7 @@ class _Bubble extends StatelessWidget {
             child: Text(
               author!,
               style: theme.textTheme.labelMedium?.copyWith(
-                color: BrandColors.coral,
+                color: senderColor(m.authorId ?? author!, dark),
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -2263,7 +2294,8 @@ class _SelectionBar extends StatelessWidget implements PreferredSizeWidget {
         icon: const Icon(CupertinoIcons.xmark),
       ),
       title: Text('$count selected'),
-      flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
+      backgroundColor: Colors.transparent,
+      flexibleSpace: const ChatFrost(border: false, child: SizedBox.expand()),
       actions: [
         if (canCopy)
           IconButton(
@@ -2554,4 +2586,59 @@ TextSpan highlightMatches(String text, String? query, TextStyle? style) {
   }
   if (from < text.length) parts.add(TextSpan(text: text.substring(from)));
   return TextSpan(style: style, children: parts);
+}
+
+/// A centred notice (calls, people added) as WhatsApp shows them: a small
+/// solid card, pale yellow in light, dark grey in dark.
+class _Notice extends StatelessWidget {
+  const _Notice({required this.child, this.padding});
+
+  final Widget child;
+  final EdgeInsetsGeometry? padding;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: dark ? ChatColors.bubbleOtherDark : const Color(0xFFFFF5C4),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x14000000),
+            blurRadius: 2,
+            offset: Offset(0, 1),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+}
+
+/// One colour per person for names in group chats, as on WhatsApp.
+Color senderColor(String id, bool dark) {
+  const light = [
+    Color(0xFF1F7AEC),
+    Color(0xFFD6336C),
+    Color(0xFF0E9F6E),
+    Color(0xFFB45309),
+    Color(0xFF7C3AED),
+    Color(0xFF0891B2),
+    Color(0xFFDC2626),
+    Color(0xFF4D7C0F),
+  ];
+  const night = [
+    Color(0xFF53BDEB),
+    Color(0xFFFF72A1),
+    Color(0xFF34D399),
+    Color(0xFFFBBF24),
+    Color(0xFFA78BFA),
+    Color(0xFF22D3EE),
+    Color(0xFFF87171),
+    Color(0xFFA3E635),
+  ];
+  final i = id.codeUnits.fold<int>(0, (a, c) => a + c) % light.length;
+  return dark ? night[i] : light[i];
 }
