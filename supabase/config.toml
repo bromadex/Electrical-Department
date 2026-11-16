@@ -432,3 +432,9 @@ enabled = true
 
 [functions.guest-join]
 verify_jwt = false
+
+# The function checks the caller itself (the database decides who may
+# record), so the gateway does not need a JWT: the app's publishable key
+# reaches its { "check": true } self-check.
+[functions.meeting-record]
+verify_jwt = false
