@@ -11,7 +11,7 @@ test.afterEach(async ({}, testInfo) => reportFailure(testInfo));
 
 test('Chat: the floating button opens chat, a message sends, back returns', async ({ browser }) => {
   const api = await Api.as(people.electrician);
-  const chats = (await api.rpc('fn_my_conversations', {})) as { id: string; title: string }[];
+  const chats = (await api.call('fn_my_conversations', {})) as { id: string; title: string }[];
   expect(chats.length, 'the technician has chats (site groups)').toBeGreaterThan(0);
 
   const page = await signIn(browser, people.electrician);

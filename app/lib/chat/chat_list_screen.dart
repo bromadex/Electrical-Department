@@ -536,7 +536,11 @@ class _ChatListState extends ConsumerState<_ChatList> {
                     tooltip: 'New chat',
                     onPressed: () =>
                         showFormSheet(context, const _NewChatSheet()),
-                    icon: const Icon(CupertinoIcons.add),
+                    // White on green (the bar's icons are green).
+                    icon: Icon(
+                      CupertinoIcons.add,
+                      color: theme.colorScheme.onPrimary,
+                    ),
                   ),
                 ),
               ],

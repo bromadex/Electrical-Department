@@ -53,6 +53,13 @@ class AppTheme {
         letterSpacing: -0.8,
         color: fg,
       ),
+      // The large title in a collapsing bar (SliverAppBar.large).
+      headlineMedium: t.headlineMedium?.copyWith(
+        fontSize: 34,
+        fontWeight: FontWeight.w800,
+        letterSpacing: -0.8,
+        color: fg,
+      ),
       // Screen titles in the bar.
       titleLarge: t.titleLarge?.copyWith(
         fontSize: 17,
@@ -101,7 +108,6 @@ class AppTheme {
         elevation: 0,
         scrolledUnderElevation: 0.5,
         centerTitle: false,
-        titleTextStyle: text.titleLarge,
         iconTheme: IconThemeData(color: green),
         actionsIconTheme: IconThemeData(color: green),
       ),
