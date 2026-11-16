@@ -821,6 +821,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                             chat == null || chat.isDirect
                                 ? OnlineAvatar(
                                     name: chat?.title ?? 'Chat',
+                                    userId: chat?.otherUserId,
                                     online: online,
                                     size: 36,
                                   )
@@ -1207,6 +1208,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                                                     child: lastOfRun
                                                         ? AppAvatar(
                                                             name: author ?? '?',
+                                                            userId: m.authorId,
                                                             size: 28,
                                                           )
                                                         : null,
@@ -2401,7 +2403,11 @@ class _ForwardSheetState extends ConsumerState<_ForwardSheet> {
                       }
                     }),
                     secondary: c.isDirect
-                        ? AppAvatar(name: c.title, size: 34)
+                        ? AppAvatar(
+                            name: c.title,
+                            userId: c.otherUserId,
+                            size: 34,
+                          )
                         : ChatGroupAvatar(chat: c, size: 34),
                     title: Text(c.title),
                     subtitle: Text(c.isDirect ? 'Direct' : 'Group'),

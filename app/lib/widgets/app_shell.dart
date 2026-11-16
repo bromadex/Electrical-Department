@@ -382,7 +382,11 @@ class _ProfileChip extends ConsumerWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            AppAvatar(name: name, size: 36),
+            AppAvatar(
+              name: name,
+              userId: ref.watch(authUserIdProvider),
+              size: 36,
+            ),
             const SizedBox(width: Space.sm),
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 180),

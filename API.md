@@ -452,6 +452,12 @@ triggers on `user_roles` and new sites).
   `favourite`, `mentions` (your unread @mentions there), `last_author_id`, `last_kind` and,
   when the last message is yours, `last_tick` (`sent` | `delivered` | `read`, everyone).
 
+- **Profile photos (migration 0050):** private `avatars` bucket at `<user id>/<file>`;
+  active users read, each person adds only in their own folder (no update/delete).
+  `fn_set_my_avatar(p_path)` saves it in `profiles.avatar_url` (null removes). The app signs
+  links for everyone's photo (`avatarUrlsProvider`, refreshed every 50 minutes) and
+  `AppAvatar(userId: …)` shows them. Settings → your details → Change photo.
+
 ## 16b. Calls (migration 0017)
 
 Voice and video calls in any chat, on LiveKit Cloud. A chat's call is the room

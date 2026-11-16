@@ -187,3 +187,15 @@ class Breakpoints {
   /// From this: desktop layout (full sidebar).
   static const desktop = 1100.0;
 }
+
+/// Marks the chat theme (AppTheme.chat), so shared widgets such as
+/// avatars can take WhatsApp's look there.
+class ChatLook extends ThemeExtension<ChatLook> {
+  const ChatLook();
+
+  @override
+  ChatLook copyWith() => this;
+
+  @override
+  ChatLook lerp(ChatLook? other, double t) => this;
+}

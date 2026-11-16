@@ -270,7 +270,7 @@ class _RecentChip extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              AppAvatar(name: chat.title, size: 30),
+              AppAvatar(name: chat.title, userId: chat.otherUserId, size: 30),
               const SizedBox(width: 8),
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 180),

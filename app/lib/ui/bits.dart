@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/avatars.dart';
 import '../theme/tokens.dart';
 import 'motion.dart';
 
 /// Circle with initials on the brand gradient.
-class AppAvatar extends StatelessWidget {
-  const AppAvatar({super.key, required this.name, this.size = 40});
+class AppAvatar extends ConsumerWidget {
+  const AppAvatar({super.key, required this.name, this.size = 40, this.userId});
 
   final String name;
   final double size;
+
+  /// Shows this person's profile photo when they have set one.
+  final String? userId;
 
   static String initials(String name) {
     final parts = name
@@ -21,8 +26,50 @@ class AppAvatar extends StatelessWidget {
     return parts.take(2).map((p) => p[0].toUpperCase()).join();
   }
 
+  /// WhatsApp's soft avatar colours (chat): a pale background with the
+  /// initials in a stronger shade of the same colour, chosen by name.
+  static const _pastels = [
+    (Color(0xFFFFE1E1), Color(0xFFC0392B)),
+    (Color(0xFFDDEBFF), Color(0xFF1F6FEB)),
+    (Color(0xFFD9FDD3), Color(0xFF0E7A43)),
+    (Color(0xFFFFEFD1), Color(0xFFB45309)),
+    (Color(0xFFEDE4FF), Color(0xFF6D28D9)),
+    (Color(0xFFD5F5F6), Color(0xFF0E7490)),
+    (Color(0xFFFFE4F1), Color(0xFFBE185D)),
+    (Color(0xFFE9F5D0), Color(0xFF4D7C0F)),
+  ];
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final url = userId == null
+        ? null
+        : ref.watch(avatarUrlsProvider).value?[userId];
+    if (url != null) {
+      return CircleAvatar(
+        radius: size / 2,
+        backgroundColor: Colors.black12,
+        backgroundImage: NetworkImage(url),
+      );
+    }
+    final chat = Theme.of(context).extension<ChatLook>() != null;
+    if (chat) {
+      final i = name.codeUnits.fold<int>(0, (a, c) => a + c) % _pastels.length;
+      final (bg, fg) = _pastels[i];
+      return Container(
+        width: size,
+        height: size,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(shape: BoxShape.circle, color: bg),
+        child: Text(
+          initials(name),
+          style: TextStyle(
+            color: fg,
+            fontWeight: FontWeight.w600,
+            fontSize: size * 0.38,
+          ),
+        ),
+      );
+    }
     return Container(
       width: size,
       height: size,

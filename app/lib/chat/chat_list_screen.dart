@@ -432,7 +432,11 @@ class _ChatListState extends ConsumerState<_ChatList> {
               for (final c in chats)
                 ListTile(
                   leading: c.isDirect
-                      ? AppAvatar(name: c.title, size: 40)
+                      ? AppAvatar(
+                          name: c.title,
+                          userId: c.otherUserId,
+                          size: 40,
+                        )
                       : ChatGroupAvatar(chat: c, size: 40),
                   title: Text(c.title),
                   onTap: () => Navigator.pop(s, c.id),
@@ -707,9 +711,11 @@ class OnlineAvatar extends StatelessWidget {
     required this.name,
     required this.online,
     this.size = 48,
+    this.userId,
   });
 
   final String name;
+  final String? userId;
   final bool online;
   final double size;
 
@@ -721,7 +727,7 @@ class OnlineAvatar extends StatelessWidget {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          AppAvatar(name: name, size: size),
+          AppAvatar(name: name, size: size, userId: userId),
           if (online)
             Positioned(
               right: 0,
@@ -769,6 +775,25 @@ class ChatGroupAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // In chat: WhatsApp's pale green group circle.
+    if (Theme.of(context).extension<ChatLook>() != null) {
+      final dark = Theme.of(context).brightness == Brightness.dark;
+      return Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: dark ? ChatColors.chipDark : ChatColors.chip,
+        ),
+        child: Icon(
+          chat.siteId == null && chat.isDefault
+              ? CupertinoIcons.bolt_fill
+              : CupertinoIcons.person_3_fill,
+          color: dark ? ChatColors.greenLight : ChatColors.greenDeep,
+          size: size * 0.5,
+        ),
+      );
+    }
     return Container(
       width: size,
       height: size,
@@ -1026,6 +1051,7 @@ class _ChatTile extends ConsumerWidget {
                   : c.isDirect
                   ? OnlineAvatar(
                       name: c.title,
+                      userId: c.otherUserId,
                       online: presence.isOnline(c.otherUserId),
                       size: 56,
                     )

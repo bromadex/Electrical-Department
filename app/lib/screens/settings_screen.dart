@@ -8,7 +8,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../chat/chat_repository.dart';
 import '../config/env.dart';
+import '../chat/chat_media.dart' show compressPhoto;
 import '../data/app_error.dart';
+import '../data/avatars.dart';
 import '../data/site_data.dart';
 import '../services/core_providers.dart';
 import '../services/push_service.dart';
@@ -19,6 +21,7 @@ import '../tools/tools_repository.dart';
 import '../ui/bits.dart';
 import '../ui/charts.dart' show GlassSegmented;
 import '../ui/form_sheet.dart';
+import '../ui/media.dart' show PhotoPicking;
 import '../ui/motion.dart';
 import '../ui/surfaces.dart';
 import '../widgets/app_back_button.dart';
@@ -77,7 +80,11 @@ class SettingsScreen extends ConsumerWidget {
                           showFormSheet(context, const _ProfileSheet()),
                       child: Row(
                         children: [
-                          AppAvatar(name: name, size: 64),
+                          AppAvatar(
+                            name: name,
+                            userId: ref.watch(authUserIdProvider),
+                            size: 64,
+                          ),
                           const SizedBox(width: Space.md),
                           Expanded(
                             child: Column(
@@ -403,6 +410,49 @@ class _ProfileSheetState extends ConsumerState<_ProfileSheet> {
     super.dispose();
   }
 
+  bool _photoBusy = false;
+
+  /// Picks a photo, makes it small, uploads it to your own folder in the
+  /// avatars bucket and saves it on your profile (migration 0050).
+  Future<void> _changePhoto() async {
+    final picked = await PhotoPicking.pick(context);
+    if (picked.isEmpty || !mounted) return;
+    setState(() => _photoBusy = true);
+    try {
+      final db = ref.read(supabaseProvider);
+      final me = ref.read(authUserIdProvider)!;
+      final bytes = await compressPhoto(picked.first);
+      final path = '$me/${DateTime.now().millisecondsSinceEpoch}.jpg';
+      await db.storage
+          .from('avatars')
+          .uploadBinary(
+            path,
+            bytes,
+            fileOptions: const FileOptions(contentType: 'image/jpeg'),
+          );
+      await db.rpc('fn_set_my_avatar', params: {'p_path': path});
+      ref.invalidate(avatarUrlsProvider);
+    } catch (e) {
+      if (mounted) setState(() => _error = AppError.from(e).message);
+    } finally {
+      if (mounted) setState(() => _photoBusy = false);
+    }
+  }
+
+  Future<void> _removePhoto() async {
+    setState(() => _photoBusy = true);
+    try {
+      await ref
+          .read(supabaseProvider)
+          .rpc('fn_set_my_avatar', params: {'p_path': null});
+      ref.invalidate(avatarUrlsProvider);
+    } catch (e) {
+      if (mounted) setState(() => _error = AppError.from(e).message);
+    } finally {
+      if (mounted) setState(() => _photoBusy = false);
+    }
+  }
+
   Future<void> _save() async {
     setState(() {
       _busy = true;
@@ -448,6 +498,40 @@ class _ProfileSheetState extends ConsumerState<_ProfileSheet> {
         children: [
           Text('Your details', style: theme.textTheme.headlineSmall),
           const SizedBox(height: Space.md),
+          // Profile photo: shows in chats, calls and everywhere your
+          // picture appears.
+          Center(
+            child: Column(
+              children: [
+                AppAvatar(
+                  name: _name.text.isEmpty ? '?' : _name.text,
+                  userId: ref.watch(authUserIdProvider),
+                  size: 96,
+                ),
+                const SizedBox(height: Space.xs),
+                Wrap(
+                  spacing: Space.xs,
+                  children: [
+                    TextButton.icon(
+                      onPressed: _photoBusy ? null : _changePhoto,
+                      icon: const Icon(CupertinoIcons.camera),
+                      label: Text(_photoBusy ? 'Saving…' : 'Change photo'),
+                    ),
+                    if (ref
+                            .watch(avatarUrlsProvider)
+                            .value
+                            ?.containsKey(ref.watch(authUserIdProvider)) ??
+                        false)
+                      TextButton(
+                        onPressed: _photoBusy ? null : _removePhoto,
+                        child: const Text('Remove'),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: Space.sm),
           TextField(
             controller: _name,
             textCapitalization: TextCapitalization.words,

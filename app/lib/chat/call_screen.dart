@@ -1173,7 +1173,11 @@ class _Face extends StatelessWidget {
                           ? _live.withValues(alpha: 0.35)
                           : Colors.transparent,
                     ),
-                    child: AppAvatar(name: name, size: large ? 140 : 40),
+                    child: AppAvatar(
+                      name: name,
+                      userId: p.identity,
+                      size: large ? 140 : 40,
+                    ),
                   ),
                 ),
               );
@@ -1698,6 +1702,7 @@ class _CallSideState extends ConsumerState<_CallSide> {
                           ),
                           secondary: AppAvatar(
                             name: names[id] ?? '?',
+                            userId: id,
                             size: 34,
                           ),
                           title: Text(names[id] ?? 'Someone'),
@@ -1811,6 +1816,7 @@ class _CallSideState extends ConsumerState<_CallSide> {
                               contentPadding: EdgeInsets.zero,
                               leading: AppAvatar(
                                 name: p.name.isNotEmpty ? p.name : '?',
+                                userId: p.identity,
                                 size: 38,
                               ),
                               title: Text(

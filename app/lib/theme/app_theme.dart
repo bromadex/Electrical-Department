@@ -86,6 +86,7 @@ class AppTheme {
       labelMedium: t.labelMedium?.copyWith(fontSize: 13, color: sub),
     );
     return base.copyWith(
+      extensions: const [ChatLook()],
       colorScheme: c,
       textTheme: text,
       scaffoldBackgroundColor: bg,

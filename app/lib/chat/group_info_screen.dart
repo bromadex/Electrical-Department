@@ -184,7 +184,11 @@ class _GroupInfoScreenState extends ConsumerState<GroupInfoScreen> {
                                   ? picked.add(p.id)
                                   : picked.remove(p.id),
                             ),
-                            secondary: AppAvatar(name: p.name, size: 34),
+                            secondary: AppAvatar(
+                              name: p.name,
+                              userId: p.id,
+                              size: 34,
+                            ),
                             title: Text(p.name),
                           ),
                     ],
@@ -273,7 +277,11 @@ class _GroupInfoScreenState extends ConsumerState<GroupInfoScreen> {
                               backgroundImage: NetworkImage(photo),
                             )
                           : chat.isDirect
-                          ? AppAvatar(name: chat.title, size: 104)
+                          ? AppAvatar(
+                              name: chat.title,
+                              userId: chat.otherUserId,
+                              size: 104,
+                            )
                           : ChatGroupAvatar(chat: chat, size: 104),
                     ),
                   ),
@@ -414,6 +422,7 @@ class _GroupInfoScreenState extends ConsumerState<GroupInfoScreen> {
                               contentPadding: EdgeInsets.zero,
                               leading: AppAvatar(
                                 name: names[m.id] ?? '?',
+                                userId: m.id,
                                 size: 36,
                               ),
                               title: Text(
@@ -737,6 +746,7 @@ class StarredScreen extends ConsumerWidget {
                       ListTile(
                         leading: AppAvatar(
                           name: names[m.authorId] ?? '?',
+                          userId: m.authorId,
                           size: 36,
                         ),
                         title: Text(

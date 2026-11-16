@@ -2,6 +2,14 @@
 
 ## 15 November 2026
 
+### Profile photos
+- Everyone can set their own profile photo in Settings → your details →
+  **Change photo** (or Remove). It shows in chats, group info, calls and
+  Settings (migration 0050).
+- In chat, people without a photo get WhatsApp's soft colours (a pale
+  circle with coloured initials) instead of maroon, and groups a pale
+  green circle.
+
 ### Last WhatsApp touches
 - Files show as cards with **Open** and **Save as…** (phones offer the
   share sheet to keep the file anywhere).
