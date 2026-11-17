@@ -360,6 +360,26 @@ Per-site documents with versions, read-and-sign acknowledgement, and links to jo
   signatures, and the chats it is tagged in via `fn_document_mentions`). Folders
   have Rename, Move and Archive. With a mouse, drag files onto a folder.
 
+## 12d. File viewer and files kept on the phone (app only)
+
+- Opening a document shows it inside the app (`lib/documents/viewer/file_viewer.dart`):
+  PDFs page by page (drawn by Android, or by PDF.js in browsers, through the
+  `printing` package; tap a page to zoom), images with pinch zoom, and text files
+  (txt, csv, log, md, json, xml). Each kind is one `FileViewer` in `fileViewers`.
+  Word, Excel, PowerPoint, DWG/DXF and HTML are listed in `plannedViewers`: they show
+  "coming" with **Open with another app** (phones) or **Download** (browsers) and are
+  not downloaded until asked. A new viewer goes in `fileViewers` and comes off
+  `plannedViewers`.
+- **Keep on this phone** (Android; ⋮ menu, or ⬇ in the viewer) saves the current
+  version in the app's own storage (`offline/offline_docs.dart`; index in shared
+  preferences `offline_documents`). Kept files open without signal, show a green ⬇ on
+  their tile and an **On this phone** filter, and are downloaded again when a newer
+  version appears (each time the list loads online). Without signal an older kept
+  version still opens.
+- The document list and folders are saved on the device each time they load
+  (`documents:<user>:<site>`, `document_folders:<site>`), so the library can be
+  browsed without signal.
+
 ## 13. Checklists and daily report (migration 0008)
 
 - `checklist_templates` (`site_id, area_id, name, description, frequency daily|weekly|monthly, assignee_id`) and `checklist_items` (`position, label, kind check|number|text, unit, min_value, max_value, photo_required`).

@@ -13,6 +13,7 @@ import '../ui/bits.dart';
 import '../ui/motion.dart';
 import '../ui/surfaces.dart';
 import 'documents_repository.dart';
+import 'viewer/file_viewer.dart';
 import 'documents_screen.dart';
 import '../widgets/app_back_button.dart';
 
@@ -23,20 +24,19 @@ Future<void> openDocument(
   WidgetRef ref,
   DocVersion v,
 ) async {
+  // In the app's own viewer (PDFs, images, text; others say how to open
+  // them), with Keep on this phone.
+  final doc = v.documentId == null
+      ? null
+      : ref.read(documentProvider(v.documentId!));
+  if (doc != null) {
+    await showFileViewer(context, doc, v);
+    return;
+  }
   try {
     final url = await ref.read(documentUrlProvider(v.path).future);
     if (!context.mounted) return;
-    if (v.isImage) {
-      await showDialog<void>(
-        context: context,
-        builder: (context) => Dialog(
-          insetPadding: const EdgeInsets.all(Space.md),
-          child: InteractiveViewer(child: Image.network(url)),
-        ),
-      );
-    } else {
-      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-    }
+    await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
   } catch (e) {
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(

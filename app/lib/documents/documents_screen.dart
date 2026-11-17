@@ -23,6 +23,8 @@ import '../widgets/app_back_button.dart';
 import 'document_detail_screen.dart';
 import 'documents_repository.dart';
 import 'drop/drop_files.dart';
+import 'offline/offline_docs.dart';
+import 'viewer/file_viewer.dart' show viewerLabel;
 
 IconData docIcon(Doc d) {
   final mime = d.current?.mimeType ?? '';
@@ -95,7 +97,7 @@ String formatBytes(int b) {
   return '${(b / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
 }
 
-enum _Show { all, starred, toSign, recent, mine }
+enum _Show { all, starred, offline, toSign, recent, mine }
 
 /// How files are ordered (folders always by name).
 enum _Sort { name, updated, size, type }
@@ -411,6 +413,7 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
     final theme = Theme.of(context);
     final docs = ref.watch(documentsProvider);
     ref.watch(allSitesProvider);
+    ref.watch(offlineRefreshProvider);
     final folders = ref.watch(foldersProvider).value ?? const <DocFolder>[];
     final session = ref.watch(sessionProvider);
     final site = ref.watch(currentSiteProvider);
@@ -604,6 +607,13 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
                                     _show == _Show.starred,
                                     () => setState(() => _show = _Show.starred),
                                   ),
+                                  if (OfflineDocs.supported)
+                                    chip(
+                                      'On this phone',
+                                      _show == _Show.offline,
+                                      () =>
+                                          setState(() => _show = _Show.offline),
+                                    ),
                                   chip(
                                     toSign > 0
                                         ? 'To sign ($toSign)'
@@ -715,6 +725,7 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
     final q = _query.toLowerCase();
     final recent = DateTime.now().subtract(const Duration(days: 30));
     final starred = ref.watch(starredDocsProvider);
+    final kept = ref.watch(offlineDocsProvider);
     final known = {for (final f in folders) f.id};
     // Where to look: this folder only, or (searching or filtering) this
     // folder and every folder under it; at the top, everything.
@@ -734,6 +745,7 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
             switch (_show) {
               _Show.all => true,
               _Show.starred => starred.contains(d.id),
+              _Show.offline => kept.containsKey(d.id),
               _Show.toSign => d.toSign,
               _Show.recent => d.updatedAt.isAfter(recent),
               _Show.mine => d.createdBy == me,
@@ -833,6 +845,8 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
                 ? 'All signed'
                 : _show == _Show.starred
                 ? 'Nothing starred yet'
+                : _show == _Show.offline
+                ? 'Nothing kept on this phone'
                 : list.isEmpty
                 ? 'No documents yet'
                 : _folder != null && !_filtering
@@ -842,6 +856,9 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
                 ? 'You have read every SOP that needs it.'
                 : _show == _Show.starred
                 ? 'Star the files you use most (⋮ → Star) to find them here.'
+                : _show == _Show.offline
+                ? 'Keep SOPs and drawings on this phone (⋮ → Keep on this '
+                      'phone) to open them on site without signal.'
                 : list.isEmpty
                 ? 'Supervisors upload SOPs, drawings and manuals here.'
                 : _folder != null && !_filtering
@@ -1383,6 +1400,15 @@ class DocTile extends ConsumerWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    if (ref.watch(offlineDocsProvider).containsKey(doc.id))
+                      const Padding(
+                        padding: EdgeInsets.only(left: 4),
+                        child: Icon(
+                          CupertinoIcons.arrow_down_circle_fill,
+                          size: 14,
+                          color: BrandColors.success,
+                        ),
+                      ),
                     if (ref.watch(starredDocsProvider).contains(doc.id))
                       const Padding(
                         padding: EdgeInsets.only(left: 4),
@@ -1521,6 +1547,12 @@ class DocMenu extends ConsumerWidget {
         case 'properties':
           if (!context.mounted) return;
           await showFormSheet<void>(context, DocProperties(doc: doc));
+        case 'keep':
+          await ref.read(offlineDocsProvider.notifier).keep(doc);
+          say('${doc.code} is on this phone: it opens without signal');
+        case 'unkeep':
+          await ref.read(offlineDocsProvider.notifier).remove(doc.id);
+          say('Removed ${doc.code} from this phone');
         case 'edit':
           if (!context.mounted) return;
           await showFormSheet<bool>(context, DocumentForm(doc: doc));
@@ -1599,6 +1631,18 @@ class DocMenu extends ConsumerWidget {
           starred ? CupertinoIcons.star_slash : CupertinoIcons.star,
           starred ? 'Unstar' : 'Star',
         ),
+        if (hasFile && OfflineDocs.supported)
+          ref.watch(offlineDocsProvider).containsKey(doc.id)
+              ? item(
+                  'unkeep',
+                  CupertinoIcons.checkmark_circle_fill,
+                  'Remove from this phone',
+                )
+              : item(
+                  'keep',
+                  CupertinoIcons.arrow_down_circle,
+                  'Keep on this phone',
+                ),
         item('properties', CupertinoIcons.info, 'Properties'),
         if (hasFile && canManage)
           item('link', CupertinoIcons.link, 'Copy a 7-day link'),
@@ -1734,6 +1778,13 @@ class DocProperties extends ConsumerWidget {
               row('Added by', by),
             if (v != null) row('Uploaded', when(v.createdAt)),
             row('Updated', when(doc.updatedAt)),
+            if (ref.watch(offlineDocsProvider)[doc.id] case final kept?)
+              row(
+                'On this phone',
+                'v${kept.version} · ${formatBytes(kept.size)} · '
+                    'saved ${when(kept.savedAt)}',
+              ),
+            row('Opens in', viewerLabel(doc.fileName)),
             if (doc.needsAck)
               row(
                 'Signing',

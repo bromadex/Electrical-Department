@@ -27,6 +27,19 @@
   in. Folders can be renamed, **moved** and archived (their folders go
   with them; files move up a level, nothing is deleted). Migration 0054.
 
+### Files open inside the app, and stay on the phone
+- **PDFs open in the app**, page by page, with a page counter; tap a page
+  to zoom (drawings too). Photos zoom; text and CSV files show as text.
+- **Word, Excel, PowerPoint, DWG and web pages** are next: for now they
+  say so and offer **Open with another app** (phone) or **Download**
+  (computer), without downloading them first.
+- **Keep on this phone** (Android): ⋮ → Keep on this phone, or ⬇ in the
+  viewer. The file opens on site **without signal**, shows a green ⬇, is
+  listed under **On this phone**, and updates itself when a new version
+  is uploaded.
+- The library itself is saved on the phone, so you can browse folders and
+  find kept files with no signal.
+
 ## 17 November 2026 (v0.1.6)
 
 ### Chat fixes from phone testing

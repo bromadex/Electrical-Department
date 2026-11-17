@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show DownloadBehavior;
 import 'package:uuid/uuid.dart';
 
+import '../data/local_db.dart';
 import '../services/core_providers.dart';
 import '../services/session_controller.dart';
 import '../v2/site_filter.dart';
@@ -70,7 +72,8 @@ String categoryLabel(String c) => switch (c) {
 
 class DocVersion {
   DocVersion.fromJson(Map<String, dynamic> j)
-    : version = (j['version'] as num).toInt(),
+    : documentId = j['document_id'] as String?,
+      version = (j['version'] as num).toInt(),
       path = j['path'] as String,
       fileName = j['file_name'] as String,
       mimeType = j['mime_type'] as String?,
@@ -79,6 +82,7 @@ class DocVersion {
       createdBy = j['created_by'] as String?,
       createdAt = DateTime.parse(j['created_at'] as String).toLocal();
 
+  final String? documentId;
   final int version;
   final String path;
   final String fileName;
@@ -147,7 +151,8 @@ class Doc {
       myAckVersion != currentVersion;
 }
 
-/// Documents at the current site (online: files need a connection anyway).
+/// Documents at the current site; the last list kept on the device when
+/// there is no signal.
 final documentsProvider = FutureProvider<List<Doc>>((ref) async {
   // The current site, or every site with All my sites.
   final site = ref.watch(siteFilterProvider);
@@ -157,15 +162,49 @@ final documentsProvider = FutureProvider<List<Doc>>((ref) async {
   }
   final session = ref.read(sessionProvider);
   final db = ref.watch(supabaseProvider);
-  var docs = db
-      .from('documents')
-      .select('*, document_versions(*)')
-      .eq('is_archived', false);
-  if (site != null) docs = docs.eq('site_id', site);
-  final (rows, acks) = await (
-    docs.order('title'),
-    db.from('document_acks').select('document_id, version').eq('user_id', me),
-  ).wait;
+  // Kept on the device each time, so the library (and files kept on this
+  // phone) can be found without signal.
+  final local = ref.read(localDbProvider);
+  final key = 'documents:$me:${site ?? 'all'}';
+  List rows;
+  List acks;
+  try {
+    var docs = db
+        .from('documents')
+        .select('*, document_versions(*)')
+        .eq('is_archived', false);
+    if (site != null) docs = docs.eq('site_id', site);
+    (rows, acks) = await (
+      docs.order('title'),
+      db.from('document_acks').select('document_id, version').eq('user_id', me),
+    ).wait.timeout(const Duration(seconds: 15));
+    unawaited(
+      local
+          .saveJson(key, jsonEncode({'rows': rows, 'acks': acks}))
+          .catchError((_) {}),
+    );
+  } catch (_) {
+    final kept = await local.readJson(key);
+    if (kept == null) rethrow;
+    final j = jsonDecode(kept) as Map<String, dynamic>;
+    final cached = j['rows'] as List;
+    final cachedAcks = j['acks'] as List;
+    final mine = <String, int>{};
+    for (final a in cachedAcks) {
+      final id = a['document_id'] as String;
+      final v = (a['version'] as num).toInt();
+      if (v > (mine[id] ?? 0)) mine[id] = v;
+    }
+    return [
+      for (final r in cached)
+        Doc.fromJson(
+          Map<String, dynamic>.from(r as Map),
+          mine,
+          const {},
+          session.worksAt(r['site_id'] as String),
+        ),
+    ];
+  }
   final mine = <String, int>{};
   for (final a in acks) {
     final id = a['document_id'] as String;
@@ -209,14 +248,27 @@ final documentsProvider = FutureProvider<List<Doc>>((ref) async {
 final foldersProvider = FutureProvider<List<DocFolder>>((ref) async {
   final site = ref.watch(currentSiteProvider.select((s) => s?.id));
   if (site == null) return const [];
-  final rows = await ref
-      .watch(supabaseProvider)
-      .from('document_folders')
-      .select('id, site_id, name, parent_id')
-      .eq('site_id', site)
-      .eq('is_archived', false)
-      .order('name');
-  return [for (final r in rows) DocFolder.fromJson(r)];
+  final local = ref.read(localDbProvider);
+  final key = 'document_folders:$site';
+  List rows;
+  try {
+    rows = await ref
+        .watch(supabaseProvider)
+        .from('document_folders')
+        .select('id, site_id, name, parent_id')
+        .eq('site_id', site)
+        .eq('is_archived', false)
+        .order('name')
+        .timeout(const Duration(seconds: 15));
+    unawaited(local.saveJson(key, jsonEncode(rows)).catchError((_) {}));
+  } catch (_) {
+    final kept = await local.readJson(key);
+    if (kept == null) rethrow;
+    rows = jsonDecode(kept) as List;
+  }
+  return [
+    for (final r in rows) DocFolder.fromJson(Map<String, dynamic>.from(r)),
+  ];
 });
 
 /// Documents I starred (migration 0054), plus changes not yet sent.

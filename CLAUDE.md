@@ -36,6 +36,10 @@ in `API.md`.
   hues. Chat screens alone are WhatsApp for iPhone green (`ChatColors`,
   `AppTheme.chat`, `ChatThemed` in `app/lib/chat/wallpaper.dart`), light
   or dark as the phone is set: flat bubbles on the doodle wallpaper.
+- Documents open in the app's viewer (`app/lib/documents/viewer/file_viewer.dart`):
+  a new file type is one `FileViewer` in `fileViewers` (Word, Excel, DWG and
+  HTML are waiting in `plannedViewers`). In chat, `#` tags files and records
+  (`messages.links`, migration 0053).
 - Pushed screens use `AppBackButton` (`app/lib/widgets/app_back_button.dart`).
 - Before pushing: `dart format --set-exit-if-changed lib test`,
   `flutter analyze` and `flutter test` in `app/`; database changes come with
