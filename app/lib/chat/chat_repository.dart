@@ -111,6 +111,7 @@ class ChatMessage {
     this.forwarded = false,
     this.editedAt,
     this.bytes,
+    this.links = const [],
   });
 
   ChatMessage.fromJson(Map<String, dynamic> j)
@@ -131,6 +132,7 @@ class ChatMessage {
           ? null
           : DateTime.parse(j['edited_at'] as String).toLocal(),
       createdAt = DateTime.parse(j['created_at'] as String).toLocal(),
+      links = parseMessageLinks(j['links']),
       pending = false,
       bytes = null;
 
@@ -168,7 +170,21 @@ class ChatMessage {
 
   /// The photo's bytes while it waits to upload.
   final Uint8List? bytes;
+
+  /// Files and records tagged with # in the text (migration 0053).
+  final List<MessageLink> links;
 }
+
+/// A file or record tagged with # in a message: [label] is the highlighted
+/// text ("#LOTO procedure"), [link] is `doc:<id>`, `jobcard:<id>` and so on.
+typedef MessageLink = ({String label, String link});
+
+List<MessageLink> parseMessageLinks(Object? v) => [
+  if (v is List)
+    for (final e in v)
+      if (e is Map && e['label'] is String && e['link'] is String)
+        (label: e['label'] as String, link: e['link'] as String),
+];
 
 /// A voice note or file to send.
 class ChatAttachment {
@@ -893,6 +909,7 @@ class ChatActions {
     String? recordLink,
     String? replyTo,
     List<String> mentions = const [],
+    List<MessageLink> links = const [],
   }) async {
     final outbox = _ref.read(outboxProvider);
     final me = _ref.read(authUserIdProvider);
@@ -942,6 +959,7 @@ class ChatActions {
             createdAt: DateTime.now(),
             pending: true,
             bytes: attachment?.bytes,
+            links: links,
           ),
         );
     await outbox.enqueue('fn_send_message', {
@@ -956,6 +974,10 @@ class ChatActions {
       'p_reply_to': replyTo,
       'p_record_link': recordLink,
       'p_mentions': mentions.isEmpty ? null : mentions,
+      if (links.isNotEmpty)
+        'p_links': [
+          for (final l in links) {'label': l.label, 'link': l.link},
+        ],
     }, clientRef: id);
   }
 

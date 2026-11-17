@@ -11,6 +11,7 @@ import '../services/core_providers.dart';
 import '../theme/tokens.dart';
 import '../ui/bits.dart';
 import 'chat_repository.dart';
+import 'record_links.dart';
 import 'voice.dart';
 import 'wallpaper.dart';
 
@@ -52,8 +53,14 @@ class ChatComposer extends ConsumerStatefulWidget {
   final String? replyAuthor;
   final VoidCallback onCancelReply;
 
-  /// Text and the ids of the people tagged with @.
-  final void Function(String text, List<String> mentions) onSend;
+  /// Text, the ids of the people tagged with @, and the files and records
+  /// tagged with # (each kept in the text as its label).
+  final void Function(
+    String text,
+    List<String> mentions,
+    List<MessageLink> links,
+  )
+  onSend;
   final VoidCallback onPhoto;
   final VoidCallback onFile;
   final VoidCallback onTag;
@@ -92,6 +99,10 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
   final _tagged = <String, String>{};
   String? _mentionQuery;
 
+  /// "#LOTO procedure" put in by the # picker → `doc:<id>` (or jobcard:…).
+  final _linked = <String, String>{};
+  String? _hashQuery;
+
   TextEditingController get _text => widget.controller;
 
   @override
@@ -116,7 +127,35 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
         : _text.text;
     final m = RegExp(r'(?:^|\s)@([^\s@]*)$').firstMatch(upTo);
     final q = m?.group(1);
-    if (mounted) setState(() => _mentionQuery = q);
+    // # then up to three words: files, job cards and other records.
+    final h = q == null
+        ? RegExp(r'(?:^|\s)#([^\s#]*(?: [^\s#]+){0,2})$').firstMatch(upTo)
+        : null;
+    final hq = h?.group(1);
+    if (mounted) {
+      setState(() {
+        _mentionQuery = q;
+        _hashQuery = hq;
+      });
+    }
+  }
+
+  void _pickRecord(RecordHit hit) {
+    final t = _text.text;
+    final cursor = _text.selection.isValid
+        ? _text.selection.baseOffset
+        : t.length;
+    final at = t.lastIndexOf('#', cursor - 1);
+    if (at < 0) return;
+    var name = hit.title.trim().isEmpty ? hit.code : hit.title.trim();
+    if (name.length > 40) name = '${name.substring(0, 39).trimRight()}…';
+    final label = '#$name';
+    _text.value = TextEditingValue(
+      text: t.replaceRange(at, cursor, '$label '),
+      selection: TextSelection.collapsed(offset: at + label.length + 1),
+    );
+    _linked[label] = hit.link;
+    widget.focus.requestFocus();
   }
 
   void _pickMention(String id, String name) {
@@ -142,9 +181,16 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
       for (final e in _tagged.entries)
         if (text.contains(e.key)) e.value,
     ];
+    final seen = <String>{};
+    final links = <MessageLink>[
+      for (final e in _linked.entries)
+        if (text.contains(e.key) && seen.add(e.value))
+          (label: e.key, link: e.value),
+    ].take(10).toList();
     _tagged.clear();
+    _linked.clear();
     setState(() => _emojiOpen = false);
-    widget.onSend(text, mentions.toSet().toList());
+    widget.onSend(text, mentions.toSet().toList(), links);
   }
 
   /// Starts a voice note: [locked] for hands free (a tap), otherwise while
@@ -390,6 +436,24 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
           id,
     ].take(5).toList();
 
+    // # suggestions: files first, then job cards and other records.
+    final hq = _hashQuery;
+    final hits = hq == null
+        ? const <RecordHit>[]
+        : ([
+                ...(ref.watch(recordSearchProvider(hq.trim())).value ??
+                    const <RecordHit>[]),
+              ]..sort((a, b) {
+                int rank(RecordHit h) => h.link.startsWith('doc:')
+                    ? 0
+                    : h.link.startsWith('jobcard:')
+                    ? 1
+                    : 2;
+                return rank(a).compareTo(rank(b));
+              }))
+              .take(6)
+              .toList();
+
     return ChatFrost(
       border: false,
       padding: EdgeInsets.fromLTRB(
@@ -415,6 +479,34 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
                           leading: AppAvatar(name: names[id]!, size: 28),
                           title: Text(names[id]!),
                           onTap: () => _pickMention(id, names[id]!),
+                        ),
+                    ],
+                  ),
+                ),
+              if (hq != null && hits.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Column(
+                    children: [
+                      for (final h in hits)
+                        ListTile(
+                          dense: true,
+                          leading: Icon(recordIcon(h.link), size: 22),
+                          title: Text(
+                            h.title.isEmpty ? h.code : h.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: Text(
+                            [
+                              recordKind(h.link),
+                              h.code,
+                              if (h.siteCode.isNotEmpty) h.siteCode,
+                            ].join(' · '),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          onTap: () => _pickRecord(h),
                         ),
                     ],
                   ),

@@ -12,7 +12,8 @@ import '../data/app_error.dart';
 import '../ui/form_sheet.dart';
 import '../data/site_data.dart';
 import '../documents/documents_repository.dart';
-import '../documents/documents_screen.dart' show DocTile;
+import '../documents/documents_screen.dart'
+    show DocTile, FileBadge, formatBytes;
 import '../ui/media.dart';
 import '../services/core_providers.dart';
 import '../services/push_service.dart';
@@ -32,6 +33,7 @@ import 'composer.dart';
 import 'voice.dart';
 import '../meetings/meeting_screen.dart';
 import 'presence.dart';
+import 'record_links.dart';
 import '../widgets/app_back_button.dart';
 
 /// Missed calls.
@@ -453,7 +455,11 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     });
   }
 
-  Future<void> _send(String text, List<String> mentions) async {
+  Future<void> _send(
+    String text,
+    List<String> mentions,
+    List<MessageLink> links,
+  ) async {
     if (text.isEmpty) return;
     HapticFeedback.lightImpact();
     _text.clear();
@@ -462,7 +468,13 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     _focus.requestFocus();
     await ref
         .read(chatActionsProvider)
-        .send(widget.id, text: text, replyTo: reply, mentions: mentions);
+        .send(
+          widget.id,
+          text: text,
+          replyTo: reply,
+          mentions: mentions,
+          links: links,
+        );
   }
 
   Future<void> _sendVoice(ChatAttachment voice) async {
@@ -1046,8 +1058,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                         child: const EmptyState(
                           icon: CupertinoIcons.chat_bubble,
                           title: 'No messages yet',
-                          message:
-                              'Say hello, share a photo, or tag a job with #.',
+                          message: 'Say hello, share a photo, or tag a file or job with #.',
                         ),
                       )
                     : LayoutBuilder(
@@ -1939,12 +1950,32 @@ class _Bubble extends StatelessWidget {
           Padding(
             padding: EdgeInsets.only(top: m.kind == 'text' ? 0 : 6),
             child: Text.rich(
-              highlightMatches(
+              linkedText(
                 m.body!,
-                highlight,
-                theme.textTheme.bodyMedium?.copyWith(color: fg),
+                m.links,
+                theme.textTheme.bodyMedium?.copyWith(
+                  color: dark ? ChatColors.blueLight : ChatColors.blue,
+                  fontWeight: FontWeight.w600,
+                ),
+                (part) => highlightMatches(
+                  part,
+                  highlight,
+                  theme.textTheme.bodyMedium?.copyWith(color: fg),
+                ),
+                (link) {
+                  final to = notificationPath(link);
+                  if (to != null) context.push(to);
+                },
               ),
             ),
+          ),
+        if (m.links.any((l) => l.link.startsWith('doc:')))
+          _TaggedFiles(
+            links: [
+              for (final l in m.links)
+                if (l.link.startsWith('doc:')) l,
+            ],
+            dark: dark,
           ),
         const SizedBox(height: 2),
         Row(
@@ -2679,4 +2710,93 @@ Color senderColor(String id, bool dark) {
   ];
   final i = id.codeUnits.fold<int>(0, (a, c) => a + c) % light.length;
   return dark ? night[i] : light[i];
+}
+
+/// Files tagged with # in a message, as small cards under the text: type,
+/// name, version and size. Tap opens the file in Documents (always the
+/// newest version: the message only points at it).
+class _TaggedFiles extends ConsumerWidget {
+  const _TaggedFiles({required this.links, required this.dark});
+
+  final List<MessageLink> links;
+  final bool dark;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final accent = dark ? ChatColors.blueLight : ChatColors.blue;
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final l in links.take(4))
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Builder(
+                builder: (context) {
+                  final id = l.link.substring(4);
+                  final doc = ref.watch(documentProvider(id));
+                  final v = doc?.current;
+                  return InkWell(
+                    onTap: () => context.push('/documents/$id'),
+                    borderRadius: BorderRadius.circular(Radii.md),
+                    child: Container(
+                      constraints: const BoxConstraints(maxWidth: 280),
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: accent.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(Radii.md),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          FileBadge(fileName: doc?.fileName ?? '', size: 34),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  doc?.title ?? l.label.replaceFirst('#', ''),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.labelLarge,
+                                ),
+                                Text(
+                                  doc == null
+                                      ? 'File · tap to open'
+                                      : [
+                                          doc.code,
+                                          if (doc.currentVersion > 0)
+                                            'v${doc.currentVersion}',
+                                          if (v?.sizeBytes != null)
+                                            formatBytes(v!.sizeBytes!),
+                                        ].join(' · '),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.labelSmall,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            CupertinoIcons.chevron_right,
+                            size: 14,
+                            color: accent,
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 }

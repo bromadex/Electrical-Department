@@ -1,5 +1,17 @@
 # What's new
 
+## 17 November 2026 (after v0.1.6)
+
+### Tag files in chat with #
+- Type **#** in a chat and the app suggests **files** from Documents
+  (then job cards, equipment, tools, stock, projects and purchases). Pick
+  one and it goes into your sentence as a blue tag: "Read **#LOTO
+  procedure** before starting". Several per message.
+- Tapping a tag opens it. A tagged file also shows a small card (PDF,
+  code, version, size). Nothing is attached or copied: the tag points at
+  the file in Documents, so it always opens the newest version.
+- Forwarded messages keep their tags (migration 0053).
+
 ## 17 November 2026 (v0.1.6)
 
 ### Chat fixes from phone testing

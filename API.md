@@ -401,6 +401,17 @@ triggers on `user_roles` and new sites).
   `chat-files` bucket at `<conversation id>/<message id>/<file>` (members only). Record
   links are `jobcard:`, `asset:`, `tool:` or `doc:` + uuid. Mentioned members get a
   `mentioned` notification; everyone else one `chat` notification until they open it.
+- **Tags (migration 0053):** `messages.links` is a list of up to 10 `{label, link}`;
+  `label` is the highlighted text in `body` (e.g. `#LOTO procedure`), `link` is
+  `doc:`, `jobcard:`, `asset:`, `tool:`, `item:`, `project:`, `mr:` or `po:` + uuid.
+  `fn_send_message` takes them as an optional last argument `p_links` (older apps send
+  none); repeats are dropped, bad ones are `INVALID`. Nothing is copied: a tagged
+  document opens at its newest version. Forwarding keeps the tags.
+  `fn_document_mentions(p_document)` → `message_id, conversation_id,
+  conversation_title, author_name, created_at`: where a document is tagged, in chats
+  the caller is in (newest 50). App: typing `#` in the message box suggests files
+  first, then job cards and other records (`fn_search_records`); tags show in blue and
+  open their record; tagged files also show a card (type, code, version, size).
 - `fn_unsend_message(p_message)`, `fn_react(p_message, p_emoji)` (again removes it),
   `fn_mark_conversation_read(p_conversation)`, `fn_open_direct(p_client_ref, p_user)`,
   `fn_create_group` / `fn_update_group` (`chat.manage`), `fn_leave_conversation`,
