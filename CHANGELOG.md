@@ -12,6 +12,8 @@
   "Missed voice call from Nyasha Ncube"). Finished calls use a green icon.
 - The Calls list no longer puts a stray letter before the date
   ("S Sun, Nov 15").
+- The red counter on the green chat button now adds missed calls to the
+  chats with unread messages.
 
 ## 16 November 2026 (v0.1.5)
 

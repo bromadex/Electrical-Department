@@ -13,11 +13,12 @@ import '../services/notifications_controller.dart';
 import '../services/session_controller.dart';
 import '../theme/tokens.dart';
 import '../ui/bits.dart';
+import 'calls_screen.dart' show missedCallsProvider;
 import 'chat_repository.dart';
 
 /// Chat lives behind this floating green button, bottom right on every
 /// screen (docs/plan-whatsapp-theme.md, Phase A), instead of a tab. The red
-/// badge counts chats with unread messages. Long-press (or hover with a
+/// badge counts chats with unread messages plus missed calls. Long-press (or hover with a
 /// mouse) shows the last three chats to jump straight in. Hidden in chat
 /// itself, in calls, while typing and before sign-in.
 class ChatFabLayer extends ConsumerStatefulWidget {
@@ -140,6 +141,8 @@ class _ChatFabLayerState extends ConsumerState<ChatFabLayer> {
     }
     final chats = ref.watch(conversationsProvider).value ?? const [];
     final unreadChats = chats.where((c) => c.unread > 0 && !c.muted).length;
+    // Missed calls count too, so nothing waits unseen behind the button.
+    final missedCalls = ref.watch(missedCallsProvider).value ?? 0;
     final recent = chats.take(3).toList();
     // Phones: above the floating tab bar on the tab screens; elsewhere above
     // where a screen's own ➕ button sits, so they never cover each other.
@@ -181,7 +184,7 @@ class _ChatFabLayerState extends ConsumerState<ChatFabLayer> {
                       ),
                     ),
                 _Fab(
-                  unread: unreadChats,
+                  unread: unreadChats + missedCalls,
                   onTap: () => _go('/chat'),
                   onLongPress: recent.isEmpty
                       ? null
