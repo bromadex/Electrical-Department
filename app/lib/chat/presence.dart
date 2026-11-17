@@ -1,5 +1,8 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -54,11 +57,19 @@ class ChatPresenceNotifier extends Notifier<ChatPresence> {
         })
         .onBroadcast(event: 'typing', callback: _typing)
         .subscribe((status, _) {
-          if (status == RealtimeSubscribeStatus.subscribed) {
-            unawaited(channel.track({'at': DateTime.now().toIso8601String()}));
-          }
+          if (status == RealtimeSubscribeStatus.subscribed) _show(channel);
         });
+    // Phones: leaving the app ends "Online" at once (they keep the
+    // connection open a while in the background); coming back starts it
+    // again. Browsers stay online while the tab is open, as on WhatsApp Web.
+    final life = kIsWeb
+        ? null
+        : AppLifecycleListener(
+            onHide: () => unawaited(channel.untrack()),
+            onShow: () => _show(channel),
+          );
     ref.onDispose(() {
+      life?.dispose();
       for (final t in _expiry.values) {
         t.cancel();
       }
@@ -67,6 +78,14 @@ class ChatPresenceNotifier extends Notifier<ChatPresence> {
       unawaited(client.removeChannel(channel));
     });
     return const ChatPresence();
+  }
+
+  void _show(RealtimeChannel channel) {
+    final state = SchedulerBinding.instance.lifecycleState;
+    if (!kIsWeb && state != null && state != AppLifecycleState.resumed) {
+      return;
+    }
+    unawaited(channel.track({'at': DateTime.now().toIso8601String()}));
   }
 
   void _typing(Map<String, dynamic> message) {

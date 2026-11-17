@@ -22,6 +22,8 @@
   (phones often paused the app before that got through, so chats showed
   "Direct chat"). The header reads "Online" or "Last seen today 02:50";
   the words "Direct chat" are gone.
+- On phones, leaving the app ends **Online** straight away (the
+  connection used to linger a few minutes in the background).
 
 ## 16 November 2026 (v0.1.5)
 
