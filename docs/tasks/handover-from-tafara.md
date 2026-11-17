@@ -40,10 +40,8 @@ stands, what is left, and ready-to-paste prompts that carry his instructions.
    - close PR #19;
    - close the branches `feat/cmms-phase-1`, `feat/push-notifications` and
      `feat/cmms-phase-2`.
-2. **Firebase App Distribution:** release v0.1.0 is on GitHub, but its upload
-   to the `electrical-team` testers failed with HTTP 403. Give the
-   `FIREBASE_SERVICE_ACCOUNT` account the "Firebase App Distribution Admin"
-   role, then send the next release (or re-run that step).
+2. ~~**Firebase App Distribution**~~ — works: v0.1.6 (17 November) reached
+   the `electrical-team` testers by email.
 
 ## Where it stands
 
