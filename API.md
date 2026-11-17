@@ -336,6 +336,30 @@ Per-site documents with versions, read-and-sign acknowledgement, and links to jo
 - Both are on the outbox allow-list.
 - App (`/documents`): folders with file count, size and how many to sign; a grid or list view remembered on the device (list has Updated, Added by, Size and Signed columns on wide screens); filters All / To sign / Recent (30 days) / Added by me plus the type; coloured file-type badges (PDF, DOC, XLS, PPT, DWG, IMG). Upload takes several files at once, each its own document titled from its file name, with the folder, type and signing chosen once and progress per file. Each document's ⋮ menu: open, download, share in a chat (`doc:<id>`), copy a 7-day signed link for someone without the app (supervisors), move to folder, edit or new version, archive. Supervisors see how many people signed the current version.
 
+## 12c. Documents as a file manager (migration 0054)
+
+- `document_folders.parent_id`: folders inside folders (null = the top of the site's
+  library), up to 8 levels. Names are unique among a folder's live children.
+- `fn_save_folder(p_client_ref, p_site, p_name, p_archived, p_parent default null)`:
+  `p_parent` places a new folder; renaming keeps a folder where it is. Archiving a
+  folder archives its subfolders too and moves their documents up to its parent
+  (nothing is deleted).
+- `fn_move_folder(p_folder, p_parent)` → the folder: `docs.manage`; same site; never
+  into itself or its own subfolders (`INVALID`); `CONFLICT` for a name already there.
+- `document_stars (user_id, document_id)`: each person's starred documents (read your
+  own). `fn_star_document(p_document, p_starred)` → the new state; needs `docs.view`.
+- `fn_move_folder` and `fn_star_document` are on the outbox allow-list.
+- App (`/documents`): a path bar (Documents › Drawings › MCC-3; Back goes up a
+  level), each level's folders and files (folders show how many folders and files
+  are inside at any depth), sort by name, last updated, size or type (remembered),
+  Starred and Recent filters, search by name, code or file name across the current
+  folder and every folder under it (each hit shows where it is). Select files (✓ in
+  the top bar, or a long press on a phone) to share them in a chat (one message
+  tagging each, migration 0053), star, move or archive them together. A file's ⋮
+  adds Star, Rename and Properties (type, size, version, folder, who added it,
+  signatures, and the chats it is tagged in via `fn_document_mentions`). Folders
+  have Rename, Move and Archive. With a mouse, drag files onto a folder.
+
 ## 13. Checklists and daily report (migration 0008)
 
 - `checklist_templates` (`site_id, area_id, name, description, frequency daily|weekly|monthly, assignee_id`) and `checklist_items` (`position, label, kind check|number|text, unit, min_value, max_value, photo_required`).

@@ -12,6 +12,21 @@
   the file in Documents, so it always opens the newest version.
 - Forwarded messages keep their tags (migration 0053).
 
+### Documents as a file manager
+- **Folders inside folders**, with a path at the top (Documents ›
+  Drawings › MCC-3); Back goes up a level. Folders show how many folders
+  and files are inside.
+- **Sort** by name, last updated, size or type; **Starred** and **Recent**
+  filters. **Search** looks in the folder you are in and every folder
+  under it (from the top, everywhere) by name, code or file name, and
+  shows where each file is.
+- **Select several** (✓ at the top, or a long press on a phone) to share
+  them in a chat, star, move or archive them at once.
+- Each file's ⋮ has **Star**, **Rename** and **Properties**: type, size,
+  version, folder, who added it, signatures, and the chats it is tagged
+  in. Folders can be renamed, **moved** and archived (their folders go
+  with them; files move up a level, nothing is deleted). Migration 0054.
+
 ## 17 November 2026 (v0.1.6)
 
 ### Chat fixes from phone testing

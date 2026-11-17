@@ -14,11 +14,42 @@ class DocFolder {
   DocFolder.fromJson(Map<String, dynamic> j)
     : id = j['id'] as String,
       siteId = j['site_id'] as String,
-      name = j['name'] as String;
+      name = j['name'] as String,
+      parentId = j['parent_id'] as String?;
 
   final String id;
   final String siteId;
   final String name;
+
+  /// The folder it is in; null at the top of the library (migration 0054).
+  final String? parentId;
+}
+
+/// The folders from the top down to [id] (empty for the top).
+List<DocFolder> folderPath(List<DocFolder> folders, String? id) {
+  final byId = {for (final f in folders) f.id: f};
+  final path = <DocFolder>[];
+  var at = id == null ? null : byId[id];
+  while (at != null && path.length < 20) {
+    path.insert(0, at);
+    at = at.parentId == null ? null : byId[at.parentId];
+  }
+  return path;
+}
+
+/// [id] and every folder under it.
+Set<String> folderTree(List<DocFolder> folders, String id) {
+  final out = {id};
+  var grew = true;
+  while (grew) {
+    grew = false;
+    for (final f in folders) {
+      if (f.parentId != null && out.contains(f.parentId) && out.add(f.id)) {
+        grew = true;
+      }
+    }
+  }
+  return out;
 }
 
 const documentCategories = {
@@ -181,12 +212,79 @@ final foldersProvider = FutureProvider<List<DocFolder>>((ref) async {
   final rows = await ref
       .watch(supabaseProvider)
       .from('document_folders')
-      .select('id, site_id, name')
+      .select('id, site_id, name, parent_id')
       .eq('site_id', site)
       .eq('is_archived', false)
       .order('name');
   return [for (final r in rows) DocFolder.fromJson(r)];
 });
+
+/// Documents I starred (migration 0054), plus changes not yet sent.
+final starredDocumentsProvider = FutureProvider<Set<String>>((ref) async {
+  final me = ref.watch(authUserIdProvider);
+  if (me == null) return const {};
+  final rows = await ref
+      .watch(supabaseProvider)
+      .from('document_stars')
+      .select('document_id');
+  return {for (final r in rows) r['document_id'] as String};
+});
+
+/// Stars set or cleared on this device since the list last loaded.
+final localStarsProvider = NotifierProvider<LocalStars, Map<String, bool>>(
+  LocalStars.new,
+);
+
+class LocalStars extends Notifier<Map<String, bool>> {
+  @override
+  Map<String, bool> build() {
+    ref.watch(starredDocumentsProvider);
+    return const {};
+  }
+
+  void set(Iterable<String> ids, bool starred) =>
+      state = {...state, for (final id in ids) id: starred};
+}
+
+/// Starred: what the server says, with this device's changes on top.
+final starredDocsProvider = Provider<Set<String>>((ref) {
+  final server = ref.watch(starredDocumentsProvider).value ?? const {};
+  final local = ref.watch(localStarsProvider);
+  return {
+    for (final id in server)
+      if (local[id] != false) id,
+    for (final e in local.entries)
+      if (e.value) e.key,
+  };
+});
+
+/// Where a document is tagged in chats I am in (newest first).
+typedef DocMention = ({
+  String messageId,
+  String conversationId,
+  String chat,
+  String author,
+  DateTime at,
+});
+
+final documentMentionsProvider = FutureProvider.autoDispose
+    .family<List<DocMention>, String>((ref, id) async {
+      final rows =
+          await ref
+                  .watch(supabaseProvider)
+                  .rpc('fn_document_mentions', params: {'p_document': id})
+              as List;
+      return [
+        for (final r in rows)
+          (
+            messageId: r['message_id'] as String,
+            conversationId: r['conversation_id'] as String,
+            chat: r['conversation_title'] as String? ?? 'Chat',
+            author: r['author_name'] as String? ?? 'Someone',
+            at: DateTime.parse(r['created_at'] as String).toLocal(),
+          ),
+      ];
+    });
 
 final documentProvider = Provider.family<Doc?, String>((ref, id) {
   return ref
@@ -344,6 +442,7 @@ class DocumentActions {
     required String siteId,
     required String name,
     bool archived = false,
+    String? parentId,
   }) async {
     final id = folder?.id ?? _uuid.v4();
     await _ref.read(outboxProvider).enqueue('fn_save_folder', {
@@ -351,11 +450,36 @@ class DocumentActions {
       'p_site': siteId,
       'p_name': name.trim(),
       'p_archived': archived,
+      if (folder == null && parentId != null) 'p_parent': parentId,
     }, flushNow: false);
     await _ref.read(outboxProvider).flush();
     _ref.invalidate(foldersProvider);
     _ref.invalidate(documentsProvider);
     return id;
+  }
+
+  /// Moves a folder (and everything in it) into [parentId], or to the top.
+  Future<void> moveFolder(String folderId, String? parentId) async {
+    await _ref.read(outboxProvider).enqueue('fn_move_folder', {
+      'p_folder': folderId,
+      'p_parent': parentId,
+    }, flushNow: false);
+    await _ref.read(outboxProvider).flush();
+    _ref.invalidate(foldersProvider);
+  }
+
+  /// Stars or unstars documents (each person's own list).
+  Future<void> star(Iterable<String> documentIds, bool starred) async {
+    final outbox = _ref.read(outboxProvider);
+    for (final id in documentIds) {
+      await outbox.enqueue('fn_star_document', {
+        'p_document': id,
+        'p_starred': starred,
+      }, flushNow: false);
+    }
+    _ref.read(localStarsProvider.notifier).set(documentIds, starred);
+    await outbox.flush();
+    _ref.invalidate(starredDocumentsProvider);
   }
 
   /// Moves documents into [folderId], or out of folders with null.

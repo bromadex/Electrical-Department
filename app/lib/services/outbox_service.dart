@@ -49,6 +49,8 @@ class OutboxService {
     'fn_link_job_card_document': false,
     'fn_save_folder': false,
     'fn_move_documents': false,
+    'fn_move_folder': false,
+    'fn_star_document': false,
     'fn_save_item': false,
     'fn_receive_stock': false,
     'fn_issue_stock': false,

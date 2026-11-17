@@ -95,7 +95,10 @@ String formatBytes(int b) {
   return '${(b / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
 }
 
-enum _Show { all, toSign, recent, mine }
+enum _Show { all, starred, toSign, recent, mine }
+
+/// How files are ordered (folders always by name).
+enum _Sort { name, updated, size, type }
 
 /// SOPs, drawings and manuals at the current site, in folders, as a grid or
 /// a list (API.md section 12b).
@@ -108,12 +111,27 @@ class DocumentsScreen extends ConsumerStatefulWidget {
 
 class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
   static const _gridKey = 'documents_grid';
+  static const _sortKey = 'documents_sort';
 
   String? _category;
   _Show _show = _Show.all;
   String _query = '';
+  final _search = TextEditingController();
+
+  /// The folder being looked at; null is the top of the library.
   String? _folder;
   late bool _grid = _loadGrid();
+  late _Sort _sort = _loadSort();
+
+  /// Documents ticked for Move, Share, Star or Archive together.
+  final _selected = <String>{};
+  bool _selectMode = false;
+  bool get _selecting => _selectMode || _selected.isNotEmpty;
+
+  void _clearSelection() => setState(() {
+    _selected.clear();
+    _selectMode = false;
+  });
 
   /// Files are being dragged over the page (browser).
   bool _dragging = false;
@@ -142,7 +160,43 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
   @override
   void dispose() {
     stopListening(_drops);
+    _search.dispose();
     super.dispose();
+  }
+
+  _Sort _loadSort() {
+    try {
+      final v = ref.read(sharedPrefsProvider).getString(_sortKey);
+      return _Sort.values.firstWhere(
+        (e) => e.name == v,
+        orElse: () => _Sort.name,
+      );
+    } catch (_) {
+      return _Sort.name;
+    }
+  }
+
+  void _setSort(_Sort v) {
+    setState(() => _sort = v);
+    try {
+      ref.read(sharedPrefsProvider).setString(_sortKey, v.name);
+    } catch (_) {}
+  }
+
+  /// Opens a folder (null: the top), clearing the search and selection.
+  void _open(String? folder) {
+    setState(() {
+      _folder = folder;
+      _selected.clear();
+      _selectMode = false;
+    });
+  }
+
+  void _toggle(Doc d) {
+    HapticFeedback.selectionClick();
+    setState(() {
+      if (!_selected.remove(d.id)) _selected.add(d.id);
+    });
   }
 
   bool get _canUpload {
@@ -179,8 +233,110 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
     if (site == null) return;
     await showFormSheet<void>(
       context,
-      _FolderForm(siteId: site.id, folder: folder),
+      _FolderForm(siteId: site.id, folder: folder, parentId: _folder),
     );
+  }
+
+  /// Moves a folder (with what is in it) somewhere else.
+  Future<void> _moveFolder(DocFolder f) async {
+    final folders = ref.read(foldersProvider).value ?? const <DocFolder>[];
+    final to = await showFormSheet<({String? id})>(
+      context,
+      MoveSheet(
+        title: 'Move ${f.name}',
+        current: f.parentId,
+        exclude: folderTree(folders, f.id),
+      ),
+    );
+    if (to == null || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref.read(documentActionsProvider).moveFolder(f.id, to.id);
+      messenger.showSnackBar(SnackBar(content: Text('Moved ${f.name}')));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(AppError.from(e).message)));
+    }
+  }
+
+  /// Runs an action on every ticked document.
+  Future<void> _bulk(String action, List<Doc> all) async {
+    final docs = [
+      for (final d in all)
+        if (_selected.contains(d.id)) d,
+    ];
+    if (docs.isEmpty) return;
+    final actions = ref.read(documentActionsProvider);
+    final messenger = ScaffoldMessenger.of(context);
+    void say(String m) => messenger.showSnackBar(SnackBar(content: Text(m)));
+    final n = '${docs.length} ${docs.length == 1 ? 'file' : 'files'}';
+    try {
+      switch (action) {
+        case 'move':
+          final to = await showFormSheet<({String? id})>(
+            context,
+            MoveSheet(title: 'Move $n', current: _folder),
+          );
+          if (to == null) return;
+          await actions.move([for (final d in docs) d.id], to.id);
+          say('Moved $n');
+        case 'star':
+          final starred = ref.read(starredDocsProvider);
+          final on = !docs.every((d) => starred.contains(d.id));
+          await actions.star([for (final d in docs) d.id], on);
+          say(on ? 'Starred $n' : 'Took the star off $n');
+        case 'chat':
+          final chat = await showFormSheet<Conversation>(
+            context,
+            const _ChatPicker(),
+          );
+          if (chat == null) return;
+          await shareInChat(ref, chat.id, docs);
+          say('Shared $n in ${chat.title}');
+        case 'archive':
+          if (!mounted) return;
+          final ok = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: Text('Archive $n?'),
+              content: const Text(
+                'They leave the library and job cards; their files and '
+                'signatures are kept.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('Archive'),
+                ),
+              ],
+            ),
+          );
+          if (ok != true) return;
+          for (final d in docs) {
+            await actions.save(
+              doc: d,
+              siteId: d.siteId,
+              title: d.title,
+              category: d.category,
+              needsAck: d.needsAck,
+              archived: true,
+              reload: false,
+            );
+          }
+          ref.invalidate(documentsProvider);
+          say('Archived $n');
+      }
+      if (mounted) _clearSelection();
+    } catch (e) {
+      say(
+        AppError.from(e).isRetryable
+            ? 'Connect to the internet for that.'
+            : AppError.from(e).message,
+      );
+    }
   }
 
   /// A document dragged onto a folder moves into it.
@@ -214,7 +370,8 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
           count == 0
               ? 'The folder is empty.'
               : 'Its $count ${count == 1 ? 'document moves' : 'documents move'} '
-                    'out to All documents; nothing is deleted.',
+                    'up a level, and its folders are archived with it; '
+                    'nothing is deleted.',
         ),
         actions: [
           TextButton(
@@ -238,7 +395,10 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
             name: f.name,
             archived: true,
           );
-      if (_folder == f.id) setState(() => _folder = null);
+      final folders = ref.read(foldersProvider).value ?? const <DocFolder>[];
+      if (_folder != null && folderTree(folders, f.id).contains(_folder)) {
+        _open(f.parentId);
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -260,6 +420,8 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
     final toSign = ref.watch(toSignCountProvider);
     final top = MediaQuery.paddingOf(context).top + kToolbarHeight;
     final folder = folders.where((f) => f.id == _folder).firstOrNull;
+    final path = folderPath(folders, _folder);
+    final all = docs.value ?? const <Doc>[];
 
     Widget chip(String label, bool selected, VoidCallback onTap) => Padding(
       padding: const EdgeInsets.only(right: Space.xs),
@@ -270,24 +432,38 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
       ),
     );
 
+    // Back: out of selecting first, then up a folder, then off the page.
     return PopScope(
-      canPop: _folder == null,
+      canPop: _folder == null && !_selecting,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) setState(() => _folder = null);
+        if (didPop) return;
+        if (_selecting) {
+          _clearSelection();
+        } else {
+          _open(folder?.parentId);
+        }
       },
       child: Scaffold(
         backgroundColor: Colors.transparent,
         extendBodyBehindAppBar: true,
         appBar: AppBar(
-          leading: _folder == null
+          leading: _selecting
+              ? IconButton(
+                  tooltip: 'Clear selection',
+                  icon: const Icon(CupertinoIcons.xmark),
+                  onPressed: _clearSelection,
+                )
+              : _folder == null
               ? const AppBackButton()
               : IconButton(
-                  tooltip: 'All documents',
+                  tooltip: path.length > 1 ? path[path.length - 2].name : 'Up',
                   icon: const Icon(CupertinoIcons.back),
-                  onPressed: () => setState(() => _folder = null),
+                  onPressed: () => _open(folder?.parentId),
                 ),
           title: Text(
-            folder?.name ?? 'Documents · ${site?.code ?? ''}',
+            _selecting
+                ? '${_selected.length} selected'
+                : folder?.name ?? 'Documents · ${site?.code ?? ''}',
             overflow: TextOverflow.ellipsis,
           ),
           flexibleSpace: const GlassSurface(
@@ -295,6 +471,31 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
             child: SizedBox.expand(),
           ),
           actions: [
+            if (!_selecting)
+              IconButton(
+                tooltip: 'Select files',
+                icon: const Icon(CupertinoIcons.checkmark_circle),
+                onPressed: () => setState(() => _selectMode = true),
+              ),
+            PopupMenuButton<_Sort>(
+              tooltip: 'Sort',
+              icon: const Icon(CupertinoIcons.arrow_up_arrow_down),
+              initialValue: _sort,
+              onSelected: _setSort,
+              itemBuilder: (_) => [
+                for (final (v, label) in const [
+                  (_Sort.name, 'Name'),
+                  (_Sort.updated, 'Last updated'),
+                  (_Sort.size, 'Size'),
+                  (_Sort.type, 'Type'),
+                ])
+                  CheckedPopupMenuItem(
+                    value: v,
+                    checked: _sort == v,
+                    child: Text(label),
+                  ),
+              ],
+            ),
             IconButton(
               tooltip: _grid ? 'Show as a list' : 'Show as a grid',
               icon: Icon(
@@ -304,19 +505,21 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
               ),
               onPressed: () => _setGrid(!_grid),
             ),
-            if (canManage && folder != null)
+            if (canManage && folder != null && !_selecting)
               PopupMenuButton<String>(
                 tooltip: 'Folder',
                 icon: const Icon(CupertinoIcons.ellipsis_vertical),
                 onSelected: (v) {
-                  final count = (docs.value ?? const <Doc>[])
+                  final count = all
                       .where((d) => d.folderId == folder.id)
                       .length;
                   if (v == 'rename') _folderSheet(folder: folder);
+                  if (v == 'move') _moveFolder(folder);
                   if (v == 'archive') _archiveFolder(folder, count);
                 },
                 itemBuilder: (_) => const [
                   PopupMenuItem(value: 'rename', child: Text('Rename folder')),
+                  PopupMenuItem(value: 'move', child: Text('Move folder')),
                   PopupMenuItem(
                     value: 'archive',
                     child: Text('Archive folder'),
@@ -325,7 +528,17 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
               ),
           ],
         ),
-        floatingActionButton: canManage
+        bottomNavigationBar: _selecting
+            ? _SelectionBar(
+                count: _selected.length,
+                canManage: canManage,
+                allStarred: _selected.every(
+                  ref.watch(starredDocsProvider).contains,
+                ),
+                onAction: (a) => _bulk(a, all),
+              )
+            : null,
+        floatingActionButton: canManage && !_selecting
             ? FloatingActionButton.extended(
                 onPressed: () => showFormSheet<void>(
                   context,
@@ -358,10 +571,15 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
+                            if (path.isNotEmpty) ...[
+                              _Breadcrumbs(path: path, onOpen: _open),
+                              const SizedBox(height: Space.xs),
+                            ],
                             CupertinoSearchTextField(
+                              controller: _search,
                               placeholder: folder == null
-                                  ? 'Search titles or S- codes'
-                                  : 'Search in ${folder.name}',
+                                  ? 'Search every folder: name, code or file'
+                                  : 'Search in ${folder.name} and its folders',
                               onChanged: (v) => setState(() => _query = v),
                             ),
                             const SizedBox(height: Space.sm),
@@ -380,6 +598,11 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
                                       _show = _Show.all;
                                       _category = null;
                                     }),
+                                  ),
+                                  chip(
+                                    'Starred',
+                                    _show == _Show.starred,
+                                    () => setState(() => _show = _Show.starred),
                                   ),
                                   chip(
                                     toSign > 0
@@ -491,35 +714,64 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
     final theme = Theme.of(context);
     final q = _query.toLowerCase();
     final recent = DateTime.now().subtract(const Duration(days: 30));
+    final starred = ref.watch(starredDocsProvider);
     final known = {for (final f in folders) f.id};
-    // At the top level, filtering or searching looks in every folder; with
-    // nothing chosen it shows the folders and the documents in none.
+    // Where to look: this folder only, or (searching or filtering) this
+    // folder and every folder under it; at the top, everything.
+    final tree = _folder == null ? null : folderTree(folders, _folder!);
+    bool here(Doc d) {
+      final f = d.folderId != null && known.contains(d.folderId)
+          ? d.folderId
+          : null;
+      if (_filtering) return tree == null || tree.contains(f);
+      return f == _folder;
+    }
+
     final shown = [
       for (final d in list)
-        if ((_folder != null
-                ? d.folderId == _folder
-                : _filtering ||
-                      d.folderId == null ||
-                      !known.contains(d.folderId)) &&
+        if (here(d) &&
             (_category == null || d.category == _category) &&
             switch (_show) {
               _Show.all => true,
+              _Show.starred => starred.contains(d.id),
               _Show.toSign => d.toSign,
               _Show.recent => d.updatedAt.isAfter(recent),
               _Show.mine => d.createdBy == me,
             } &&
             (q.isEmpty ||
                 d.title.toLowerCase().contains(q) ||
-                d.code.toLowerCase().contains(q)))
+                d.code.toLowerCase().contains(q) ||
+                d.fileName.toLowerCase().contains(q)))
           d,
     ];
-    if (_show == _Show.recent) {
-      shown.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-    }
+    int bySort(Doc a, Doc b) => switch (_sort) {
+      _Sort.name => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
+      _Sort.updated => b.updatedAt.compareTo(a.updatedAt),
+      _Sort.size => (b.current?.sizeBytes ?? 0).compareTo(
+        a.current?.sizeBytes ?? 0,
+      ),
+      _Sort.type => fileType(
+        a.fileName,
+      ).label.compareTo(fileType(b.fileName).label),
+    };
+    shown.sort(
+      _show == _Show.recent
+          ? (a, b) => b.updatedAt.compareTo(a.updatedAt)
+          : bySort,
+    );
 
-    final showFolders = _folder == null && !_filtering;
+    final showFolders = !_filtering;
+    final subfolders = [
+      for (final f in folders)
+        if (f.parentId == _folder ||
+            (_folder == null &&
+                f.parentId != null &&
+                !known.contains(f.parentId)))
+          f,
+    ]..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    final dragOk = canManage && showFolders && !_selecting;
     final out = <Widget>[];
-    if (showFolders && (folders.isNotEmpty || canManage)) {
+    if (showFolders && (subfolders.isNotEmpty || canManage)) {
       out
         ..add(_SectionLabel('Folders'))
         ..add(
@@ -527,44 +779,69 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
             minWidth: 240,
             minColumns: 1,
             children: [
-              for (final f in folders)
-                _FolderTile(
-                  folder: f,
-                  docs: [
-                    for (final d in list)
-                      if (d.folderId == f.id) d,
-                  ],
-                  canManage: canManage,
-                  onDrop: canManage ? (d) => _dropInto(d, f) : null,
-                  onOpen: () => setState(() => _folder = f.id),
-                  onRename: () => _folderSheet(folder: f),
-                  onArchive: (n) => _archiveFolder(f, n),
+              for (final f in subfolders)
+                Builder(
+                  builder: (context) {
+                    final inside = folderTree(folders, f.id);
+                    return _FolderTile(
+                      folder: f,
+                      docs: [
+                        for (final d in list)
+                          if (inside.contains(d.folderId)) d,
+                      ],
+                      folders: inside.length - 1,
+                      canManage: canManage,
+                      onDrop: dragOk ? (d) => _dropInto(d, f) : null,
+                      onOpen: () => _open(f.id),
+                      onRename: () => _folderSheet(folder: f),
+                      onMove: () => _moveFolder(f),
+                      onArchive: (n) => _archiveFolder(f, n),
+                    );
+                  },
                 ),
               if (canManage) _NewFolderTile(onTap: () => _folderSheet()),
             ],
           ),
         )
         ..add(const SizedBox(height: Space.md))
-        ..add(_SectionLabel(folders.isEmpty ? 'Documents' : 'Not in a folder'));
+        ..add(_SectionLabel('Files'));
+    } else if (_filtering && shown.isNotEmpty) {
+      out.add(
+        _SectionLabel(
+          '${shown.length} ${shown.length == 1 ? 'file' : 'files'}'
+          '${_folder == null ? '' : ' in this folder and its folders'}',
+        ),
+      );
     }
 
     if (shown.isEmpty) {
+      // Only folders at this level: no "Files" heading, nothing to explain.
+      if (showFolders && subfolders.isNotEmpty) {
+        out.removeLast();
+        return out;
+      }
       out.add(
         Padding(
           padding: const EdgeInsets.only(top: Space.lg),
           child: EmptyState(
             icon: _show == _Show.toSign
                 ? CupertinoIcons.checkmark_seal
+                : _show == _Show.starred
+                ? CupertinoIcons.star
                 : CupertinoIcons.doc_text,
             title: _show == _Show.toSign
                 ? 'All signed'
+                : _show == _Show.starred
+                ? 'Nothing starred yet'
                 : list.isEmpty
                 ? 'No documents yet'
                 : _folder != null && !_filtering
-                ? 'This folder is empty'
+                ? 'No files here'
                 : 'Nothing here',
             message: _show == _Show.toSign
                 ? 'You have read every SOP that needs it.'
+                : _show == _Show.starred
+                ? 'Star the files you use most (⋮ → Star) to find them here.'
                 : list.isEmpty
                 ? 'Supervisors upload SOPs, drawings and manuals here.'
                 : _folder != null && !_filtering
@@ -576,6 +853,16 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
       return out;
     }
 
+    Widget pick(Doc d, Widget child) => _Selectable(
+      selected: _selected.contains(d.id),
+      selecting: _selecting,
+      onToggle: () => _toggle(d),
+      child: child,
+    );
+    String? where(Doc d) => _filtering && d.folderId != null
+        ? folderPath(folders, d.folderId).map((f) => f.name).join(' › ')
+        : null;
+
     if (_grid) {
       out.add(
         _ResponsiveGrid(
@@ -584,10 +871,14 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
             for (final d in shown)
               _DraggableDoc(
                 doc: d,
-                enabled: canManage && showFolders && folders.isNotEmpty,
-                child: _DocCard(
-                  doc: d,
-                  actions: DocMenu(doc: d),
+                enabled: dragOk && subfolders.isNotEmpty,
+                child: pick(
+                  d,
+                  _DocCard(
+                    doc: d,
+                    starred: starred.contains(d.id),
+                    actions: DocMenu(doc: d),
+                  ),
                 ),
               ),
           ],
@@ -629,11 +920,15 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
                     padding: const EdgeInsets.only(bottom: Space.sm),
                     child: _DraggableDoc(
                       doc: d,
-                      enabled: canManage && showFolders && folders.isNotEmpty,
-                      child: DocTile(
-                        doc: d,
-                        wide: wide,
-                        menu: DocMenu(doc: d),
+                      enabled: dragOk && subfolders.isNotEmpty,
+                      child: pick(
+                        d,
+                        DocTile(
+                          doc: d,
+                          wide: wide,
+                          where: where(d),
+                          menu: _selecting ? null : DocMenu(doc: d),
+                        ),
                       ),
                     ),
                   ).entrance(context, index: i.clamp(0, 8)),
@@ -704,13 +999,21 @@ class _FolderTile extends StatelessWidget {
     required this.canManage,
     required this.onOpen,
     required this.onRename,
+    required this.onMove,
     required this.onArchive,
+    this.folders = 0,
     this.onDrop,
   });
 
   final DocFolder folder;
+
+  /// Documents in it and in its folders.
   final List<Doc> docs;
+
+  /// How many folders are inside it (at any depth).
+  final int folders;
   final bool canManage;
+  final VoidCallback onMove;
 
   /// A document dropped on the folder (null: not a drop target).
   final ValueChanged<Doc>? onDrop;
@@ -762,6 +1065,8 @@ class _FolderTile extends StatelessWidget {
                 ),
                 Text(
                   [
+                    if (folders > 0)
+                      '$folders ${folders == 1 ? 'folder' : 'folders'}',
                     '${docs.length} ${docs.length == 1 ? 'file' : 'files'}',
                     if (size > 0) formatBytes(size),
                     if (toSign > 0) '$toSign to sign',
@@ -777,10 +1082,12 @@ class _FolderTile extends StatelessWidget {
               icon: const Icon(CupertinoIcons.ellipsis_vertical, size: 18),
               onSelected: (v) {
                 if (v == 'rename') onRename();
+                if (v == 'move') onMove();
                 if (v == 'archive') onArchive(docs.length);
               },
               itemBuilder: (_) => const [
                 PopupMenuItem(value: 'rename', child: Text('Rename')),
+                PopupMenuItem(value: 'move', child: Text('Move')),
                 PopupMenuItem(value: 'archive', child: Text('Archive')),
               ],
             )
@@ -808,8 +1115,8 @@ class _FolderTile extends StatelessWidget {
   }
 }
 
-/// A document that can be dragged onto a folder: straight away with a
-/// mouse, after a long press on a phone (so scrolling still works).
+/// A document that can be dragged onto a folder with a mouse. On phones a
+/// long press selects it instead (then Move).
 class _DraggableDoc extends StatelessWidget {
   const _DraggableDoc({
     required this.doc,
@@ -860,14 +1167,9 @@ class _DraggableDoc extends StatelessWidget {
       TargetPlatform.android || TargetPlatform.iOS => true,
       _ => false,
     };
+    // Phones: a long press selects (then Move); dragging is for the mouse.
     return touch
-        ? LongPressDraggable<Doc>(
-            data: doc,
-            feedback: feedback,
-            childWhenDragging: dimmed,
-            onDragStarted: HapticFeedback.selectionClick,
-            child: child,
-          )
+        ? child
         : Draggable<Doc>(
             data: doc,
             feedback: feedback,
@@ -908,10 +1210,15 @@ class _NewFolderTile extends StatelessWidget {
 
 /// A document in the grid view.
 class _DocCard extends StatelessWidget {
-  const _DocCard({required this.doc, required this.actions});
+  const _DocCard({
+    required this.doc,
+    required this.actions,
+    this.starred = false,
+  });
 
   final Doc doc;
   final Widget actions;
+  final bool starred;
 
   @override
   Widget build(BuildContext context) {
@@ -932,6 +1239,15 @@ class _DocCard extends StatelessWidget {
             children: [
               FileBadge(fileName: doc.fileName, size: 52),
               const Spacer(),
+              if (starred)
+                const Padding(
+                  padding: EdgeInsets.only(top: 12),
+                  child: Icon(
+                    CupertinoIcons.star_fill,
+                    size: 16,
+                    color: Colors.amber,
+                  ),
+                ),
               actions,
             ],
           ),
@@ -985,9 +1301,13 @@ class DocTile extends ConsumerWidget {
     this.onTap,
     this.menu,
     this.wide = false,
+    this.where,
   });
 
   final Doc doc;
+
+  /// The folder it is in, shown while searching ("Drawings › MCC-3").
+  final String? where;
   final Widget? trailing;
   final VoidCallback? onTap;
 
@@ -1063,11 +1383,21 @@ class DocTile extends ConsumerWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    if (ref.watch(starredDocsProvider).contains(doc.id))
+                      const Padding(
+                        padding: EdgeInsets.only(left: 4),
+                        child: Icon(
+                          CupertinoIcons.star_fill,
+                          size: 14,
+                          color: Colors.amber,
+                        ),
+                      ),
                   ],
                 ),
                 const SizedBox(height: 2),
                 Text(
                   [
+                    if (where != null) '📁 $where',
                     categoryLabel(doc.category),
                     if (doc.currentVersion > 0)
                       'v${doc.currentVersion}'
@@ -1158,23 +1488,39 @@ class DocMenu extends ConsumerWidget {
             const _ChatPicker(),
           );
           if (chat == null) return;
-          await ref
-              .read(chatActionsProvider)
-              .send(
-                chat.id,
-                text: '${doc.code} · ${doc.title}',
-                recordLink: 'doc:${doc.id}',
-              );
+          await shareInChat(ref, chat.id, [doc]);
           say('Shared in ${chat.title}');
         case 'move':
           if (!context.mounted) return;
           final to = await showFormSheet<({String? id})>(
             context,
-            _MoveSheet(doc: doc),
+            MoveSheet(title: 'Move ${doc.code}', current: doc.folderId),
           );
           if (to == null) return;
           await actions.move([doc.id], to.id);
-          say(to.id == null ? 'Moved out of the folder' : 'Moved');
+          say(to.id == null ? 'Moved to the top of Documents' : 'Moved');
+        case 'star':
+          final on = !ref.read(starredDocsProvider).contains(doc.id);
+          await actions.star([doc.id], on);
+          say(on ? 'Starred ${doc.code}' : 'Took the star off ${doc.code}');
+        case 'rename':
+          if (!context.mounted) return;
+          final name = await showDialog<String>(
+            context: context,
+            builder: (context) => _RenameDialog(title: doc.title),
+          );
+          if (name == null || name == doc.title) return;
+          await actions.save(
+            doc: doc,
+            siteId: doc.siteId,
+            title: name,
+            category: doc.category,
+            needsAck: doc.needsAck,
+          );
+          say('Renamed to $name');
+        case 'properties':
+          if (!context.mounted) return;
+          await showFormSheet<void>(context, DocProperties(doc: doc));
         case 'edit':
           if (!context.mounted) return;
           await showFormSheet<bool>(context, DocumentForm(doc: doc));
@@ -1226,6 +1572,7 @@ class DocMenu extends ConsumerWidget {
         .watch(sessionProvider)
         .can('docs.manage', siteId: doc.siteId);
     final hasFile = doc.current != null;
+    final starred = ref.watch(starredDocsProvider).contains(doc.id);
     PopupMenuItem<String> item(String value, IconData icon, String label) =>
         PopupMenuItem(
           value: value,
@@ -1247,15 +1594,188 @@ class DocMenu extends ConsumerWidget {
           item('download', CupertinoIcons.arrow_down_to_line, 'Download'),
         ],
         item('chat', CupertinoIcons.chat_bubble_2, 'Share in a chat'),
+        item(
+          'star',
+          starred ? CupertinoIcons.star_slash : CupertinoIcons.star,
+          starred ? 'Unstar' : 'Star',
+        ),
+        item('properties', CupertinoIcons.info, 'Properties'),
         if (hasFile && canManage)
           item('link', CupertinoIcons.link, 'Copy a 7-day link'),
         if (canManage) ...[
           const PopupMenuDivider(),
+          item('rename', CupertinoIcons.textformat, 'Rename'),
           item('move', CupertinoIcons.folder, 'Move to folder'),
           item('edit', CupertinoIcons.pencil, 'Edit or new version'),
           item('archive', CupertinoIcons.archivebox, 'Archive'),
         ],
       ],
+    );
+  }
+}
+
+class _RenameDialog extends StatefulWidget {
+  const _RenameDialog({required this.title});
+
+  final String title;
+
+  @override
+  State<_RenameDialog> createState() => _RenameDialogState();
+}
+
+class _RenameDialogState extends State<_RenameDialog> {
+  late final _name = TextEditingController(text: widget.title);
+
+  @override
+  void dispose() {
+    _name.dispose();
+    super.dispose();
+  }
+
+  void _done() {
+    final v = _name.text.trim();
+    if (v.length >= 3) Navigator.pop(context, v);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Rename'),
+      content: TextField(
+        controller: _name,
+        autofocus: true,
+        maxLength: 160,
+        textCapitalization: TextCapitalization.sentences,
+        onSubmitted: (_) => _done(),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(onPressed: _done, child: const Text('Rename')),
+      ],
+    );
+  }
+}
+
+/// A file's details: type, size, version, folder, who added it, signatures,
+/// and the chats it is tagged in.
+class DocProperties extends ConsumerWidget {
+  const DocProperties({super.key, required this.doc});
+
+  final Doc doc;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final v = doc.current;
+    final people = ref.watch(peopleProvider).value ?? const <String, String>{};
+    final folders = ref.watch(foldersProvider).value ?? const <DocFolder>[];
+    final where = folderPath(folders, doc.folderId).map((f) => f.name);
+    final mentions = ref.watch(documentMentionsProvider(doc.id));
+    final dates = MaterialLocalizations.of(context);
+    String when(DateTime t) =>
+        '${dates.formatMediumDate(t)}, ${TimeOfDay.fromDateTime(t).format(context)}';
+    Widget row(String label, String value) => Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 110,
+            child: Text(
+              label,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          Expanded(child: SelectableText(value)),
+        ],
+      ),
+    );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, Space.lg),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                FileBadge(fileName: doc.fileName, size: 48),
+                const SizedBox(width: Space.sm),
+                Expanded(
+                  child: Text(doc.title, style: theme.textTheme.titleLarge),
+                ),
+              ],
+            ),
+            const SizedBox(height: Space.md),
+            row('Code', doc.code),
+            row(
+              'Type',
+              '${fileType(doc.fileName).label} · '
+                  '${categoryLabel(doc.category)}',
+            ),
+            if (v != null) row('File', v.fileName),
+            if (v?.sizeBytes != null) row('Size', formatBytes(v!.sizeBytes!)),
+            row(
+              'Version',
+              doc.currentVersion == 0
+                  ? 'No file yet'
+                  : 'v${doc.currentVersion} of ${doc.versions.length}',
+            ),
+            row(
+              'Folder',
+              where.isEmpty ? 'Top of Documents' : where.join(' › '),
+            ),
+            if (people[v?.createdBy ?? doc.createdBy] case final String by)
+              row('Added by', by),
+            if (v != null) row('Uploaded', when(v.createdAt)),
+            row('Updated', when(doc.updatedAt)),
+            if (doc.needsAck)
+              row(
+                'Signing',
+                doc.signed == null
+                    ? 'Everyone reads and signs it'
+                    : '${doc.signed} signed this version',
+              ),
+            const SizedBox(height: Space.md),
+            Text('Tagged in', style: theme.textTheme.titleSmall),
+            const SizedBox(height: Space.xs),
+            mentions.when(
+              loading: () => const LinearProgressIndicator(),
+              error: (e, _) => Text(
+                AppError.from(e).isRetryable
+                    ? 'Shows when you are connected.'
+                    : AppError.from(e).message,
+              ),
+              data: (list) => list.isEmpty
+                  ? Text(
+                      'Not tagged in your chats yet. Type # in a chat to tag it.',
+                      style: theme.textTheme.bodySmall,
+                    )
+                  : Column(
+                      children: [
+                        for (final m in list.take(10))
+                          ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            leading: const Icon(CupertinoIcons.chat_bubble_2),
+                            title: Text(m.chat),
+                            subtitle: Text('${m.author} · ${when(m.at)}'),
+                            onTap: () {
+                              Navigator.pop(context);
+                              context.push('/chat/${m.conversationId}');
+                            },
+                          ),
+                      ],
+                    ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1303,24 +1823,54 @@ class _ChatPicker extends ConsumerWidget {
   }
 }
 
-/// Picks the folder to move a document to.
-class _MoveSheet extends ConsumerWidget {
-  const _MoveSheet({required this.doc});
+/// Picks a folder to move documents or a folder to: the folder tree, with
+/// "Top of Documents". Pops `(id: folder)`, or `(id: null)` for the top.
+class MoveSheet extends ConsumerWidget {
+  const MoveSheet({
+    super.key,
+    required this.title,
+    this.current,
+    this.exclude = const {},
+  });
 
-  final Doc doc;
+  final String title;
+
+  /// Where it is now (ticked, not offered).
+  final String? current;
+
+  /// Folders it cannot go into (a folder and its own subfolders).
+  final Set<String> exclude;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final folders = ref.watch(foldersProvider).value ?? const <DocFolder>[];
-    Widget tile(String? id, String name, IconData icon) => ListTile(
-      contentPadding: EdgeInsets.zero,
+    final known = {for (final f in folders) f.id};
+    final rows = <(DocFolder, int)>[];
+    void add(String? parent, int depth) {
+      final kids = [
+        for (final f in folders)
+          if (f.parentId == parent ||
+              (parent == null &&
+                  f.parentId != null &&
+                  !known.contains(f.parentId)))
+            f,
+      ]..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+      for (final f in kids) {
+        if (exclude.contains(f.id)) continue;
+        rows.add((f, depth));
+        add(f.id, depth + 1);
+      }
+    }
+
+    add(null, 0);
+    Widget tile(String? id, String name, IconData icon, int depth) => ListTile(
+      contentPadding: EdgeInsets.only(left: depth * 20.0),
+      dense: true,
       leading: Icon(icon, color: theme.colorScheme.primary),
-      title: Text(name),
-      trailing: doc.folderId == id
-          ? const Icon(CupertinoIcons.checkmark_alt)
-          : null,
-      onTap: doc.folderId == id ? null : () => Navigator.pop(context, (id: id)),
+      title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
+      trailing: current == id ? const Icon(CupertinoIcons.checkmark_alt) : null,
+      onTap: current == id ? null : () => Navigator.pop(context, (id: id)),
     );
     return Padding(
       padding: const EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, Space.lg),
@@ -1328,15 +1878,15 @@ class _MoveSheet extends ConsumerWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Move ${doc.code}', style: theme.textTheme.headlineSmall),
+          Text(title, style: theme.textTheme.headlineSmall),
           const SizedBox(height: Space.sm),
           Flexible(
             child: ListView(
               shrinkWrap: true,
               children: [
-                tile(null, 'Not in a folder', CupertinoIcons.tray),
-                for (final f in folders)
-                  tile(f.id, f.name, CupertinoIcons.folder_fill),
+                tile(null, 'Top of Documents', CupertinoIcons.tray, 0),
+                for (final (f, depth) in rows)
+                  tile(f.id, f.name, CupertinoIcons.folder_fill, depth + 1),
               ],
             ),
           ),
@@ -1351,12 +1901,209 @@ class _MoveSheet extends ConsumerWidget {
   }
 }
 
+/// Sends documents to a chat as one message, each a tag that opens it
+/// (nothing is attached; migration 0053).
+Future<void> shareInChat(WidgetRef ref, String chatId, List<Doc> docs) {
+  final links = <MessageLink>[
+    for (final d in docs.take(10))
+      (label: '#${_tagName(d)}', link: 'doc:${d.id}'),
+  ];
+  return ref
+      .read(chatActionsProvider)
+      .send(
+        chatId,
+        text: docs.length == 1
+            ? links.single.label
+            : 'Files: ${links.map((l) => l.label).join(', ')}',
+        links: links,
+      );
+}
+
+String _tagName(Doc d) {
+  final t = d.title.trim().isEmpty ? d.code : d.title.trim();
+  return t.length > 40 ? '${t.substring(0, 39).trimRight()}…' : t;
+}
+
+/// Documents › Drawings › MCC-3: tap a step to go back to it.
+class _Breadcrumbs extends StatelessWidget {
+  const _Breadcrumbs({required this.path, required this.onOpen});
+
+  final List<DocFolder> path;
+  final ValueChanged<String?> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    Widget step(String label, String? id, {bool last = false}) => InkWell(
+      onTap: last ? null : () => onOpen(id),
+      borderRadius: BorderRadius.circular(Radii.sm),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+        child: Text(
+          label,
+          style: theme.textTheme.labelLarge?.copyWith(
+            color: last ? null : theme.colorScheme.primary,
+            fontWeight: last ? FontWeight.w700 : FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+    final sep = Icon(
+      CupertinoIcons.chevron_right,
+      size: 12,
+      color: theme.colorScheme.onSurfaceVariant,
+    );
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          Icon(
+            CupertinoIcons.folder,
+            size: 16,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+          step('Documents', null),
+          for (final (i, f) in path.indexed) ...[
+            sep,
+            step(f.name, f.id, last: i == path.length - 1),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// A file that can be ticked: a long press starts selecting; while
+/// selecting, a tap ticks or unticks it.
+class _Selectable extends StatelessWidget {
+  const _Selectable({
+    required this.selected,
+    required this.selecting,
+    required this.onToggle,
+    required this.child,
+  });
+
+  final bool selected;
+  final bool selecting;
+  final VoidCallback onToggle;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onLongPress: onToggle,
+      child: Stack(
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(Radii.lg),
+              border: Border.all(
+                color: selected ? scheme.primary : Colors.transparent,
+                width: 2,
+              ),
+            ),
+            child: child,
+          ),
+          if (selecting)
+            Positioned.fill(
+              child: Semantics(
+                checked: selected,
+                button: true,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: onToggle,
+                  child: Align(
+                    alignment: Alignment.topRight,
+                    child: Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Icon(
+                        selected
+                            ? CupertinoIcons.checkmark_circle_fill
+                            : CupertinoIcons.circle,
+                        color: selected
+                            ? scheme.primary
+                            : scheme.onSurfaceVariant,
+                        size: 22,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The actions for ticked files, along the bottom.
+class _SelectionBar extends StatelessWidget {
+  const _SelectionBar({
+    required this.count,
+    required this.canManage,
+    required this.allStarred,
+    required this.onAction,
+  });
+
+  final int count;
+  final bool canManage;
+  final bool allStarred;
+  final ValueChanged<String> onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final on = count > 0;
+    Widget action(String id, IconData icon, String label) => Expanded(
+      child: TextButton(
+        onPressed: on ? () => onAction(id) : null,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 22),
+            const SizedBox(height: 2),
+            Text(label, style: const TextStyle(fontSize: 12)),
+          ],
+        ),
+      ),
+    );
+    return GlassSurface(
+      radius: 0,
+      strong: true,
+      padding: EdgeInsets.fromLTRB(
+        Space.sm,
+        Space.xs,
+        Space.sm,
+        Space.xs + MediaQuery.paddingOf(context).bottom,
+      ),
+      child: Row(
+        children: [
+          action('chat', CupertinoIcons.chat_bubble_2, 'Share in chat'),
+          action(
+            'star',
+            allStarred ? CupertinoIcons.star_slash : CupertinoIcons.star,
+            allStarred ? 'Unstar' : 'Star',
+          ),
+          if (canManage) ...[
+            action('move', CupertinoIcons.folder, 'Move'),
+            action('archive', CupertinoIcons.archivebox, 'Archive'),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 /// Creates or renames a folder.
 class _FolderForm extends ConsumerStatefulWidget {
-  const _FolderForm({required this.siteId, this.folder});
+  const _FolderForm({required this.siteId, this.folder, this.parentId});
 
   final String siteId;
   final DocFolder? folder;
+
+  /// Where a new folder goes (null: the top).
+  final String? parentId;
 
   @override
   ConsumerState<_FolderForm> createState() => _FolderFormState();
@@ -1382,17 +2129,23 @@ class _FolderFormState extends ConsumerState<_FolderForm> {
     final taken = (ref.read(foldersProvider).value ?? const <DocFolder>[]).any(
       (f) =>
           f.id != widget.folder?.id &&
+          f.parentId == (widget.folder?.parentId ?? widget.parentId) &&
           f.name.toLowerCase() == name.toLowerCase(),
     );
     if (taken) {
-      setState(() => _error = 'There is already a folder called $name');
+      setState(() => _error = 'There is already a folder called $name here');
       return;
     }
     setState(() => _busy = true);
     try {
       await ref
           .read(documentActionsProvider)
-          .saveFolder(folder: widget.folder, siteId: widget.siteId, name: name);
+          .saveFolder(
+            folder: widget.folder,
+            siteId: widget.siteId,
+            name: name,
+            parentId: widget.parentId,
+          );
       if (mounted) Navigator.pop(context);
     } catch (e) {
       setState(() {
