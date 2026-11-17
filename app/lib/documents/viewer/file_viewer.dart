@@ -16,6 +16,10 @@ import '../documents_repository.dart';
 import '../documents_screen.dart' show FileBadge, fileType, formatBytes;
 import '../offline/file_store.dart';
 import '../offline/offline_docs.dart';
+import 'dxf_view.dart';
+import 'html_view.dart';
+import 'table_view.dart';
+import 'word_view.dart';
 
 /// Opens a document's file inside the app: PDFs page by page, images with
 /// zoom, text files as text. Files the app cannot show yet (Word, Excel,
@@ -36,18 +40,23 @@ abstract class FileViewer {
   Widget build(BuildContext context, Uint8List bytes, String fileName);
 }
 
-const fileViewers = <FileViewer>[PdfViewer(), ImageViewer(), TextViewer()];
+const fileViewers = <FileViewer>[
+  PdfViewer(),
+  ImageViewer(),
+  ExcelViewer(),
+  CsvViewer(),
+  WordViewer(),
+  HtmlViewer(),
+  DxfViewer(),
+  TextViewer(),
+];
 
-/// File types with a viewer planned but not built yet (name for people).
+/// File types the app cannot show, by name for people, each with how to
+/// get it shown (DWG is AutoCAD's closed format: export a DXF or PDF).
 const plannedViewers = {
-  'doc': 'Word',
-  'docx': 'Word',
-  'xls': 'Excel',
-  'xlsx': 'Excel',
+  'doc': 'Word 97 document',
+  'xls': 'Excel 97 workbook',
   'dwg': 'DWG drawing',
-  'dxf': 'DXF drawing',
-  'html': 'web page',
-  'htm': 'web page',
   'ppt': 'PowerPoint',
   'pptx': 'PowerPoint',
 };
@@ -295,17 +304,33 @@ class _NoViewer extends StatelessWidget {
             Text(
               kind == null
                   ? 'The app cannot show .$ext files'
-                  : 'Opening ${kind}s in the app is coming',
+                  : 'The app cannot show ${kind}s',
               style: theme.textTheme.titleMedium,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: Space.xs),
-            Text(
-              kIsWeb
-                  ? 'Download it to open it on this computer.'
-                  : 'Open it with another app on this phone for now.',
-              style: theme.textTheme.bodyMedium,
-              textAlign: TextAlign.center,
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 440),
+              child: Text(
+                [
+                  switch (ext) {
+                    'dwg' =>
+                      'DWG is AutoCAD\'s own closed format. Upload it as a '
+                          'PDF or DXF too (AutoCAD: Export or Save As) and '
+                          'it opens here.',
+                    'doc' => 'Save it as .docx in Word and it opens here.',
+                    'xls' => 'Save it as .xlsx in Excel and it opens here.',
+                    'ppt' || 'pptx' =>
+                      'Save it as a PDF from PowerPoint and it opens here.',
+                    _ => '',
+                  },
+                  kIsWeb
+                      ? 'Or download it to open it on this computer.'
+                      : 'Or open it with another app on this phone.',
+                ].where((t) => t.isNotEmpty).join(' '),
+                style: theme.textTheme.bodyMedium,
+                textAlign: TextAlign.center,
+              ),
             ),
             const SizedBox(height: Space.md),
             FilledButton.icon(
@@ -364,7 +389,6 @@ class TextViewer extends FileViewer {
   @override
   Set<String> get extensions => const {
     'txt',
-    'csv',
     'log',
     'md',
     'json',
@@ -582,5 +606,7 @@ String viewerLabel(String fileName) {
   final v = viewerFor(fileName);
   if (v != null) return v.name;
   final planned = plannedViewers[fileExtension(fileName)];
-  return planned == null ? fileType(fileName).label : '$planned (coming)';
+  return planned == null
+      ? fileType(fileName).label
+      : '$planned (open elsewhere)';
 }

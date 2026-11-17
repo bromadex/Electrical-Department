@@ -6,17 +6,19 @@ void main() {
   test('each file type opens in the right viewer', () {
     expect(viewerFor('LOTO.PDF')?.name, 'PDF');
     expect(viewerFor('panel photo.jpeg')?.name, 'Image');
-    expect(viewerFor('readings.csv')?.name, 'Text');
+    expect(viewerFor('readings.csv')?.name, 'Table');
+    expect(viewerFor('stock.xlsx')?.name, 'Excel');
+    expect(viewerFor('report.docx')?.name, 'Word');
+    expect(viewerFor('index.HTML')?.name, 'Web page');
+    expect(viewerFor('MCC-3.dxf')?.name, 'Drawing');
     expect(viewerFor('notes.txt')?.name, 'Text');
     expect(viewerFor('MCC-3.dwg'), isNull);
     expect(viewerFor('no extension'), isNull);
   });
 
-  test('types without a viewer yet say so', () {
-    expect(viewerLabel('report.docx'), 'Word (coming)');
-    expect(viewerLabel('stock.xlsx'), 'Excel (coming)');
-    expect(viewerLabel('MCC-3.dwg'), 'DWG drawing (coming)');
-    expect(viewerLabel('page.html'), 'web page (coming)');
+  test('types the app cannot show say so', () {
+    expect(viewerLabel('MCC-3.dwg'), 'DWG drawing (open elsewhere)');
+    expect(viewerLabel('old.doc'), 'Word 97 document (open elsewhere)');
     expect(viewerLabel('LOTO.pdf'), 'PDF');
     expect(canViewInApp('a.png'), isTrue);
     expect(canViewInApp('a.zip'), isFalse);

@@ -43,7 +43,8 @@ IconData docIcon(Doc d) {
     'doc' || 'docx' => (label: 'DOC', color: const Color(0xFF3E7BFA)),
     'xls' || 'xlsx' || 'csv' => (label: 'XLS', color: const Color(0xFF30A46C)),
     'ppt' || 'pptx' => (label: 'PPT', color: const Color(0xFFF59E0B)),
-    'dwg' || 'dxf' => (label: 'DWG', color: const Color(0xFFFF7A6B)),
+    'dwg' => (label: 'DWG', color: const Color(0xFFFF7A6B)),
+    'dxf' => (label: 'DXF', color: const Color(0xFFFF7A6B)),
     'png' ||
     'jpg' ||
     'jpeg' ||

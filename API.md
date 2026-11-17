@@ -365,11 +365,23 @@ Per-site documents with versions, read-and-sign acknowledgement, and links to jo
 - Opening a document shows it inside the app (`lib/documents/viewer/file_viewer.dart`):
   PDFs page by page (drawn by Android, or by PDF.js in browsers, through the
   `printing` package; tap a page to zoom), images with pinch zoom, and text files
-  (txt, csv, log, md, json, xml). Each kind is one `FileViewer` in `fileViewers`.
-  Word, Excel, PowerPoint, DWG/DXF and HTML are listed in `plannedViewers`: they show
-  "coming" with **Open with another app** (phones) or **Download** (browsers) and are
-  not downloaded until asked. A new viewer goes in `fileViewers` and comes off
-  `plannedViewers`.
+  (txt, log, md, json, xml). Each kind is one `FileViewer` in `fileViewers`:
+  - **Excel** (.xlsx/.xlsm, `table_view.dart`): every sheet as a tab, column letters and
+    row numbers, first 5,000 rows; **CSV/TSV** as one table (quoted fields kept).
+  - **Word** (.docx, `docx.dart` + `word_view.dart`): headings, bold/italic/underline,
+    bullet and numbered items, alignment, tables and pictures on a white page (no page
+    layout, headers or footers).
+  - **Web pages** (.html, `html_view.dart`): browsers use a sandboxed iframe (no scripts,
+    forms or access to the app); Android a web view with JavaScript off
+    (`webview_flutter`). Links open in the browser.
+  - **DXF drawings** (`dxf.dart` + `dxf_view.dart`): lines, polylines, circles, arcs,
+    ellipses, text and blocks (INSERT, moved, scaled and rotated, 4 levels) in AutoCAD
+    colours on a dark sheet; pinch or scroll to zoom, double-tap to fit. Hatches and
+    binary DXF are not drawn.
+  - **Not shown in the app** (`plannedViewers`): DWG (AutoCAD's closed format: export a
+    PDF or DXF), .doc and .xls (save as .docx/.xlsx), PowerPoint (save as PDF). They
+    offer **Open with another app** (phones) or **Download** (browsers) and are not
+    downloaded until asked.
 - **Keep on this phone** (Android; ⋮ menu, or ⬇ in the viewer) saves the current
   version in the app's own storage (`offline/offline_docs.dart`; index in shared
   preferences `offline_documents`). Kept files open without signal, show a green ⬇ on

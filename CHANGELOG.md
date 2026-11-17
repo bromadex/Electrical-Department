@@ -1,6 +1,22 @@
 # What's new
 
-## 17 November 2026 (after v0.1.6)
+## 17 November 2026 (v0.1.7)
+
+### More files open inside the app
+- **Excel** workbooks: every sheet as a tab, with column letters and row
+  numbers. **CSV** files as a table.
+- **Word** documents (.docx): headings, bold and italic, bullet lists,
+  tables and pictures, on a white page.
+- **Web pages** (.html): shown safely, with scripts and forms switched off;
+  links open in the browser.
+- **DXF drawings** (AutoCAD's exchange format): lines, circles, arcs, text
+  and blocks in AutoCAD colours on a dark sheet; pinch to zoom.
+- **DWG** stays outside the app: it is AutoCAD's closed format. Export a
+  PDF or DXF from AutoCAD and upload that alongside; the DWG offers Open
+  with another app (phone) or Download (computer). Old .doc/.xls files:
+  save as .docx/.xlsx. PowerPoint: save as PDF.
+
+## 17 November 2026 (also in v0.1.7)
 
 ### Tag files in chat with #
 - Type **#** in a chat and the app suggests **files** from Documents
