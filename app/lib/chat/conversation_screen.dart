@@ -1104,6 +1104,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                                           message: m,
                                           call: callsByMessage[m.id],
                                           me: me,
+                                          chatIsGroup: group,
                                         ),
                                       ],
                                     );
@@ -1357,9 +1358,15 @@ class _LiveCallBanner extends StatelessWidget {
 /// A line from the app itself. Calls show what happened: Join while it is
 /// going, a missed call, or how long it lasted, with Call back.
 class _SystemRow extends StatelessWidget {
-  const _SystemRow({required this.message, this.call, this.me});
+  const _SystemRow({
+    required this.message,
+    this.call,
+    this.me,
+    this.chatIsGroup = false,
+  });
 
   final ChatMessage message;
+  final bool chatIsGroup;
   final CallInfo? call;
   final String? me;
 
@@ -1392,9 +1399,13 @@ class _SystemRow extends StatelessWidget {
       action = 'Join';
     } else if (k.missed) {
       final mine = k.startedBy == me;
+      // As on WhatsApp: "Missed voice call", and in a group who called.
+      final kind = k.video ? 'video call' : 'voice call';
+      final who = (m.body ?? '').replaceFirst(RegExp(r' started a.*$'), '');
       text = mine
           ? 'No answer · $time'
-          : '${m.body?.replaceFirst('started', 'Missed') ?? 'Missed call'} · $time';
+          : 'Missed $kind'
+                '${chatIsGroup && who.isNotEmpty ? ' from $who' : ''} · $time';
       color = _missedRed;
       icon = mine ? CupertinoIcons.phone_fill : CupertinoIcons.phone_down_fill;
       action = 'Call back';
@@ -1403,7 +1414,7 @@ class _SystemRow extends StatelessWidget {
       text =
           '${k.video ? 'Video call' : 'Call'}'
           '${len == null ? '' : ' · ${_callLength(len)}'} · $time';
-      color = BrandColors.info;
+      color = BrandColors.success;
       action = 'Call back';
     }
 

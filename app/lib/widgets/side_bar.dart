@@ -94,17 +94,7 @@ class _SideBarLayerState extends ConsumerState<SideBarLayer> {
         .catchError((_) => false);
   }
 
-  String get _path {
-    try {
-      // The top page, including ones pushed on top (Chat from the green
-      // button or ➕), which the address bar does not show.
-      final config = widget.router.routerDelegate.currentConfiguration;
-      if (config.isEmpty) return '';
-      return Uri.parse(config.last.matchedLocation).path;
-    } catch (_) {
-      return '';
-    }
-  }
+  String get _path => topPath(widget.router);
 
   @override
   Widget build(BuildContext context) {

@@ -7,10 +7,12 @@ import '../chat/chat_repository.dart';
 import '../data/app_error.dart';
 import '../data/site_data.dart';
 import '../services/core_providers.dart';
+import '../services/session_controller.dart';
 import '../theme/tokens.dart';
 import '../ui/bits.dart';
 import '../ui/surfaces.dart';
 import '../widgets/app_back_button.dart';
+import '../widgets/create_sheet.dart' show showScheduleMeeting;
 import 'meetings_repository.dart';
 
 /// Every meeting in the caller's chats (row security keeps it to chats
@@ -47,6 +49,13 @@ class MeetingsListScreen extends ConsumerWidget {
         c.id: c.title,
     };
     final loc = MaterialLocalizations.of(context);
+    // Anyone who may run meetings somewhere can schedule one from here.
+    final canSchedule = ref.watch(sessionProvider).can('meetings.manage');
+    final schedule = FilledButton.icon(
+      onPressed: () => showScheduleMeeting(context),
+      icon: const Icon(CupertinoIcons.calendar_badge_plus),
+      label: const Text('Schedule a meeting'),
+    );
 
     Widget tile(Meeting m) {
       final status = m.cancelled
@@ -149,11 +158,16 @@ class MeetingsListScreen extends ConsumerWidget {
                 ),
                 children: [
                   if (all.isEmpty)
-                    const EmptyState(
+                    EmptyState(
                       icon: CupertinoIcons.calendar,
                       title: 'No meetings yet',
-                      message: 'Schedule one with ➕ New → Schedule a meeting.',
-                    ),
+                      message: canSchedule
+                          ? 'Pick a group chat and a time; everyone in it is invited.'
+                          : 'Meetings you are invited to show here.',
+                      action: canSchedule ? schedule : null,
+                    )
+                  else if (canSchedule)
+                    Align(alignment: Alignment.centerRight, child: schedule),
                   if (soon.isNotEmpty) ...[
                     label('On now and upcoming'),
                     for (final m in soon) tile(m),

@@ -1,5 +1,18 @@
 # What's new
 
+## 17 November 2026
+
+### Chat fixes from phone testing
+- The green chat button no longer floats over Chat itself (chats, calls,
+  meetings, a conversation) or over a call; it only checked the page
+  underneath.
+- **Meetings** has its own **Schedule a meeting** button: pick the group,
+  then the time.
+- Missed calls read like WhatsApp: "Missed voice call · 02:30" (in a group,
+  "Missed voice call from Nyasha Ncube"). Finished calls use a green icon.
+- The Calls list no longer puts a stray letter before the date
+  ("S Sun, Nov 15").
+
 ## 16 November 2026 (v0.1.5)
 
 ### ➕ New: only things you start

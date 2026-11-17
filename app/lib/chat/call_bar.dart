@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:livekit_client/livekit_client.dart';
 
+import '../router.dart';
 import 'call_controller.dart';
 import 'chat_repository.dart';
 
@@ -45,13 +46,7 @@ class _CallBarState extends ConsumerState<CallBar> {
     if (mounted) setState(() {});
   }
 
-  String get _path {
-    try {
-      return widget.router.routerDelegate.currentConfiguration.uri.path;
-    } catch (_) {
-      return '';
-    }
-  }
+  String get _path => topPath(widget.router);
 
   @override
   Widget build(BuildContext context) {

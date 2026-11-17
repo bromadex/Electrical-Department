@@ -342,3 +342,17 @@ GoRouter buildRouter(WidgetRef ref) {
     ],
   );
 }
+
+/// The page on top, including pages pushed over another (a chat, a call),
+/// which `currentConfiguration.uri` leaves out: that is only the page
+/// underneath. Used to hide the chat button and call bar where they would
+/// cover a chat or call, and to light the side bar.
+String topPath(GoRouter router) {
+  try {
+    final config = router.routerDelegate.currentConfiguration;
+    if (config.isEmpty) return '';
+    return Uri.parse(config.last.matchedLocation).path;
+  } catch (_) {
+    return '';
+  }
+}

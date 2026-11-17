@@ -118,11 +118,8 @@ class _CallsScreenState extends ConsumerState<CallsScreen> {
     if (DateUtils.isSameDay(t, now.subtract(const Duration(days: 1)))) {
       return 'Yesterday, $time';
     }
-    final loc = MaterialLocalizations.of(context);
-    if (now.difference(t).inDays < 7) {
-      return '${loc.narrowWeekdays[t.weekday % 7]} ${loc.formatMediumDate(t)}, $time';
-    }
-    return '${loc.formatMediumDate(t)}, $time';
+    // "Sun, Nov 15" already names the day.
+    return '${MaterialLocalizations.of(context).formatMediumDate(t)}, $time';
   }
 
   @override

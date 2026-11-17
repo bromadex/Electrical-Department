@@ -153,12 +153,7 @@ class _CreateSheet extends ConsumerWidget {
           title: 'Schedule a meeting',
           hint: 'In a group chat',
           colors: const [BrandColors.maroonDeep, BrandColors.info],
-          run: (c) => then(c, (h) async {
-            final id = await showFormSheet<String>(h, const _PickGroupSheet());
-            if (id != null && h.mounted) {
-              await showFormSheet(h, ScheduleMeetingSheet(conversationId: id));
-            }
-          }),
+          run: (c) => then(c, showScheduleMeeting),
         ),
       if (session.can('chat.use'))
         (
@@ -294,6 +289,15 @@ class _ActionCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Schedule a meeting from anywhere (➕ New, the Meetings page): pick the
+/// group chat it belongs to, then the time.
+Future<void> showScheduleMeeting(BuildContext context) async {
+  final id = await showFormSheet<String>(context, const _PickGroupSheet());
+  if (id != null && context.mounted) {
+    await showFormSheet(context, ScheduleMeetingSheet(conversationId: id));
   }
 }
 

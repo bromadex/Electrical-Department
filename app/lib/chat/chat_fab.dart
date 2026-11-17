@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../router.dart';
 import '../services/core_providers.dart';
 import '../services/notifications_controller.dart';
 import '../services/session_controller.dart';
@@ -90,13 +91,7 @@ class _ChatFabLayerState extends ConsumerState<ChatFabLayer> {
     if (mounted) setState(() => _open = false);
   }
 
-  String get _path {
-    try {
-      return widget.router.routerDelegate.currentConfiguration.uri.path;
-    } catch (_) {
-      return '';
-    }
-  }
+  String get _path => topPath(widget.router);
 
   void _go(String to) {
     setState(() => _open = false);
