@@ -7,8 +7,8 @@ final sharedPrefsProvider = Provider<SharedPreferences>(
   (ref) => throw UnimplementedError('sharedPrefsProvider must be overridden'),
 );
 
-/// Dark liquid glass (the default since issue #26), light or system,
-/// remembered on the device.
+/// Light (the default for new users), dark liquid glass or system,
+/// remembered on the device. Chat screens follow the phone either way.
 final themeModeProvider = NotifierProvider<ThemeModeNotifier, ThemeMode>(
   ThemeModeNotifier.new,
 );
@@ -21,7 +21,7 @@ class ThemeModeNotifier extends Notifier<ThemeMode> {
     final saved = ref.watch(sharedPrefsProvider).getString(_key);
     return ThemeMode.values.firstWhere(
       (m) => m.name == saved,
-      orElse: () => ThemeMode.dark,
+      orElse: () => ThemeMode.light,
     );
   }
 

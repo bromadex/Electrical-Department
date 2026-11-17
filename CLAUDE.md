@@ -28,8 +28,9 @@ in `API.md`.
   `Panel`, charts, media, time). `app/lib/v2/ui/` only adds job-card pieces
   (status pills, paged table, forms) and re-exports the kit.
 - Keep the liquid-glass look (`app/lib/ui/surfaces.dart`,
-  `app/lib/theme/tokens.dart`) in burgundy, rose and blue. Dark liquid
-  glass is the default (issue #26); light stays in Settings → Appearance.
+  `app/lib/theme/tokens.dart`) in burgundy, rose and blue. Light is the
+  default for new users; dark liquid glass (issue #26) is in Settings →
+  Appearance and the sun button.
   In the dark theme all transparency is white or black at low opacity over
   the brand colours; only status colours (green, amber, red) add other
   hues. Chat screens alone are WhatsApp for iPhone green (`ChatColors`,

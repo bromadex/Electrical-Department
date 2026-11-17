@@ -5,6 +5,7 @@ import 'package:floating/floating.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -88,8 +89,12 @@ class _ElectricalDepartmentAppState
   StreamSubscription<RemoteMessage>? _foreground;
   StreamSubscription<Object?>? _answered;
 
-  /// "Last seen": tells the server when the app goes to the background.
+  /// "Last seen": tells the server when the app opens, comes back, goes to
+  /// the background, and every two minutes while it is open. Phones often
+  /// pause the app before the background call gets out, so the regular
+  /// one keeps it right to within two minutes.
   AppLifecycleListener? _life;
+  Timer? _seenTimer;
 
   void _seen() {
     final db = ref.read(supabaseProvider);
@@ -100,7 +105,15 @@ class _ElectricalDepartmentAppState
   @override
   void initState() {
     super.initState();
-    _life = AppLifecycleListener(onHide: _seen, onDetach: _seen);
+    _life = AppLifecycleListener(onHide: _seen, onDetach: _seen, onShow: _seen);
+    _seenTimer = Timer.periodic(const Duration(minutes: 2), (_) {
+      final state = SchedulerBinding.instance.lifecycleState;
+      if (state == null || state == AppLifecycleState.resumed) _seen();
+    });
+    // And straight away on sign-in (and now, if already signed in).
+    ref.listenManual(authUserIdProvider, (before, now) {
+      if (now != null && now != before) _seen();
+    }, fireImmediately: true);
     ErrorReporter.currentRoute = () =>
         _router.routerDelegate.currentConfiguration.uri.toString();
     if (PushSupport.ready) {
@@ -127,6 +140,7 @@ class _ElectricalDepartmentAppState
     _foreground?.cancel();
     _answered?.cancel();
     _life?.dispose();
+    _seenTimer?.cancel();
     super.dispose();
   }
 

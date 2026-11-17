@@ -1,6 +1,6 @@
 # What's new
 
-## 17 November 2026
+## 17 November 2026 (v0.1.6)
 
 ### Chat fixes from phone testing
 - The green chat button no longer floats over Chat itself (chats, calls,
@@ -14,6 +14,14 @@
   ("S Sun, Nov 15").
 - The red counter on the green chat button now adds missed calls to the
   chats with unread messages.
+- **Light is the default** for new users (and anyone who never picked one);
+  dark stays one tap away on the sun button or in Settings → Appearance.
+  Chat keeps following the phone's light or dark setting.
+- **Last seen** works reliably: the app now records it when it opens,
+  comes back and every two minutes while open, not only when it closes
+  (phones often paused the app before that got through, so chats showed
+  "Direct chat"). The header reads "Online" or "Last seen today 02:50";
+  the words "Direct chat" are gone.
 
 ## 16 November 2026 (v0.1.5)
 

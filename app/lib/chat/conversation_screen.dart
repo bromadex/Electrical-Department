@@ -2586,15 +2586,15 @@ class _MessageInfoSheet extends ConsumerWidget {
 
 typedef Seen = ({String name, DateTime? delivered, DateTime? read});
 
-/// "Last seen today at 14:05", "last seen yesterday at 09:12", "last seen
-/// 3 Nov"; "Direct chat" when unknown.
-String lastSeenLabel(BuildContext context, DateTime? t) {
-  if (t == null) return 'Direct chat';
+/// "Last seen today 14:05", "Last seen yesterday 09:12", "Last seen
+/// 3 Nov"; nothing while it is not known yet.
+String? lastSeenLabel(BuildContext context, DateTime? t) {
+  if (t == null) return null;
   final now = DateTime.now();
   final time = TimeOfDay.fromDateTime(t).format(context);
-  if (DateUtils.isSameDay(t, now)) return 'Last seen today at $time';
+  if (DateUtils.isSameDay(t, now)) return 'Last seen today $time';
   if (DateUtils.isSameDay(t, now.subtract(const Duration(days: 1)))) {
-    return 'Last seen yesterday at $time';
+    return 'Last seen yesterday $time';
   }
   return 'Last seen ${MaterialLocalizations.of(context).formatShortMonthDay(t)}';
 }
