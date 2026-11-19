@@ -13,7 +13,6 @@ import '../ui/bits.dart';
 import 'chat_repository.dart';
 import 'record_links.dart';
 import 'voice.dart';
-import 'wallpaper.dart';
 
 /// How a voice note is being recorded: holding the microphone (let go to
 /// send, slide left to cancel, slide up to lock), or locked (hands free,
@@ -105,15 +104,43 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
 
   TextEditingController get _text => widget.controller;
 
+  /// The box has the keyboard (shows the @ and # buttons).
+  bool _typing = false;
+
+  void _focusChanged() {
+    if (mounted && _typing != widget.focus.hasFocus) {
+      setState(() => _typing = widget.focus.hasFocus);
+    }
+  }
+
+  /// Puts @ or # at the cursor (after a space) so the suggestions open.
+  void _insertSign(String sign) {
+    final t = _text.text;
+    final sel = _text.selection;
+    final at = sel.isValid ? sel.baseOffset : t.length;
+    final before = t.substring(0, at);
+    final insert =
+        before.isEmpty || before.endsWith(' ') || before.endsWith('\n')
+        ? sign
+        : ' $sign';
+    _text.value = TextEditingValue(
+      text: t.replaceRange(at, sel.isValid ? sel.extentOffset : at, insert),
+      selection: TextSelection.collapsed(offset: at + insert.length),
+    );
+    widget.focus.requestFocus();
+  }
+
   @override
   void initState() {
     super.initState();
     _text.addListener(_changed);
+    widget.focus.addListener(_focusChanged);
   }
 
   @override
   void dispose() {
     _text.removeListener(_changed);
+    widget.focus.removeListener(_focusChanged);
     _tick?.cancel();
     unawaited(_levelSub?.cancel());
     unawaited(_recorder.dispose());
@@ -454,8 +481,9 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
               .take(6)
               .toList();
 
-    return ChatFrost(
-      border: false,
+    final dark = theme.brightness == Brightness.dark;
+    final iconGrey = dark ? ChatColors.subtextDark : ChatColors.subtext;
+    return _Bar(
       padding: EdgeInsets.fromLTRB(
         Space.xs,
         Space.xs,
@@ -469,8 +497,7 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (suggestions.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
+                _Card(
                   child: Column(
                     children: [
                       for (final id in suggestions)
@@ -484,8 +511,7 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
                   ),
                 ),
               if (hq != null && hits.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
+                _Card(
                   child: Column(
                     children: [
                       for (final h in hits)
@@ -512,8 +538,8 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
                   ),
                 ),
               if (widget.replyTo != null)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(Space.sm, 0, 0, 4),
+                _Card(
+                  padding: const EdgeInsets.fromLTRB(Space.sm, 0, 0, 0),
                   child: Row(
                     children: [
                       const Icon(
@@ -565,61 +591,124 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
                           slide: _slide,
                         ),
                       )
-                    else ...[
-                      IconButton(
-                        tooltip: 'Attach',
-                        onPressed: _attach,
-                        icon: Icon(
-                          CupertinoIcons.add,
-                          color: theme.colorScheme.onSurface,
-                        ),
-                      ),
+                    else
+                      // WhatsApp's bar: one rounded field with emoji on the
+                      // left, then the text, attach and (while empty) camera.
                       Expanded(
-                        child: TextField(
-                          controller: _text,
-                          focusNode: widget.focus,
-                          minLines: 1,
-                          maxLines: 5,
-                          textCapitalization: TextCapitalization.sentences,
-                          textInputAction: TextInputAction.send,
-                          onSubmitted: (_) => _send(),
-                          onTap: () {
-                            if (_emojiOpen) setState(() => _emojiOpen = false);
-                          },
-                          decoration: InputDecoration(
-                            hintText: 'Message',
-                            isDense: true,
-                            suffixIcon: IconButton(
-                              tooltip: 'Emoji',
-                              icon: Icon(
-                                _emojiOpen
-                                    ? CupertinoIcons.keyboard
-                                    : CupertinoIcons.smiley,
+                        child: Container(
+                          constraints: const BoxConstraints(minHeight: 50),
+                          decoration: BoxDecoration(
+                            color: dark
+                                ? ChatColors.bubbleOtherDark
+                                : Colors.white,
+                            borderRadius: BorderRadius.circular(26),
+                            boxShadow: dark
+                                ? null
+                                : const [
+                                    BoxShadow(
+                                      blurRadius: 2,
+                                      offset: Offset(0, 1),
+                                      color: Color(0x22000000),
+                                    ),
+                                  ],
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              IconButton(
+                                tooltip: _emojiOpen ? 'Keyboard' : 'Emoji',
+                                icon: Icon(
+                                  _emojiOpen
+                                      ? Icons.keyboard_outlined
+                                      : Icons.emoji_emotions_outlined,
+                                  color: iconGrey,
+                                ),
+                                onPressed: () {
+                                  setState(() => _emojiOpen = !_emojiOpen);
+                                  if (_emojiOpen) {
+                                    widget.focus.unfocus();
+                                  } else {
+                                    widget.focus.requestFocus();
+                                  }
+                                },
                               ),
-                              onPressed: () {
-                                setState(() => _emojiOpen = !_emojiOpen);
-                                if (_emojiOpen) {
-                                  widget.focus.unfocus();
-                                } else {
-                                  widget.focus.requestFocus();
-                                }
-                              },
-                            ),
+                              Expanded(
+                                child: TextField(
+                                  controller: _text,
+                                  focusNode: widget.focus,
+                                  minLines: 1,
+                                  maxLines: 6,
+                                  cursorColor: ChatColors.greenLight,
+                                  textCapitalization:
+                                      TextCapitalization.sentences,
+                                  textInputAction: TextInputAction.send,
+                                  onSubmitted: (_) => _send(),
+                                  onTap: () {
+                                    if (_emojiOpen) {
+                                      setState(() => _emojiOpen = false);
+                                    }
+                                  },
+                                  style: theme.textTheme.bodyLarge?.copyWith(
+                                    color: dark
+                                        ? ChatColors.textDark
+                                        : ChatColors.text,
+                                  ),
+                                  decoration: InputDecoration(
+                                    hintText: 'Message',
+                                    hintStyle: theme.textTheme.bodyLarge
+                                        ?.copyWith(color: iconGrey),
+                                    filled: false,
+                                    isDense: true,
+                                    border: InputBorder.none,
+                                    enabledBorder: InputBorder.none,
+                                    focusedBorder: InputBorder.none,
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              // @ and #: shown while typing, they put the sign
+                              // in and open the people or files suggestions.
+                              if (_typing) ...[
+                                _SignButton(
+                                  sign: '@',
+                                  tooltip: 'Mention someone',
+                                  color: iconGrey,
+                                  onTap: () => _insertSign('@'),
+                                ),
+                                _SignButton(
+                                  sign: '#',
+                                  tooltip: 'Tag a file or job card',
+                                  color: iconGrey,
+                                  onTap: () => _insertSign('#'),
+                                ),
+                              ],
+                              IconButton(
+                                tooltip: 'Attach',
+                                onPressed: _attach,
+                                icon: Transform.rotate(
+                                  angle: -0.6,
+                                  child: Icon(
+                                    Icons.attach_file,
+                                    color: iconGrey,
+                                  ),
+                                ),
+                              ),
+                              if (empty && widget.onCamera != null)
+                                IconButton(
+                                  tooltip: 'Camera',
+                                  onPressed: widget.onCamera,
+                                  icon: Icon(
+                                    Icons.photo_camera_outlined,
+                                    color: iconGrey,
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
                       ),
-                      if (empty && widget.onCamera != null)
-                        IconButton(
-                          tooltip: 'Camera',
-                          onPressed: widget.onCamera,
-                          icon: Icon(
-                            CupertinoIcons.camera,
-                            color: theme.colorScheme.onSurface,
-                          ),
-                        )
-                      else
-                        const SizedBox(width: 4),
-                    ],
+                    const SizedBox(width: 6),
                     // Keyed, so holding it survives the row changing around it.
                     KeyedSubtree(
                       key: const ValueKey('mic'),
@@ -637,26 +726,36 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
                             : null,
                         child: Transform.scale(
                           scale: _rec == _Rec.holding ? 1.35 : 1,
-                          child: IconButton.filled(
-                            style: empty
-                                ? IconButton.styleFrom(
-                                    backgroundColor: Colors.transparent,
-                                    foregroundColor:
-                                        theme.colorScheme.onSurface,
-                                  )
-                                : null,
-                            tooltip: empty
+                          // The round green button: a microphone while the
+                          // box is empty, Send once you type.
+                          child: Semantics(
+                            button: true,
+                            label: empty
                                 ? 'Hold to record, tap for hands free'
                                 : 'Send',
-                            onPressed: _rec == _Rec.holding
-                                ? null
-                                : empty
-                                ? () => _record(locked: true)
-                                : _send,
-                            icon: Icon(
-                              empty
-                                  ? CupertinoIcons.mic
-                                  : CupertinoIcons.paperplane_fill,
+                            child: Material(
+                              color: dark
+                                  ? ChatColors.greenLight
+                                  : ChatColors.green,
+                              shape: const CircleBorder(),
+                              clipBehavior: Clip.antiAlias,
+                              child: InkWell(
+                                onTap: _rec == _Rec.holding
+                                    ? null
+                                    : empty
+                                    ? () => _record(locked: true)
+                                    : _send,
+                                child: SizedBox.square(
+                                  dimension: 50,
+                                  child: Icon(
+                                    empty ? Icons.mic : Icons.send,
+                                    size: 24,
+                                    color: dark
+                                        ? ChatColors.wallpaperDark
+                                        : Colors.white,
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
                         ),
@@ -665,7 +764,7 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
                   ],
                 ),
               if (_emojiOpen)
-                Padding(
+                _Card(
                   padding: EdgeInsets.only(bottom: bottom),
                   child: EmojiPicker(
                     textEditingController: _text,
@@ -859,4 +958,78 @@ class _HoldingRow extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The composer floats on the chat wallpaper, as on WhatsApp for Android:
+/// no strip behind it, only the rounded field and the round button.
+class _Bar extends StatelessWidget {
+  const _Bar({required this.child, this.padding});
+
+  final Widget child;
+  final EdgeInsetsGeometry? padding;
+
+  @override
+  Widget build(BuildContext context) =>
+      Padding(padding: padding ?? EdgeInsets.zero, child: child);
+}
+
+/// Suggestions, the reply being written and the emoji panel: rounded cards
+/// above the bar, so they read on the wallpaper.
+class _Card extends StatelessWidget {
+  const _Card({required this.child, this.padding});
+
+  final Widget child;
+  final EdgeInsetsGeometry? padding;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: padding,
+      decoration: BoxDecoration(
+        color: dark ? ChatColors.bubbleOtherDark : Colors.white,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: child,
+    );
+  }
+}
+
+class _SignButton extends StatelessWidget {
+  const _SignButton({
+    required this.sign,
+    required this.tooltip,
+    required this.color,
+    required this.onTap,
+  });
+
+  final String sign;
+  final String tooltip;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Tooltip(
+    message: tooltip,
+    child: InkResponse(
+      onTap: onTap,
+      radius: 20,
+      child: SizedBox(
+        width: 34,
+        height: 50,
+        child: Center(
+          child: Text(
+            sign,
+            style: TextStyle(
+              color: color,
+              fontSize: 21,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
 }

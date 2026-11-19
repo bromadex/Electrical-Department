@@ -23,6 +23,7 @@ import 'screens/setup_required_screen.dart';
 import 'services/core_providers.dart';
 import 'services/error_reporter.dart';
 import 'services/incoming_calls.dart';
+import 'services/message_banners.dart';
 import 'services/push_service.dart';
 import 'theme/app_theme.dart';
 import 'theme/theme_mode.dart';
@@ -129,9 +130,13 @@ class _ElectricalDepartmentAppState
           if (m.data['kind'] == 'call') IncomingCalls.ring(m.data);
           // The caller hung up before it was answered: stop ringing.
           IncomingCalls.stopRingingFor(m.data);
+          // Anything else pops up as a banner, as when the app is closed
+          // (not for the chat you are reading).
+          MessageBanners.show(m, here: topPath(_router));
         });
         _answered = IncomingCalls.listen(_router.push);
         IncomingCalls.askPermissions();
+        MessageBanners.init(_router.push);
       }
     }
   }

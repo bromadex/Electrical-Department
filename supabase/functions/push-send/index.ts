@@ -122,6 +122,12 @@ async function accessToken(sa: ServiceAccount): Promise<string> {
   return cachedToken.value;
 }
 
+function channelFor(type: string): string {
+  if (type === "chat" || type === "mentioned") return "messages";
+  if (["critical", "overdue", "assigned", "reassigned"].includes(type)) return "urgent";
+  return "general";
+}
+
 function message(job: Job, token: string, platform: string, appUrl: string | null) {
   const path = appPath(job.link);
   const urgent = URGENT.has(job.type);
@@ -160,7 +166,9 @@ function message(job: Job, token: string, platform: string, appUrl: string | nul
       },
       android: {
         priority: urgent ? "HIGH" : "NORMAL",
-        notification: { tag: job.link ?? job.id },
+        // The app's channels (MessageBanners): messages and urgent ones pop
+        // up; an app too old to have them falls back to the default one.
+        notification: { tag: job.link ?? job.id, channel_id: channelFor(job.type) },
       },
       webpush: {
         headers: { Urgency: urgent ? "high" : "normal" },

@@ -24,6 +24,17 @@
   straight away instead of in Android's next battery window.
 - **Muted chats** stay quiet (an @mention still comes through).
 
+### Chat looks like WhatsApp for Android
+- The message bar is one rounded field (😊, Message, 📎, 📷) beside a round
+  green button: a microphone when empty, **send** once you type. The send
+  button used to show no arrow at all.
+- **@** and **#** buttons sit in the bar while you type: tap one to mention
+  someone or tag a file or job card.
+- **Pop-up banners**: chat messages, @mentions and urgent job cards pop up
+  at the top of the screen, also while the app is open (not for the chat
+  you are reading). New channels in Android settings: Messages, Urgent job
+  cards, Other alerts.
+
 ## 17 November 2026 (v0.1.7)
 
 ### More files open inside the app
