@@ -12,6 +12,17 @@
 - When the caller hangs up first, the other phone **stops ringing** as soon
   as its missed-call alert arrives; answering a call that already ended says
   so instead of ringing the caller back.
+- A **group call or meeting** with nobody else in it (no one came, or
+  everyone left) ends by itself after 5 minutes, and says why.
+
+### Every chat message reaches your phone
+- Until now a chat sent one alert and then nothing more until you opened
+  it in the app, so swiping the alert away silenced that chat. Now **every
+  message alerts**, replacing the chat's previous alert with the newest
+  message (migration 0055).
+- Chat alerts go out at **high priority**, so a sleeping phone shows them
+  straight away instead of in Android's next battery window.
+- **Muted chats** stay quiet (an @mention still comes through).
 
 ## 17 November 2026 (v0.1.7)
 

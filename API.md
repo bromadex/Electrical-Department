@@ -456,7 +456,10 @@ triggers on `user_roles` and new sites).
   p_mentions)`: queued offline (idempotent on `p_client_ref`). Attachments live in the
   `chat-files` bucket at `<conversation id>/<message id>/<file>` (members only). Record
   links are `jobcard:`, `asset:`, `tool:` or `doc:` + uuid. Mentioned members get a
-  `mentioned` notification; everyone else one `chat` notification until they open it.
+  `mentioned` notification. Since 0055 everyone else not muted gets a `chat`
+  notification for every message: their unread one for that chat is replaced (so it
+  pushes again, newest text, one line per chat); muted members get none. push-send
+  sends `chat` and `mentioned` at high priority.
 - **Tags (migration 0053):** `messages.links` is a list of up to 10 `{label, link}`;
   `label` is the highlighted text in `body` (e.g. `#LOTO procedure`), `link` is
   `doc:`, `jobcard:`, `asset:`, `tool:`, `item:`, `project:`, `mr:` or `po:` + uuid.

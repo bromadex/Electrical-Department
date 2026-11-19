@@ -122,6 +122,11 @@ class CallController extends ChangeNotifier {
   /// How long a direct call rings before it gives up.
   static const ringFor = Duration(seconds: 45);
 
+  /// A group call or meeting with nobody else in it (no one came, or
+  /// everyone left) ends after this, so a forgotten call does not stay open.
+  static const aloneFor = Duration(minutes: 5);
+  DateTime? _aloneSince;
+
   bool get active => stage != CallStage.idle;
   bool inCallFor(String conversation) =>
       stage == CallStage.inCall && conversationId == conversation;
@@ -357,6 +362,20 @@ class CallController extends ChangeNotifier {
       unawaited(leave());
       return;
     }
+    if (r.remoteParticipants.isEmpty && !_isDirect(conversationId ?? '')) {
+      final alone = _aloneSince ??= DateTime.now();
+      if (DateTime.now().difference(alone) > aloneFor) {
+        snack(
+          since == null
+              ? 'Nobody joined for 5 minutes, so the call ended.'
+              : 'Everyone else left 5 minutes ago, so the call ended.',
+        );
+        unawaited(leave());
+        return;
+      }
+    } else {
+      _aloneSince = null;
+    }
     _changed();
   }
 
@@ -440,6 +459,7 @@ class CallController extends ChangeNotifier {
     waiting = false;
     rang = false;
     floating.clear();
+    _aloneSince = null;
     isChair = false;
     offerAudioOnly = false;
     _offeredAudioOnly = false;

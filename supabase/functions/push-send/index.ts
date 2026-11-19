@@ -23,7 +23,17 @@ type Job = {
 
 type ServiceAccount = { project_id: string; client_email: string; private_key: string };
 
-const URGENT = new Set(["critical", "overdue", "assigned", "reassigned", "call"]);
+// High priority reaches a sleeping phone at once; chat messages too, as on
+// WhatsApp (normal ones can wait until Android's next battery window).
+const URGENT = new Set([
+  "critical",
+  "overdue",
+  "assigned",
+  "reassigned",
+  "call",
+  "chat",
+  "mentioned",
+]);
 
 function projectKey(legacy: string, current: string): string {
   const v = Deno.env.get(legacy);
