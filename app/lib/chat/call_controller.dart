@@ -433,11 +433,22 @@ class CallController extends ChangeNotifier {
     final id = _callId;
     _callId = null;
     if (id == null) return;
-    unawaited(
-      _db
-          .rpc('fn_leave_call', params: {'p_call': id})
-          .then((_) {}, onError: (_) {}),
-    );
+    unawaited(_tellLeft(id));
+  }
+
+  /// Tells the server you hung up. On a weak line it tries again for a
+  /// while: until it hears, the other phone shows the call as still on.
+  Future<void> _tellLeft(String id) async {
+    for (var wait = 2; wait <= 32; wait *= 2) {
+      try {
+        await _db
+            .rpc('fn_leave_call', params: {'p_call': id})
+            .timeout(const Duration(seconds: 10));
+        return;
+      } catch (_) {
+        await Future<void>.delayed(Duration(seconds: wait));
+      }
+    }
   }
 
   /// Hangs up (the red button, the notification, or no answer).

@@ -559,6 +559,8 @@ preview, and a `meeting` notification; it returns `call_id` too, which `livekit-
 passes on (the app sends `{ conversation_id, video }`). While in a call the app sends
 `fn_call_heartbeat(p_call)` every 30 seconds and `fn_leave_call(p_call)` when it leaves. A
 call is live while someone in it was seen in the last 90 seconds; the last one out ends it.
+In a direct chat, `fn_leave_call` also hangs up the one person left (0057), so the call ends
+for both; a heartbeat never rejoins someone who left (the app retries `fn_leave_call` on a weak line).
 A call nobody else answered is missed and the others get "Missed call from <name>" (link
 `chat:<id>`). `fn_conversation_calls(p_conversation)` lists a chat's calls with `status`
 (live | missed | ended) and `in_call`. A direct call that rings 45 seconds with no answer

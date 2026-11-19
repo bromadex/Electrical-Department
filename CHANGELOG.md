@@ -3,6 +3,10 @@
 ## 19 November 2026
 
 ### Hanging up works every time
+- When either person hangs up a **one-to-one call**, the chat no longer
+  shows "Call in progress · 1 in the call · Join" afterwards: the server
+  now ends the call for both straight away (migration 0057), and a phone
+  on a weak line keeps trying to say it hung up.
 - In a **one-to-one call**, when the other person hangs up the call now
   ends on your side too (it used to stay open with only you in it).
 - **Hanging up while it is still connecting** really hangs up (the
