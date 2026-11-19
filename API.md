@@ -614,6 +614,17 @@ hangs up in the app. `conversation_calls` (0017) is no longer written.
   "Recording is not set up yet". Background blur is not available: LiveKit's Flutter SDK
   has no background-segmentation processor for Android.
 
+## 16b+. Adding people to a call (migration 0056)
+
+- `fn_call_invite(p_conversation, p_users uuid[])` → how many were rung: the caller must
+  be in the chat's live call. Members are rung as before; anyone else the caller may
+  chat with (`_user_can_chat` at the chat's site) gets a `call_invites` row for that
+  call and a `call` notification. Up to 20 at a time.
+- `call_invites (call_id, user_id, invited_by)`: read by the invitee and the chat's
+  members. Invitees can read that call and its participants (`_invited_to_call`), not
+  the chat's messages. `fn_start_call` lets an invitee join the live call only (never
+  start one); its title is "Call with <caller>". Invites end with the call.
+
 ## 16c. Meetings (migration 0022)
 
 All meetings across chats: `/meetings` (Menu → Meetings). Talking time per person is

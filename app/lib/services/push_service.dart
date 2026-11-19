@@ -98,8 +98,29 @@ class PushNotifier extends Notifier<PushState> {
   }
 
   /// On start: keeps the token registered when permission was given before.
+  /// On Android the app registers every time and asks for permission by
+  /// itself (as WhatsApp does), so the phone gets alerts without anyone
+  /// having to find "Turn on alerts"; browsers need a click to ask.
   Future<void> _sync() async {
     try {
+      if (!kIsWeb) {
+        if (ref.read(sharedPrefsProvider).getBool(_offKey) ?? false) return;
+        var settings = await _messaging.getNotificationSettings();
+        if (settings.authorizationStatus == AuthorizationStatus.notDetermined) {
+          settings = await _messaging.requestPermission();
+        }
+        if (!ref.mounted) return;
+        // Registered even if notifications are blocked: the server keeps
+        // sending, and they show as soon as they are allowed again.
+        await _register();
+        if (ref.mounted &&
+            (settings.authorizationStatus == AuthorizationStatus.denied ||
+                settings.authorizationStatus ==
+                    AuthorizationStatus.deniedPermanently)) {
+          state = PushState.blocked;
+        }
+        return;
+      }
       final settings = await _messaging.getNotificationSettings();
       if (!ref.mounted) return;
       switch (settings.authorizationStatus) {

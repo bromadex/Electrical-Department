@@ -684,17 +684,26 @@ class CallController extends ChangeNotifier {
     } catch (_) {}
   }
 
-  /// Rings chat members who are not in the call (fn_call_ring). Returns
+  /// Rings people into this call (fn_call_invite, migration 0056): chat
+  /// members as before, and anyone else you can chat with as a guest of
+  /// the call only, so a one-to-one call can become a group call. Returns
   /// how many, or null on failure.
   Future<int?> ring(List<String> userIds) async {
     final id = conversationId;
     if (id == null || userIds.isEmpty) return 0;
     try {
       final n = await _db.rpc(
-        'fn_call_ring',
+        'fn_call_invite',
         params: {'p_conversation': id, 'p_users': userIds},
       );
       return (n as num?)?.toInt() ?? 0;
+    } on PostgrestException catch (e) {
+      snack(
+        e.message.startsWith('NOT_FOUND')
+            ? 'Only people in this chat can add others to the call.'
+            : e.message.replaceFirst(RegExp(r'^[A-Z_]+: '), ''),
+      );
+      return null;
     } catch (_) {
       snack('Could not ring them. Check your signal.');
       return null;

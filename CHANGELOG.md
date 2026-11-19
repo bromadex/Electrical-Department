@@ -33,7 +33,26 @@
 - **Pop-up banners**: chat messages, @mentions and urgent job cards pop up
   at the top of the screen, also while the app is open (not for the chat
   you are reading). New channels in Android settings: Messages, Urgent job
-  cards, Other alerts.
+  cards, Other alerts. Meeting alerts and missed calls pop up too.
+- The chat header has Android's ← arrow; a group shows its members' names
+  under the title and one video icon with ▾ (voice or video); one-to-one
+  chats show video and voice icons.
+- **Phones register for alerts by themselves** at every start (and ask for
+  notification permission once), so nobody has to find "Turn on alerts".
+
+### Call screen like WhatsApp
+- The chat wallpaper behind the call; minimise (↙↗) at the top left, the
+  name with Calling…/Ringing…/the time in the middle, **add people** at
+  the top right.
+- A rounded panel at the bottom: **Audio** (loudspeaker), **Video**,
+  **Mute**, **More**, **Share** and the red **End**. More holds chat and
+  people, raise hand, reactions, captions, flip camera, grid view, video
+  quality and the chair's controls.
+
+### Add people to any call, also one-to-one
+- **Add people** lists everyone you can chat with, not only the chat's
+  members. Someone outside the chat is rung into **that call only**: they
+  join the call but cannot read the chat (migration 0056).
 
 ## 17 November 2026 (v0.1.7)
 

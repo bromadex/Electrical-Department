@@ -19,11 +19,11 @@ import '../meetings/meetings_repository.dart';
 import 'call_controller.dart';
 import 'chat_repository.dart';
 import 'guest_call_screen.dart';
+import 'wallpaper.dart';
 
 /// The call stage is always dark, like a phone's own call screen, so faces
 /// and controls stand out in both themes.
 const _stageTop = Color(0xFF111B21);
-const _stageBottom = Color(0xFF0B141A);
 const _hangUp = Color(0xFFEA0038);
 const _live = Color(0xFF25D366);
 
@@ -378,15 +378,20 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                 children: [
                   _TopBar(
                     title: title,
-                    subtitle: everyone.length > 1
+                    subtitle: everyone.length > 2
                         ? '${everyone.length} in the call'
                         : call.waiting
                         ? (call.rang ? 'Ringing…' : 'Calling…')
+                        : everyone.length > 1
+                        ? 'In the call'
                         : 'Waiting for others to join',
                     // The timer starts when someone answers.
                     time: call.elapsed,
                     onBack: _minimise,
-                    onMore: () => _more(room),
+                    // Add people: the people sheet (or panel) has Add.
+                    onAdd: () => wide
+                        ? setState(() => _chatOpen = !_chatOpen)
+                        : _openChatSheet(everyone),
                   ),
                   if (call.sharing)
                     Padding(
@@ -474,26 +479,22 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                         ),
                       ),
                     ),
-                  _Dock(
+                  _CallPanel(
                     local: local,
-                    canFlip: !kIsWeb && (local?.isCameraEnabled() ?? false),
-                    canShare: call.canShare && (wide || !kIsWeb),
-                    handUp: call.handUp,
-                    onHand: call.toggleHand,
-                    reactOpen: _reactOpen,
-                    captions: meeting == null ? null : !call.captionsOff,
-                    onCaptions: () => call.setCaptionsOff(!call.captionsOff),
-                    onShare: call.toggleShare,
-                    onReact: () => setState(() => _reactOpen = !_reactOpen),
-                    chatOpen: wide && _chatOpen,
                     speaker: call.speaker,
                     onSpeaker: () => call.setSpeaker(!(call.speaker ?? false)),
                     onMic: call.toggleMic,
                     onCamera: call.toggleCamera,
-                    onFlip: call.flip,
-                    onChat: () => wide
-                        ? setState(() => _chatOpen = !_chatOpen)
-                        : _openChatSheet(everyone),
+                    canShare: call.canShare && (wide || !kIsWeb),
+                    onShare: call.toggleShare,
+                    onMore: () => _more(
+                      room,
+                      meeting: meeting,
+                      canFlip: !kIsWeb && (local?.isCameraEnabled() ?? false),
+                      onChat: () => wide
+                          ? setState(() => _chatOpen = !_chatOpen)
+                          : _openChatSheet(everyone),
+                    ),
                     onLeave: call.leave,
                   ),
                 ],
@@ -521,31 +522,80 @@ class _CallScreenState extends ConsumerState<CallScreen> {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
-        backgroundColor: _stageBottom,
-        body: DecoratedBox(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [_stageTop, _stageBottom],
-            ),
-          ),
-          child: body,
+        backgroundColor: ChatColors.wallpaperDark,
+        // The dark chat wallpaper behind the call, as on WhatsApp.
+        body: Theme(
+          data: Theme.of(context).copyWith(brightness: Brightness.dark),
+          child: ChatWallpaper(child: body),
         ),
       ),
     );
   }
 
-  /// ⋯: speaker or grid view, video quality, and the chair's controls.
-  void _more(Room room) {
+  /// More: chat and people, raise hand, reactions, captions, flip camera,
+  /// speaker or grid view, video quality, and the chair's controls.
+  void _more(
+    Room room, {
+    Meeting? meeting,
+    bool canFlip = false,
+    required VoidCallback onChat,
+  }) {
     final call = _call;
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
+      isScrollControlled: true,
       builder: (sheet) => SafeArea(
         child: ListView(
           shrinkWrap: true,
           children: [
+            ListTile(
+              leading: const Icon(Icons.chat_outlined),
+              title: const Text('Chat and people'),
+              subtitle: const Text('Messages, who is here, add people'),
+              onTap: () {
+                Navigator.pop(sheet);
+                onChat();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.back_hand_outlined),
+              title: Text(call.handUp ? 'Lower your hand' : 'Raise your hand'),
+              onTap: () {
+                Navigator.pop(sheet);
+                call.toggleHand();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.add_reaction_outlined),
+              title: const Text('React'),
+              subtitle: const Text('👍 👏 😂 ❤️ 🔥'),
+              onTap: () {
+                Navigator.pop(sheet);
+                setState(() => _reactOpen = !_reactOpen);
+              },
+            ),
+            if (meeting != null)
+              ListTile(
+                leading: const Icon(Icons.closed_caption_outlined),
+                title: Text(
+                  call.captionsOff ? 'Turn captions on' : 'Turn captions off',
+                ),
+                onTap: () {
+                  Navigator.pop(sheet);
+                  call.setCaptionsOff(!call.captionsOff);
+                },
+              ),
+            if (canFlip)
+              ListTile(
+                leading: const Icon(Icons.flip_camera_android_outlined),
+                title: const Text('Flip camera'),
+                onTap: () {
+                  Navigator.pop(sheet);
+                  call.flip();
+                },
+              ),
+            const Divider(),
             ListTile(
               leading: Icon(
                 _grid
@@ -1308,10 +1358,10 @@ class _TopBar extends StatelessWidget {
     required this.subtitle,
     required this.time,
     required this.onBack,
-    this.onMore,
+    this.onAdd,
   });
 
-  final VoidCallback? onMore;
+  final VoidCallback? onAdd;
   final String title;
   final String subtitle;
 
@@ -1321,239 +1371,212 @@ class _TopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // As on WhatsApp: minimise at the left, the name and the time (or
+    // Calling… / Ringing…) in the middle, add people at the right.
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _GlassButton(
-          icon: CupertinoIcons.chevron_down,
+          icon: Icons.close_fullscreen,
           onTap: onBack,
-          size: 44,
+          size: 56,
           tooltip: 'Minimise (the call keeps going)',
         ),
-        const SizedBox(width: Space.sm),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              Text(
-                subtitle,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.75),
-                  fontSize: 12.5,
-                ),
-              ),
-            ],
-          ),
-        ),
-        if (time != null)
-          _Frost(
-            radius: 99,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Column(
               children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: const BoxDecoration(
-                    color: _hangUp,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 6),
                 Text(
-                  time!,
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                    fontFeatures: [FontFeature.tabularFigures()],
+                    fontSize: 19,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  time ?? subtitle,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.7),
+                    fontSize: 15,
+                    fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),
               ],
             ),
           ),
-        if (onMore != null) ...[
-          const SizedBox(width: Space.xs),
+        ),
+        if (onAdd != null)
           _GlassButton(
-            icon: CupertinoIcons.ellipsis,
-            onTap: onMore!,
-            size: 44,
-            tooltip: 'More',
-          ),
-        ],
+            icon: Icons.person_add,
+            onTap: onAdd!,
+            size: 56,
+            tooltip: 'Add people',
+          )
+        else
+          const SizedBox(width: 56),
       ],
     );
   }
 }
 
-/// The floating controls: microphone, camera, the red hang-up in the
-/// middle, flip and chat.
-class _Dock extends StatelessWidget {
-  const _Dock({
+/// The call controls, as on WhatsApp: a rounded panel at the bottom with
+/// Audio (loudspeaker), Video, Mute, More, Share and the red End.
+class _CallPanel extends StatelessWidget {
+  const _CallPanel({
     required this.local,
-    required this.canFlip,
-    required this.canShare,
-    required this.handUp,
-    required this.onHand,
-    required this.reactOpen,
-    required this.onShare,
-    required this.onReact,
-    required this.captions,
-    required this.onCaptions,
-    required this.chatOpen,
     required this.speaker,
     required this.onSpeaker,
     required this.onMic,
     required this.onCamera,
-    required this.onFlip,
-    required this.onChat,
+    required this.canShare,
+    required this.onShare,
+    required this.onMore,
     required this.onLeave,
   });
 
   final LocalParticipant? local;
-  final bool canFlip;
 
-  /// Screen sharing: Android phones and computers (browser).
-  final bool canShare;
-  final bool handUp;
-  final VoidCallback onHand;
-  final bool reactOpen;
-  final VoidCallback onShare;
-  final VoidCallback onReact;
-
-  /// null: no meeting on; otherwise whether your captions are on.
-  final bool? captions;
-  final VoidCallback onCaptions;
-  final bool chatOpen;
-
-  /// null in the browser; otherwise whether the loudspeaker is on.
+  /// null in the browser (no loudspeaker switch); else whether it is on.
   final bool? speaker;
   final VoidCallback onSpeaker;
   final VoidCallback onMic;
   final VoidCallback onCamera;
-  final VoidCallback onFlip;
-  final VoidCallback onChat;
+  final bool canShare;
+  final VoidCallback onShare;
+  final VoidCallback onMore;
   final VoidCallback onLeave;
 
   @override
   Widget build(BuildContext context) {
     final mic = local?.isMicrophoneEnabled() ?? false;
     final cam = local?.isCameraEnabled() ?? false;
+    final sharing = local?.isScreenShareEnabled() ?? false;
+    Widget cell(Widget button, String label) => Expanded(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          button,
+          const SizedBox(height: 10),
+          Text(
+            label,
+            style: const TextStyle(color: Colors.white, fontSize: 14),
+          ),
+        ],
+      ),
+    );
     return Center(
-      child: _Frost(
-        radius: 40,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _GlassButton(
-              icon: mic
-                  ? CupertinoIcons.mic_fill
-                  : CupertinoIcons.mic_slash_fill,
-              tooltip: mic ? 'Mute' : 'Unmute',
-              off: !mic,
-              onTap: onMic,
-            ),
-            const SizedBox(width: 10),
-            if (speaker != null) ...[
-              _GlassButton(
-                icon: speaker!
-                    ? CupertinoIcons.speaker_3_fill
-                    : CupertinoIcons.speaker_1_fill,
-                tooltip: speaker! ? 'Speaker on' : 'Speaker off',
-                off: speaker!,
-                onTap: onSpeaker,
-              ),
-              const SizedBox(width: 10),
-            ],
-            _GlassButton(
-              icon: cam
-                  ? CupertinoIcons.video_camera_solid
-                  : CupertinoIcons.video_camera,
-              tooltip: cam ? 'Camera off' : 'Camera on',
-              off: !cam,
-              onTap: onCamera,
-            ),
-            const SizedBox(width: 14),
-            Tooltip(
-              message: 'Leave call',
-              child: Material(
-                color: _hangUp,
-                shape: const CircleBorder(),
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  onTap: onLeave,
-                  child: const SizedBox.square(
-                    dimension: 64,
-                    child: Icon(
-                      CupertinoIcons.phone_down_fill,
-                      color: Colors.white,
-                      size: 28,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 460),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(8, 24, 8, 22),
+          decoration: BoxDecoration(
+            color: const Color(0xF20B141A),
+            borderRadius: BorderRadius.circular(36),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  cell(
+                    _GlassButton(
+                      icon: speaker ?? false
+                          ? Icons.volume_up
+                          : Icons.volume_down,
+                      tooltip: speaker == null
+                          ? 'Sound comes from this device'
+                          : speaker!
+                          ? 'Loudspeaker on'
+                          : 'Loudspeaker off',
+                      off: speaker ?? false,
+                      dim: speaker == null,
+                      size: 68,
+                      onTap: speaker == null ? () {} : onSpeaker,
                     ),
+                    'Audio',
                   ),
-                ),
+                  cell(
+                    _GlassButton(
+                      icon: cam ? Icons.videocam : Icons.videocam_off,
+                      tooltip: cam ? 'Camera off' : 'Camera on',
+                      off: cam,
+                      size: 68,
+                      onTap: onCamera,
+                    ),
+                    'Video',
+                  ),
+                  cell(
+                    _GlassButton(
+                      icon: mic ? Icons.mic : Icons.mic_off,
+                      tooltip: mic ? 'Mute' : 'Unmute',
+                      off: !mic,
+                      size: 68,
+                      onTap: onMic,
+                    ),
+                    mic ? 'Mute' : 'Unmute',
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(width: 14),
-            if (canFlip) ...[
-              _GlassButton(
-                icon: CupertinoIcons.camera_rotate,
-                tooltip: 'Flip camera',
-                onTap: onFlip,
+              const SizedBox(height: 22),
+              Row(
+                children: [
+                  cell(
+                    _GlassButton(
+                      icon: Icons.more_horiz,
+                      tooltip: 'More',
+                      size: 68,
+                      onTap: onMore,
+                    ),
+                    'More',
+                  ),
+                  cell(
+                    _GlassButton(
+                      icon: Icons.present_to_all,
+                      tooltip: sharing ? 'Stop sharing' : 'Share your screen',
+                      off: sharing,
+                      dim: !canShare,
+                      size: 68,
+                      onTap: canShare ? onShare : () {},
+                    ),
+                    'Share',
+                  ),
+                  cell(
+                    Tooltip(
+                      message: 'End the call',
+                      child: Material(
+                        color: _hangUp,
+                        shape: const CircleBorder(),
+                        child: InkWell(
+                          customBorder: const CircleBorder(),
+                          onTap: () {
+                            HapticFeedback.heavyImpact();
+                            onLeave();
+                          },
+                          child: const SizedBox.square(
+                            dimension: 68,
+                            child: Icon(
+                              Icons.call_end,
+                              color: Colors.white,
+                              size: 32,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    'End',
+                  ),
+                ],
               ),
-              const SizedBox(width: 10),
             ],
-            if (canShare) ...[
-              _GlassButton(
-                icon: CupertinoIcons.rectangle_on_rectangle_angled,
-                tooltip: (local?.isScreenShareEnabled() ?? false)
-                    ? 'Stop sharing'
-                    : 'Share your screen',
-                off: local?.isScreenShareEnabled() ?? false,
-                onTap: onShare,
-              ),
-              const SizedBox(width: 10),
-            ],
-            if (captions != null) ...[
-              _GlassButton(
-                icon: CupertinoIcons.captions_bubble_fill,
-                tooltip: captions! ? 'Captions on' : 'Captions off',
-                off: !captions!,
-                onTap: onCaptions,
-              ),
-              const SizedBox(width: 10),
-            ],
-            _GlassButton(
-              icon: CupertinoIcons.hand_raised_fill,
-              tooltip: handUp ? 'Lower your hand' : 'Raise your hand',
-              off: handUp,
-              onTap: onHand,
-            ),
-            const SizedBox(width: 10),
-            _GlassButton(
-              icon: CupertinoIcons.smiley,
-              tooltip: 'React',
-              off: reactOpen,
-              onTap: onReact,
-            ),
-            const SizedBox(width: 10),
-            _GlassButton(
-              icon: chatOpen
-                  ? CupertinoIcons.chat_bubble_2_fill
-                  : CupertinoIcons.chat_bubble_2,
-              tooltip: 'Chat',
-              onTap: onChat,
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -1565,12 +1588,16 @@ class _GlassButton extends StatelessWidget {
     required this.icon,
     required this.onTap,
     this.off = false,
+    this.dim = false,
     this.size = 52,
     this.tooltip,
   });
 
   final IconData icon;
   final VoidCallback onTap;
+
+  /// Not available here (e.g. Share in a phone browser): greyed out.
+  final bool dim;
 
   /// A switched-off control turns solid white, like iOS.
   final bool off;
@@ -1592,7 +1619,9 @@ class _GlassButton extends StatelessWidget {
           dimension: size,
           child: Icon(
             icon,
-            color: off ? _stageTop : Colors.white,
+            color: off
+                ? _stageTop
+                : Colors.white.withValues(alpha: dim ? 0.35 : 1),
             size: size * 0.44,
           ),
         ),
@@ -1663,15 +1692,32 @@ class _CallSideState extends ConsumerState<_CallSide> {
       chatMembersProvider(widget.conversationId).future,
     );
     if (!mounted) return;
-    final names = ref.read(peopleProvider).value ?? const {};
+    // Everyone you can chat with who is not in the call: the chat's
+    // members first, then anyone else (added to this call only), so a
+    // one-to-one call can take more people.
+    List<({String id, String name})> others = const [];
+    try {
+      others = await ref.read(chatPeopleProvider.future);
+    } catch (_) {
+      // No signal: only the chat's members.
+    }
+    if (!mounted) return;
+    final names = {
+      ...(ref.read(peopleProvider).value ?? const <String, String>{}),
+      for (final o in others) o.id: o.name,
+    };
     final inCall = {for (final p in widget.people) p.identity};
     final me = ref.read(authUserIdProvider);
+    final memberSet = members.toSet();
     final out = [
       for (final m in members)
         if (!inCall.contains(m) && m != me) m,
+      for (final o in others)
+        if (!inCall.contains(o.id) && o.id != me && !memberSet.contains(o.id))
+          o.id,
     ];
     if (out.isEmpty) {
-      call.snack('Everyone in this chat is already in the call.');
+      call.snack('Everyone you can call is already in the call.');
       return;
     }
     final picked = <String>{};
@@ -1688,7 +1734,7 @@ class _CallSideState extends ConsumerState<_CallSide> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('Ring people to join'),
+                const Text('Add people to the call'),
                 Flexible(
                   child: ListView(
                     shrinkWrap: true,
@@ -1706,6 +1752,9 @@ class _CallSideState extends ConsumerState<_CallSide> {
                             size: 34,
                           ),
                           title: Text(names[id] ?? 'Someone'),
+                          subtitle: memberSet.contains(id)
+                              ? null
+                              : const Text('Joins this call only'),
                         ),
                     ],
                   ),

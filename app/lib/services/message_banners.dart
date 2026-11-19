@@ -10,7 +10,8 @@ import 'push_service.dart';
 ///
 /// Channels (push-send picks one per alert type):
 /// * `messages` — chat messages and @mentions: pops up, with sound.
-/// * `urgent` — critical, overdue and (re)assigned job cards: pops up.
+/// * `urgent` — critical, overdue and (re)assigned job cards, meetings and
+///   missed calls: pops up.
 /// * `general` — everything else: in the shade, no pop-up.
 class MessageBanners {
   static final _plugin = FlutterLocalNotificationsPlugin();
@@ -28,8 +29,10 @@ class MessageBanners {
     ),
     AndroidNotificationChannel(
       'urgent',
-      'Urgent job cards',
-      description: 'Critical, overdue and assigned job cards',
+      'Urgent alerts',
+      description:
+          'Critical, overdue and assigned job cards; meetings and '
+          'missed calls',
       importance: Importance.high,
     ),
     AndroidNotificationChannel(
@@ -42,7 +45,11 @@ class MessageBanners {
   /// The channel for an alert type (the same rule as push-send).
   static String channelFor(String? type) => switch (type) {
     'chat' || 'mentioned' => 'messages',
-    'critical' || 'overdue' || 'assigned' || 'reassigned' => 'urgent',
+    'critical' ||
+    'overdue' ||
+    'assigned' ||
+    'reassigned' ||
+    'meeting' => 'urgent',
     _ => 'general',
   };
 

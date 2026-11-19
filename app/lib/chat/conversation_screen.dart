@@ -729,6 +729,20 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     final group = !(chat?.isDirect ?? false);
     final typing = presence.typingIn(widget.id, except: me);
     final online = chat != null && presence.isOnline(chat.otherUserId);
+    // Groups: the members' first names under the title, as on WhatsApp.
+    String? groupNames;
+    if (chat != null && !chat.isDirect) {
+      final ids = ref.watch(chatMembersProvider(widget.id)).value;
+      if (ids != null && ids.isNotEmpty) {
+        final names = ref.watch(peopleProvider).value ?? const {};
+        final firsts = [
+          for (final id in ids)
+            if (id != me && (names[id] ?? '').trim().isNotEmpty)
+              names[id]!.trim().split(' ').first,
+        ]..sort();
+        groupNames = [...firsts, 'You'].join(', ');
+      }
+    }
     final status = typing.isNotEmpty
         ? (group
               ? '${typing.map((u) => (people[u] ?? 'Someone').split(' ').first).join(', ')} typing…'
@@ -744,7 +758,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                       ? null
                       : ref.watch(lastSeenProvider(chat.otherUserId!)).value,
                 ))
-        : '${chat.memberCount} members';
+        : groupNames ?? '${chat.memberCount} members';
 
     ref.listen(chatThreadProvider(widget.id), (prev, next) {
       final before = prev?.messages.length ?? 0;
@@ -817,7 +831,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                 automaticallyImplyLeading: false,
                 leading: widget.embedded
                     ? null
-                    : const AppBackButton(fallback: '/chat'),
+                    : const AppBackButton(fallback: '/chat', arrow: true),
                 title: _searching
                     ? TextField(
                         controller: _searchText,
@@ -912,23 +926,62 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                         ),
                       ]
                     : [
-                        IconButton(
-                          tooltip: 'Voice call',
-                          icon: const Icon(CupertinoIcons.phone_fill),
-                          onPressed: () =>
-                              context.push('/chat/${widget.id}/call?join=1'),
-                        ),
-                        IconButton(
-                          tooltip: 'Video call',
-                          icon: const Icon(CupertinoIcons.video_camera_solid),
-                          onPressed: () => context.push(
-                            '/chat/${widget.id}/call?join=1&video=1',
+                        // As on WhatsApp for Android: video then voice for
+                        // one person; for a group one video icon with ▾.
+                        if (chat == null || chat.isDirect) ...[
+                          IconButton(
+                            tooltip: 'Video call',
+                            icon: const Icon(Icons.videocam_outlined),
+                            onPressed: () => context.push(
+                              '/chat/${widget.id}/call?join=1&video=1',
+                            ),
                           ),
-                        ),
+                          IconButton(
+                            tooltip: 'Voice call',
+                            icon: const Icon(Icons.call_outlined),
+                            onPressed: () =>
+                                context.push('/chat/${widget.id}/call?join=1'),
+                          ),
+                        ] else
+                          PopupMenuButton<bool>(
+                            tooltip: 'Call the group',
+                            onSelected: (video) => context.push(
+                              '/chat/${widget.id}/call?join=1'
+                              '${video ? '&video=1' : ''}',
+                            ),
+                            itemBuilder: (_) => const [
+                              PopupMenuItem(
+                                value: false,
+                                child: ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  leading: Icon(Icons.call_outlined),
+                                  title: Text('Voice call'),
+                                ),
+                              ),
+                              PopupMenuItem(
+                                value: true,
+                                child: ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  leading: Icon(Icons.videocam_outlined),
+                                  title: Text('Video call'),
+                                ),
+                              ),
+                            ],
+                            child: const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 8),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.videocam_outlined),
+                                  Icon(Icons.arrow_drop_down),
+                                ],
+                              ),
+                            ),
+                          ),
                         if (chat != null)
                           PopupMenuButton<String>(
                             tooltip: 'More',
-                            icon: const Icon(CupertinoIcons.ellipsis_vertical),
+                            icon: const Icon(Icons.more_vert),
                             onSelected: (v) {
                               if (v == 'meeting') {
                                 showFormSheet(

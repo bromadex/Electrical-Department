@@ -33,6 +33,8 @@ const URGENT = new Set([
   "call",
   "chat",
   "mentioned",
+  // Meeting starting soon, missed calls, a guest waiting: time matters.
+  "meeting",
 ]);
 
 function projectKey(legacy: string, current: string): string {
@@ -124,7 +126,7 @@ async function accessToken(sa: ServiceAccount): Promise<string> {
 
 function channelFor(type: string): string {
   if (type === "chat" || type === "mentioned") return "messages";
-  if (["critical", "overdue", "assigned", "reassigned"].includes(type)) return "urgent";
+  if (["critical", "overdue", "assigned", "reassigned", "meeting"].includes(type)) return "urgent";
   return "general";
 }
 
