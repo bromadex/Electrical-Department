@@ -139,7 +139,15 @@ function message(job: Job, token: string, platform: string, appUrl: string | nul
       token,
       notification: { title: job.title, body: job.body ?? "" },
       // url: where a browser notification opens (firebase-messaging-sw.js).
-      data: { link: job.link ?? "", type: job.type, notification_id: job.id, url: webLink ?? "" },
+      // title in data too: the app stops a phone still ringing when the
+      // caller's "Missed call" alert arrives (it reads data, not the banner).
+      data: {
+        link: job.link ?? "",
+        type: job.type,
+        notification_id: job.id,
+        url: webLink ?? "",
+        title: job.title,
+      },
       android: {
         priority: urgent ? "HIGH" : "NORMAL",
         notification: { tag: job.link ?? job.id },

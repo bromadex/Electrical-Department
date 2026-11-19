@@ -1,5 +1,18 @@
 # What's new
 
+## 19 November 2026
+
+### Hanging up works every time
+- In a **one-to-one call**, when the other person hangs up the call now
+  ends on your side too (it used to stay open with only you in it).
+- **Hanging up while it is still connecting** really hangs up (the
+  connection used to finish and put you back in the call).
+- Hanging up always closes the call, even if stopping screen sharing or a
+  bad line gets in the way (after 5 seconds it gives up waiting).
+- When the caller hangs up first, the other phone **stops ringing** as soon
+  as its missed-call alert arrives; answering a call that already ended says
+  so instead of ringing the caller back.
+
 ## 17 November 2026 (v0.1.7)
 
 ### More files open inside the app

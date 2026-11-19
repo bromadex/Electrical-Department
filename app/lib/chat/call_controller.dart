@@ -114,6 +114,11 @@ class CallController extends ChangeNotifier {
   CaptionSender? _captions;
   bool _disposed = false;
 
+  /// Bumped by each join and each hang-up: a join that finds it changed
+  /// after waiting (for the pass or the call server) was hung up meanwhile
+  /// and stops, instead of putting you back in the call.
+  int _attempt = 0;
+
   /// How long a direct call rings before it gives up.
   static const ringFor = Duration(seconds: 45);
 
@@ -148,11 +153,40 @@ class CallController extends ChangeNotifier {
   }) async {
     if (conversationId == conversation && active) return;
     if (active) await leave();
+    final attempt = ++_attempt;
+    bool stale() => attempt != _attempt || _disposed;
     conversationId = conversation;
     _ringId = ringId;
     stage = CallStage.connecting;
     error = null;
     _changed();
+
+    // 0. Answered from the ringing screen: is the call still on? If the
+    // caller already hung up, say so instead of starting a new call that
+    // would ring them back.
+    if (ringId != null) {
+      try {
+        final live = await _db
+            .from('calls')
+            .select('id')
+            .eq('conversation_id', conversation)
+            .isFilter('ended_at', null)
+            .limit(1)
+            .timeout(const Duration(seconds: 8));
+        if (stale()) return;
+        if ((live as List).isEmpty) {
+          unawaited(IncomingCalls.end(ringId));
+          stage = CallStage.idle;
+          conversationId = null;
+          _changed();
+          snack('The call ended before you answered. Call back from the chat.');
+          return;
+        }
+      } catch (_) {
+        // No answer from the server: try to join anyway.
+        if (stale()) return;
+      }
+    }
 
     // 1. The call pass from our server (checks you are in this chat).
     final Map<String, dynamic> data;
@@ -162,7 +196,9 @@ class CallController extends ChangeNotifier {
         body: {'conversation_id': conversation, 'video': video},
       );
       data = Map<String, dynamic>.from(res.data as Map);
+      if (stale()) return;
     } on FunctionException catch (e) {
+      if (stale()) return;
       final details = e.details;
       final msg = details is Map ? '${details['error'] ?? ''}' : '$details';
       return _fail(
@@ -173,6 +209,7 @@ class CallController extends ChangeNotifier {
             : 'Could not get a pass for this call (${e.status}).',
       );
     } catch (e) {
+      if (stale()) return;
       return _fail('Could not reach the server. Check your signal. ($e)');
     }
 
@@ -186,10 +223,13 @@ class CallController extends ChangeNotifier {
     } catch (e) {
       await r.dispose();
       _endCall();
+      if (stale()) return;
       return _fail('Could not connect to the call server. ($e)');
     }
-    if (conversationId != conversation || _disposed) {
-      await r.disconnect();
+    if (stale() || conversationId != conversation) {
+      // Hung up while connecting: leave the room and tell the server.
+      _endCall();
+      await _close(r);
       return;
     }
     r.addListener(_changed);
@@ -226,6 +266,17 @@ class CallController extends ChangeNotifier {
           offerAudioOnly = true;
         }
         _changed();
+      })
+      ..on<ParticipantDisconnectedEvent>((e) {
+        // A one-to-one call ends for both when either hangs up (as on
+        // WhatsApp); a group call goes on while anyone is left.
+        if (room == r &&
+            since != null &&
+            r.remoteParticipants.isEmpty &&
+            _isDirect(conversation)) {
+          snack('Call ended.');
+          unawaited(leave());
+        }
       })
       ..on<RoomDisconnectedEvent>((e) {
         if (room == r && e.reason != DisconnectReason.clientInitiated) {
@@ -372,11 +423,16 @@ class CallController extends ChangeNotifier {
 
   /// Hangs up (the red button, the notification, or no answer).
   Future<void> leave() async {
+    _attempt++;
     if (stage == CallStage.inCall) HapticFeedback.heavyImpact();
     _clock?.cancel();
     _endCall();
-    _stopCaptions();
-    await _stopShareService();
+    try {
+      _stopCaptions();
+      await _stopShareService().timeout(const Duration(seconds: 3));
+    } catch (_) {
+      // Whatever fails here, the call itself still ends below.
+    }
     final r = room;
     room = null;
     stage = CallStage.idle;
@@ -391,11 +447,24 @@ class CallController extends ChangeNotifier {
     _changed();
     if (r != null) {
       r.removeListener(_changed);
-      await _events?.dispose();
+      final events = _events;
       _events = null;
-      await r.disconnect();
-      await r.dispose();
+      try {
+        await events?.dispose();
+      } catch (_) {}
+      await _close(r);
     }
+  }
+
+  /// Leaves the call server's room and frees it, even on a bad line: a
+  /// disconnect that hangs is given up after a few seconds.
+  Future<void> _close(Room r) async {
+    try {
+      await r.disconnect().timeout(const Duration(seconds: 5));
+    } catch (_) {}
+    try {
+      await r.dispose();
+    } catch (_) {}
   }
 
   /// Clears a failed join so the screen offers Join again.

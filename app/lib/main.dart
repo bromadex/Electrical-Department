@@ -127,6 +127,8 @@ class _ElectricalDepartmentAppState
         // A call while the app is open rings the same way.
         _foreground = FirebaseMessaging.onMessage.listen((m) {
           if (m.data['kind'] == 'call') IncomingCalls.ring(m.data);
+          // The caller hung up before it was answered: stop ringing.
+          IncomingCalls.stopRingingFor(m.data);
         });
         _answered = IncomingCalls.listen(_router.push);
         IncomingCalls.askPermissions();

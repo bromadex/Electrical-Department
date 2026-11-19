@@ -19,6 +19,8 @@ import '../config/firebase_config.dart';
 /// Runs in the background, also when the app is closed.
 @pragma('vm:entry-point')
 Future<void> firebaseBackgroundMessage(RemoteMessage message) async {
+  // The caller gave up: stop this phone ringing for that chat.
+  if (await IncomingCalls.stopRingingFor(message.data)) return;
   // A chat alert: tell the sender it reached this phone (two grey ticks).
   if (const {'chat', 'mentioned'}.contains(message.data['type'])) {
     await IncomingCalls.reportReceived(
@@ -69,6 +71,30 @@ class IncomingCalls {
     final id = c.extra?['conversation_id'];
     if (id == null) return null;
     return '/chat/$id/call?join=1&ring=${Uri.encodeQueryComponent(c.id)}';
+  }
+
+  /// A "Missed call" alert (the caller hung up before anyone answered)
+  /// stops this phone ringing for that chat. Only rings carry the chat in
+  /// their extra; the "call in progress" notification does not, so a live
+  /// call is never ended this way. Returns whether it was such an alert.
+  static Future<bool> stopRingingFor(Map<String, dynamic> data) async {
+    final link = '${data['link'] ?? ''}';
+    final title = '${data['title'] ?? ''}';
+    if (!link.startsWith('call:') || !title.startsWith('Missed call')) {
+      return false;
+    }
+    if (!supported) return true;
+    final chat = link.substring(5);
+    try {
+      for (final c in await FlutterCallkitIncoming.activeCalls()) {
+        if (c.extra?['conversation_id'] == chat) {
+          await FlutterCallkitIncoming.endCall(c.id);
+        }
+      }
+    } catch (_) {
+      // Nothing ringing, or the ring already timed out.
+    }
+    return true;
   }
 
   /// Shows the incoming-call screen for a `call` push.
