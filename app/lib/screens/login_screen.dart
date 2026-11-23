@@ -1,3 +1,5 @@
+import 'first_password_screen.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -22,7 +24,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _password = TextEditingController();
   bool _busy = false;
   bool _obscure = true;
-  String? _error;
+  // A failed invitation or reset link says why here.
+  String? _error = emailLinkProblem;
   int _errorCount = 0;
 
   @override

@@ -10,6 +10,9 @@
 - The link in the email goes to the address in Supabase → Authentication →
   URL Configuration → Site URL; it must be the web app's address, not
   localhost (API.md, section 1).
+- Invitation links now really sign the person in (the app ignored the
+  sign-in the link carried and showed the sign-in page). A link that has
+  expired or was already used says so on the sign-in page.
 ## 19 November 2026
 
 ### Hanging up works every time

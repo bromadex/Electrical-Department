@@ -38,7 +38,10 @@ Future<void> main() async {
   }
 
   // An emailed invitation or reset link: choose a password first.
-  if (kIsWeb) cameByEmailLink = isEmailLink(Uri.base);
+  if (kIsWeb) {
+    cameByEmailLink = isEmailLink(Uri.base);
+    emailLinkProblem = emailLinkError(Uri.base);
+  }
 
   if (!Env.hasSupabase) {
     runApp(const _Shell(home: SetupRequiredScreen()));
@@ -49,6 +52,12 @@ Future<void> main() async {
     Supabase.initialize(
       url: Env.supabaseUrl,
       publishableKey: Env.supabaseAnonKey,
+      // Emailed invitation and reset links (sent from Supabase) carry the
+      // sign-in in the address, which only the implicit flow reads; the
+      // app itself signs in with a password, so nothing else changes.
+      authOptions: const FlutterAuthClientOptions(
+        authFlowType: AuthFlowType.implicit,
+      ),
     ),
     SharedPreferences.getInstance(),
     PushSupport.init(),

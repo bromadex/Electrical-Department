@@ -22,6 +22,29 @@ bool mustChangePassword(User? user) =>
 /// first. Read once in main() before the address is tidied up.
 bool cameByEmailLink = false;
 
+/// Why an emailed link could not sign you in (it expired or was already
+/// used), shown on the sign-in page; null when there was no such link.
+String? emailLinkProblem;
+
+/// The problem Supabase put in the address of a failed email link.
+String? emailLinkError(Uri uri) {
+  final f = uri.fragment.startsWith('/')
+      ? uri.fragment.substring(1)
+      : uri.fragment;
+  Map<String, String> p;
+  try {
+    p = {...Uri.splitQueryString(uri.query), ...Uri.splitQueryString(f)};
+  } catch (_) {
+    return null;
+  }
+  if (p['error'] == null && p['error_code'] == null) return null;
+  if (p['error_code'] == 'otp_expired') {
+    return 'That email link has expired or was already used. Ask an admin '
+        'to send a new invitation, or sign in if you have a password.';
+  }
+  return p['error_description'] ?? 'That email link did not work.';
+}
+
 /// Whether [uri] is an invitation or password-reset link.
 bool isEmailLink(Uri uri) {
   final parts = '${uri.fragment}&${uri.query}'.split(RegExp('[&#?]'));
