@@ -95,6 +95,11 @@ GoRouter buildRouter(WidgetRef ref) {
 
   return GoRouter(
     initialLocation: '/home',
+    // An address the app does not know (an old bookmark, or what is left
+    // of an emailed sign-in link such as "#sb") opens Home instead of an
+    // error page. The redirect then sends you to sign in or choose a
+    // password if needed.
+    onException: (_, _, router) => router.go('/home'),
     refreshListenable: Listenable.merge([signedIn, mustChange]),
     redirect: (context, state) {
       final atLogin = state.matchedLocation == '/login';
