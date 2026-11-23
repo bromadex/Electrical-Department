@@ -25,6 +25,7 @@ import 'services/error_reporter.dart';
 import 'services/incoming_calls.dart';
 import 'services/message_banners.dart';
 import 'services/push_service.dart';
+import 'screens/first_password_screen.dart';
 import 'theme/app_theme.dart';
 import 'theme/theme_mode.dart';
 
@@ -35,6 +36,9 @@ Future<void> main() async {
   if (const bool.fromEnvironment('E2E')) {
     SemanticsBinding.instance.ensureSemantics();
   }
+
+  // An emailed invitation or reset link: choose a password first.
+  if (kIsWeb) cameByEmailLink = isEmailLink(Uri.base);
 
   if (!Env.hasSupabase) {
     runApp(const _Shell(home: SetupRequiredScreen()));

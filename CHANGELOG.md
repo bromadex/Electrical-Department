@@ -1,5 +1,15 @@
 # What's new
 
+
+## 23 November 2026
+
+### Invitation emails
+- Someone who opens an **invitation or password-reset email** on the web
+  app is asked to choose their password before going in (they used to be
+  signed in with no password, so they could not sign in again later).
+- The link in the email goes to the address in Supabase → Authentication →
+  URL Configuration → Site URL; it must be the web app's address, not
+  localhost (API.md, section 1).
 ## 19 November 2026
 
 ### Hanging up works every time

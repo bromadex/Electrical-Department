@@ -14,7 +14,19 @@ import '../widgets/sign_out.dart';
 /// set (user metadata must_change_password, set by the admin-users
 /// function when it creates an account or resets a password).
 bool mustChangePassword(User? user) =>
-    user?.userMetadata?['must_change_password'] == true;
+    user?.userMetadata?['must_change_password'] == true || cameByEmailLink;
+
+/// Whether the app was opened from an emailed invitation or password-reset
+/// link (Supabase adds `type=invite` or `type=recovery` to the address).
+/// Such a person is signed in but has no password yet: they choose one
+/// first. Read once in main() before the address is tidied up.
+bool cameByEmailLink = false;
+
+/// Whether [uri] is an invitation or password-reset link.
+bool isEmailLink(Uri uri) {
+  final parts = '${uri.fragment}&${uri.query}'.split(RegExp('[&#?]'));
+  return parts.contains('type=invite') || parts.contains('type=recovery');
+}
 
 /// Shown instead of the app until someone with a temporary password chooses
 /// their own. There is no way past it except changing the password or
@@ -55,9 +67,12 @@ class _FirstPasswordScreenState extends ConsumerState<FirstPasswordScreen> {
       _busy = true;
       _error = null;
     });
+    final wasLink = cameByEmailLink;
     try {
       // Changing the password and clearing the flag in one call; the
       // router lets the person in as soon as the user is updated.
+      // Cleared first: the router re-checks as soon as the user updates.
+      cameByEmailLink = false;
       await auth.updateUser(
         UserAttributes(
           password: _new.text,
@@ -65,6 +80,7 @@ class _FirstPasswordScreenState extends ConsumerState<FirstPasswordScreen> {
         ),
       );
     } catch (e) {
+      cameByEmailLink = wasLink;
       if (mounted) {
         setState(() {
           _busy = false;
@@ -117,9 +133,10 @@ class _FirstPasswordScreenState extends ConsumerState<FirstPasswordScreen> {
                           ),
                           const SizedBox(height: Space.xs),
                           Text(
-                            'You signed in with a temporary password. Choose '
-                            'your own to continue: at least 8 characters, '
-                            'with letters and a number. Only you will know it.',
+                            '${cameByEmailLink ? 'You opened your email link.' : 'You signed in with a temporary password.'} '
+                            'Choose your own to continue: at least 8 '
+                            'characters, with letters and a number. Only you '
+                            'will know it.',
                             style: theme.textTheme.bodyMedium,
                           ),
                           const SizedBox(height: Space.md),

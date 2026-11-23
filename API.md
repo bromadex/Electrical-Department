@@ -26,6 +26,11 @@ Version: v0.1 (foundation, week 1).
 | Tests | Each migration has `/supabase/tests/NNNN_name_test.sql`, run by CI against a throwaway database. |
 | Secrets | App gets only `SUPABASE_URL` + `SUPABASE_ANON_KEY` via `--dart-define`. Service role key only in edge functions. Nothing secret is committed. |
 
+Email links (invitations, password resets) land on Supabase → Authentication → URL
+Configuration → **Site URL**, which must be `https://electrical-department-lake.vercel.app`
+(with that address under Redirect URLs), never localhost. The web app sees `type=invite` or
+`type=recovery` in the address and asks for a password first (`cameByEmailLink`).
+
 ## 2. Foundation tables (migration 0001)
 
 ### sites
