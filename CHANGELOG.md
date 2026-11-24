@@ -1,6 +1,18 @@
 # What's new
 
 
+
+## 24 November 2026
+
+### Updates tell you they are out (Android)
+- The app looks for a newer version when it opens, when you come back to
+  it and every 6 hours. When there is one, **"Update available"** pops up
+  with what's new; **Update** downloads it in the browser, then tap the
+  file and Install (your sign-in and data stay). **Later** waits a day.
+- **Settings → About → Check for updates** looks straight away and shows
+  the version you have.
+- Each release now lists what changed (the commit titles since the last
+  release) and carries `latest.json`, which the app reads.
 ## 23 November 2026
 
 ### Invitation emails

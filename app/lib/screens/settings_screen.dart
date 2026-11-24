@@ -12,6 +12,7 @@ import '../chat/chat_media.dart' show compressPhoto;
 import '../data/app_error.dart';
 import '../data/avatars.dart';
 import '../data/site_data.dart';
+import '../services/app_update.dart';
 import '../services/core_providers.dart';
 import '../services/push_service.dart';
 import '../services/session_controller.dart';
@@ -295,10 +296,11 @@ class SettingsScreen extends ConsumerWidget {
                           icon: CupertinoIcons.info,
                           title: 'Bravura Electrical',
                           subtitle: Env.flavor == 'prod'
-                              ? 'Electrical Department'
+                              ? 'Electrical Department · v${Env.appVersion}'
                               : 'Test version (${Env.flavor})',
                           trailing: const SizedBox.shrink(),
                         ),
+                        if (AppUpdate.supported) const _UpdateRow(),
                       ],
                     ),
                     const SizedBox(height: Space.lg),
@@ -707,6 +709,60 @@ class _Group extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+/// Settings → About: whether a newer app is out, and a button to look now.
+class _UpdateRow extends ConsumerWidget {
+  const _UpdateRow();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(appUpdateProvider);
+    final update = s.update;
+    Future<void> tap() async {
+      if (update != null) return showUpdateDialog(context, update);
+      final messenger = ScaffoldMessenger.of(context);
+      final found = await ref.read(appUpdateProvider.notifier).check();
+      if (!context.mounted) return;
+      if (found != null) return showUpdateDialog(context, found);
+      final now = ref.read(appUpdateProvider);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            now.failed
+                ? 'Could not check: no connection. Try again later.'
+                : 'You have the latest version (v${Env.appVersion}).',
+          ),
+        ),
+      );
+    }
+
+    final at = s.checkedAt;
+    return _Row(
+      icon: update != null
+          ? Icons.system_update_rounded
+          : CupertinoIcons.arrow_2_circlepath,
+      title: update != null
+          ? 'Update to v${update.version}'
+          : 'Check for updates',
+      subtitle: s.checking
+          ? 'Checking…'
+          : update != null
+          ? 'A new version is out. Tap to download it.'
+          : at == null
+          ? 'The app also checks by itself every few hours'
+          : 'Last checked ${TimeOfDay.fromDateTime(at).format(context)}',
+      trailing: s.checking
+          ? const SizedBox.square(
+              dimension: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : update != null
+          ? Badge(label: const Text('New'))
+          : null,
+      onTap: s.checking ? null : tap,
     );
   }
 }

@@ -20,6 +20,7 @@ import 'widgets/side_bar.dart';
 import 'chat/call_controller.dart';
 import 'router.dart';
 import 'screens/setup_required_screen.dart';
+import 'services/app_update.dart';
 import 'services/core_providers.dart';
 import 'services/error_reporter.dart';
 import 'services/incoming_calls.dart';
@@ -110,6 +111,35 @@ class _ElectricalDepartmentAppState
   AppLifecycleListener? _life;
   Timer? _seenTimer;
 
+  /// A newer Android app on GitHub: looks when the app opens, comes back
+  /// and every few hours, and pops up "Update available" once a day at
+  /// most per version.
+  Timer? _updateTimer;
+  bool _updateShowing = false;
+
+  Future<void> _checkUpdate() async {
+    if (!AppUpdate.supported || _updateShowing) return;
+    final r = await ref.read(appUpdateProvider.notifier).check(quiet: true);
+    if (r == null || !mounted) return;
+    final prefs = ref.read(sharedPrefsProvider);
+    if (updateSnoozed(prefs, r.version, DateTime.now())) return;
+    // Not over a call or the first-password screen.
+    final here = topPath(_router);
+    if (here.contains('/call') ||
+        here == '/first-password' ||
+        here == '/login') {
+      return;
+    }
+    final context = _router.routerDelegate.navigatorKey.currentContext;
+    if (context == null || !context.mounted) return;
+    _updateShowing = true;
+    try {
+      await showUpdateDialog(context, r, prefs: prefs);
+    } finally {
+      _updateShowing = false;
+    }
+  }
+
   void _seen() {
     final db = ref.read(supabaseProvider);
     if (db.auth.currentUser == null) return;
@@ -119,7 +149,22 @@ class _ElectricalDepartmentAppState
   @override
   void initState() {
     super.initState();
-    _life = AppLifecycleListener(onHide: _seen, onDetach: _seen, onShow: _seen);
+    _life = AppLifecycleListener(
+      onHide: _seen,
+      onDetach: _seen,
+      onShow: () {
+        _seen();
+        unawaited(_checkUpdate());
+      },
+    );
+    if (AppUpdate.supported) {
+      // A few seconds after opening, so it does not slow the start.
+      Timer(const Duration(seconds: 8), () => unawaited(_checkUpdate()));
+      _updateTimer = Timer.periodic(
+        const Duration(hours: 1),
+        (_) => unawaited(_checkUpdate()),
+      );
+    }
     _seenTimer = Timer.periodic(const Duration(minutes: 2), (_) {
       final state = SchedulerBinding.instance.lifecycleState;
       if (state == null || state == AppLifecycleState.resumed) _seen();
@@ -161,6 +206,7 @@ class _ElectricalDepartmentAppState
     _answered?.cancel();
     _life?.dispose();
     _seenTimer?.cancel();
+    _updateTimer?.cancel();
     super.dispose();
   }
 
