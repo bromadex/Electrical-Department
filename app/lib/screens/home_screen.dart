@@ -24,6 +24,7 @@ import '../v2/my_jobs/my_jobs_screen.dart' show myJobsProvider;
 import '../v2/requests/models.dart';
 import '../v2/requests/repository.dart';
 import '../v2/requests/request_tile.dart';
+import '../duties/duties.dart';
 import '../maintenance/closures.dart';
 import '../v2/site_filter.dart';
 import '../widgets/push_prompt.dart';
@@ -169,6 +170,8 @@ class _ToDo extends ConsumerWidget {
     final templates = ref.watch(checklistTemplatesProvider).value ?? const [];
     final status = ref.watch(checklistStatusProvider).value ?? const {};
     final toSign = ref.watch(toSignCountProvider);
+    // No notifications for everyday duties: they show here instead.
+    final myDuties = ref.watch(myDutiesTodayProvider);
     bool can(String code) => session.canAnywhere(code);
     final now = DateTime.now();
 
@@ -186,6 +189,18 @@ class _ToDo extends ConsumerWidget {
               detail: 'Checklist due today',
               onTap: () => context.push('/checklists/${t.id}'),
             ),
+      if (myDuties.isNotEmpty)
+        (
+          icon: Icons.task_alt_rounded,
+          color: BrandColors.info,
+          title: myDuties.length == 1
+              ? 'Your duty today: ${myDuties.first.title}'
+              : 'Your ${myDuties.length} duties today',
+          detail: myDuties.length == 1
+              ? myDuties.first.rotaName
+              : myDuties.map((d) => d.title).join(' · '),
+          onTap: () => context.push('/duties'),
+        ),
       if (toSign > 0)
         (
           icon: CupertinoIcons.signature,

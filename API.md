@@ -282,6 +282,15 @@ A light asset register; jobs can point at an asset, so each asset has a job hist
 - Seeded: the Christmas shutdown, 19 December 2026 to 3 January 2027 (every site; the last working day is 18 December, work starts again on 4 January).
 - App: Planned maintenance (`/jobs/recurring`) has the frequencies as chips and "Who does it": by hand, one person, or take turns (tap people in order); the moon button opens Shutdowns and holidays (`/closures`, `lib/maintenance/closures.dart`). Home and Planned maintenance show a closure on now or starting within a month; the calendar names closed days.
 
+## 10c. Public holidays, holiday messages and daily duties (migration 0059)
+
+- `work_closures.kind` (`shutdown` | `holiday`) and `message` (≤ 400 characters, a greeting for the team). `fn_save_closure(..., p_kind default null, p_message default null)`: a null kind or message keeps the one saved. Zimbabwe's 2027 public holidays are seeded for every site with messages; the app's "Add public holidays for a year" (`lib/maintenance/zim_holidays.dart`: Easter by the Gregorian algorithm, Heroes' Day the second Monday of August and Defence Forces Day after it, a Sunday holiday moved to Monday) adds another year's, skipping days already covered. Home shows a holiday from a week before (a shutdown from a month before) and its message on the day and the three days before.
+- Daily duties: `duty_rotas` (`site_id`, `name`, `every` daily | weekdays, `people uuid[]` the team in order, `starts_on`), `duty_tasks` (`rota_id`, `title`, `position`, `person_id` fixed person or null), `duty_done` (`task_id`, `day`, `done_by`, `note`; one per task and day). Read with `jobs.view` at the site; written only through the functions.
+- `fn_save_duty_rota(p_id, p_site, p_name, p_every, p_people, p_tasks text[], p_people_for uuid[], p_archived)` (`jobs.assign` at the site): tasks keep their id (and ticks) while the title stays; dropped ones are archived.
+- `fn_duties(p_site, p_day)` (site null = every site): each task with `person_id`. The team members not `off`/`leave` in the roster that day take the turning tasks in order, moved one step for each duty day since `starts_on`; a fixed task goes to its person unless they are away (then the team in turn). Nothing on closed days, or at weekends for weekdays rotas.
+- `fn_mark_duty(p_task, p_day, p_done, p_note)` (anyone who works at the site; the day itself or up to 7 days after). Queued offline (outbox allow-list).
+- No notifications: the app shows "Your duty today" in Home's Needs you. Page: `/duties` (`lib/duties/duties.dart`), in the Menu and the side bar.
+
 ## 11. Tools register (migration 0006)
 
 Who holds which tool, when it is due back, and when calibration is due.

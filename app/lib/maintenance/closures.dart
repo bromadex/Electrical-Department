@@ -11,6 +11,7 @@ import '../ui/bits.dart';
 import '../ui/form_sheet.dart';
 import '../ui/surfaces.dart';
 import '../widgets/app_back_button.dart';
+import 'zim_holidays.dart';
 
 /// Days the department is closed (migration 0058): a shutdown or a public
 /// holiday, at every site (siteId null) or one. Planned jobs are not
@@ -22,13 +23,23 @@ class Closure {
       siteId = j['site_id'] as String?,
       startsOn = DateTime.parse(j['starts_on'] as String),
       endsOn = DateTime.parse(j['ends_on'] as String),
-      reason = j['reason'] as String;
+      reason = j['reason'] as String,
+      kind = (j['kind'] as String?) ?? 'shutdown',
+      message = j['message'] as String?;
 
   final String id;
   final String? siteId;
   final DateTime startsOn;
   final DateTime endsOn;
   final String reason;
+
+  /// 'shutdown' or 'holiday' (migration 0059).
+  final String kind;
+
+  /// A greeting for the team, shown on Home just before and during it.
+  final String? message;
+
+  bool get holiday => kind == 'holiday';
 
   /// Whether [day] (a date) falls in this closure.
   bool covers(DateTime day) {
@@ -52,24 +63,34 @@ final closuresProvider = FutureProvider.autoDispose<List<Closure>>((ref) async {
   final rows = await ref
       .watch(supabaseProvider)
       .from('work_closures')
-      .select('id, site_id, starts_on, ends_on, reason')
+      .select('id, site_id, starts_on, ends_on, reason, kind, message')
       .eq('is_archived', false)
       .gte('ends_on', today)
-      .order('starts_on');
+      .order('starts_on', ascending: true);
   return [for (final r in rows) Closure.fromJson(r)];
 });
 
-/// The closure on today or starting within [days] days (a month), for [site] (or
-/// every site), if any: what Home and Planned maintenance mention.
+/// The closure on today or coming up, for [site] (or every site), if any:
+/// what Home and Planned maintenance mention. A shutdown shows from [days]
+/// days before (a month), a public holiday from a week before.
 Closure? closureSoon(List<Closure> list, String? site, {int days = 31}) {
   final now = DateTime.now();
   final today = DateTime(now.year, now.month, now.day);
   for (final c in list) {
     if (!c.at(site)) continue;
     if (c.covers(today)) return c;
-    if (!c.startsOn.isAfter(today.add(Duration(days: days)))) return c;
+    final ahead = c.holiday ? 7 : days;
+    if (!c.startsOn.isAfter(today.add(Duration(days: ahead)))) return c;
   }
   return null;
+}
+
+/// Whether the greeting shows: on the day(s), and the three days before.
+bool showsMessage(Closure c, DateTime now) {
+  if (c.message == null) return false;
+  final today = DateTime(now.year, now.month, now.day);
+  return c.covers(today) ||
+      !c.startsOn.isAfter(today.add(const Duration(days: 3)));
 }
 
 String _iso(DateTime d) =>
@@ -109,7 +130,10 @@ class ClosureNotice extends ConsumerWidget {
         onTap: () => context.push('/closures'),
         child: Row(
           children: [
-            Icon(CupertinoIcons.moon_zzz, color: BrandColors.warning),
+            Icon(
+              c.holiday ? CupertinoIcons.gift : CupertinoIcons.moon_zzz,
+              color: BrandColors.warning,
+            ),
             const SizedBox(width: Space.sm),
             Expanded(
               child: Column(
@@ -117,11 +141,20 @@ class ClosureNotice extends ConsumerWidget {
                 children: [
                   Text(
                     on
-                        ? 'Closed: ${c.reason}'
-                        : 'Closing ${dates.formatMediumDate(c.startsOn)}: '
+                        ? (c.holiday ? c.reason : 'Closed: ${c.reason}')
+                        : '${c.holiday ? 'Holiday' : 'Closing'} '
+                              '${dates.formatMediumDate(c.startsOn)}: '
                               '${c.reason}',
                     style: theme.textTheme.titleSmall,
                   ),
+                  if (showsMessage(c, now))
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Text(
+                        c.message!,
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                    ),
                   Text(
                     [
                       'Work starts again ${dates.formatMediumDate(c.reopens)}',
@@ -199,6 +232,16 @@ class ClosuresScreen extends ConsumerWidget {
                           style: theme.textTheme.bodySmall,
                         ),
                       ),
+                      if (canManage &&
+                          session.perms.canEverywhere('jobs.assign'))
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: Space.md),
+                          child: OutlinedButton.icon(
+                            icon: const Icon(CupertinoIcons.gift),
+                            label: const Text('Add public holidays for a year'),
+                            onPressed: () => _addHolidays(context, ref),
+                          ),
+                        ),
                       ...list.when(
                         loading: () => [
                           const Center(child: CircularProgressIndicator()),
@@ -236,7 +279,9 @@ class ClosuresScreen extends ConsumerWidget {
                                       child: Row(
                                         children: [
                                           Icon(
-                                            CupertinoIcons.moon_zzz,
+                                            c.holiday
+                                                ? CupertinoIcons.gift
+                                                : CupertinoIcons.moon_zzz,
                                             color: c.covers(DateTime.now())
                                                 ? BrandColors.warning
                                                 : theme.colorScheme.primary,
@@ -269,6 +314,20 @@ class ClosuresScreen extends ConsumerWidget {
                                                       .textTheme
                                                       .labelSmall,
                                                 ),
+                                                if (c.message != null)
+                                                  Text(
+                                                    '“${c.message}”',
+                                                    maxLines: 2,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style: theme
+                                                        .textTheme
+                                                        .bodySmall
+                                                        ?.copyWith(
+                                                          fontStyle:
+                                                              FontStyle.italic,
+                                                        ),
+                                                  ),
                                               ],
                                             ),
                                           ),
@@ -290,6 +349,74 @@ class ClosuresScreen extends ConsumerWidget {
   }
 }
 
+/// Adds Zimbabwe's public holidays for a year the user picks, with their
+/// messages, for every site; ones already there (or inside a shutdown)
+/// are left alone.
+Future<void> _addHolidays(BuildContext context, WidgetRef ref) async {
+  final now = DateTime.now().year;
+  final year = await showDialog<int>(
+    context: context,
+    builder: (context) => SimpleDialog(
+      title: const Text('Public holidays for which year?'),
+      children: [
+        for (final y in [now, now + 1, now + 2])
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, y),
+            child: Text('$y'),
+          ),
+      ],
+    ),
+  );
+  if (year == null || !context.mounted) return;
+  final messenger = ScaffoldMessenger.of(context);
+  final db = ref.read(supabaseProvider);
+  try {
+    final rows = await db
+        .from('work_closures')
+        .select('starts_on, ends_on')
+        .eq('is_archived', false)
+        .isFilter('site_id', null)
+        .lte('starts_on', '$year-12-31')
+        .gte('ends_on', '$year-01-01');
+    bool covered(DateTime from, DateTime to) => rows.any(
+      (r) =>
+          !from.isBefore(DateTime.parse(r['starts_on'] as String)) &&
+          !to.isAfter(DateTime.parse(r['ends_on'] as String)),
+    );
+    var added = 0;
+    for (final h in zimbabweHolidays(year)) {
+      if (covered(h.from, h.to)) continue;
+      await db.rpc(
+        'fn_save_closure',
+        params: {
+          'p_id': null,
+          'p_site': null,
+          'p_starts': _iso(h.from),
+          'p_ends': _iso(h.to),
+          'p_reason': h.reason,
+          'p_archived': false,
+          'p_kind': 'holiday',
+          'p_message': h.message,
+        },
+      );
+      added++;
+    }
+    ref.invalidate(closuresProvider);
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          added == 0
+              ? "$year's public holidays are already in."
+              : 'Added $added public holidays for $year. Remove any a site '
+                    'works through.',
+        ),
+      ),
+    );
+  } catch (e) {
+    messenger.showSnackBar(SnackBar(content: Text(AppError.from(e).message)));
+  }
+}
+
 /// Adds or changes closed days; a closure can be removed here too.
 class ClosureForm extends ConsumerStatefulWidget {
   const ClosureForm({super.key, this.closure});
@@ -302,6 +429,8 @@ class ClosureForm extends ConsumerStatefulWidget {
 
 class _ClosureFormState extends ConsumerState<ClosureForm> {
   late final _reason = TextEditingController(text: widget.closure?.reason);
+  late final _message = TextEditingController(text: widget.closure?.message);
+  late bool _holiday = widget.closure?.holiday ?? false;
   late DateTime _from = widget.closure?.startsOn ?? _today();
   late DateTime _to = widget.closure?.endsOn ?? _today();
 
@@ -318,6 +447,7 @@ class _ClosureFormState extends ConsumerState<ClosureForm> {
   @override
   void dispose() {
     _reason.dispose();
+    _message.dispose();
     super.dispose();
   }
 
@@ -342,6 +472,9 @@ class _ClosureFormState extends ConsumerState<ClosureForm> {
               'p_ends': _iso(_to),
               'p_reason': remove ? widget.closure!.reason : _reason.text.trim(),
               'p_archived': remove,
+              'p_kind': _holiday ? 'holiday' : 'shutdown',
+              // Empty clears it.
+              'p_message': _message.text.trim(),
             },
           );
       ref.invalidate(closuresProvider);
@@ -403,6 +536,17 @@ class _ClosureFormState extends ConsumerState<ClosureForm> {
             style: theme.textTheme.headlineSmall,
           ),
           const SizedBox(height: Space.md),
+          Center(
+            child: SegmentedButton<bool>(
+              segments: const [
+                ButtonSegment(value: false, label: Text('Shutdown')),
+                ButtonSegment(value: true, label: Text('Public holiday')),
+              ],
+              selected: {_holiday},
+              onSelectionChanged: (v) => setState(() => _holiday = v.first),
+            ),
+          ),
+          const SizedBox(height: Space.md),
           TextField(
             controller: _reason,
             textCapitalization: TextCapitalization.sentences,
@@ -440,6 +584,18 @@ class _ClosureFormState extends ConsumerState<ClosureForm> {
             ),
           ),
           const SizedBox(height: Space.md),
+          TextField(
+            controller: _message,
+            minLines: 2,
+            maxLines: 5,
+            maxLength: 400,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: const InputDecoration(
+              labelText: 'Message for the team (optional)',
+              hintText: 'Shown on Home on the day and the three days before',
+            ),
+          ),
+          const SizedBox(height: Space.sm),
           DropdownButtonFormField<String?>(
             initialValue: _site,
             isExpanded: true,

@@ -32,6 +32,8 @@ class OutboxService {
     'fn_mark_read': false,
     'fn_register_device': false,
     'fn_save_recurrence': false,
+    // Ticking a daily duty (migration 0059).
+    'fn_mark_duty': false,
     'fn_save_asset': false,
     'fn_save_tool': false,
     'fn_issue_tool': false,

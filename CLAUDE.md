@@ -23,6 +23,10 @@ in `API.md`.
   all) inside each page; forms creating something have `SiteField`
   (default `currentSiteProvider`: the filtered or home site). A new list
   page adds the chip and treats a null filter as every site.
+- Everyday operations are daily duties (`app/lib/duties/duties.dart`,
+  migration 0059), not job cards, and send no notifications. Closed days
+  (shutdowns, public holidays with messages) are `work_closures`
+  (`app/lib/maintenance/closures.dart`); scheduled work skips them.
 - Job cards are the one job system: code in `app/lib/v2/`, screens at
   `/jobs` (list, the Jobs tab), `/jobs/<number>`, `/jobs/mine`, `/jobs/new`,
   `/requests`, `/my-requests`, `/job-stats` (see `app/lib/v2/routes.dart`).

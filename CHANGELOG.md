@@ -4,6 +4,23 @@
 
 ## 24 November 2026
 
+### Public holidays, holiday messages and daily duties
+- **Zimbabwe's public holidays for 2027** are in (Youth Day, Easter,
+  Independence, Workers' Day, Africa Day, Heroes' and Defence Forces Days,
+  Unity Day, Christmas and Boxing Day; Sunday holidays on the Monday).
+  **Add public holidays for a year** on Shutdowns and holidays adds any
+  other year. Remove one a site works through.
+- **Holiday messages**: each holiday and the Christmas shutdown has a
+  greeting for the team, shown on Home on the day and the three days
+  before. Supervisors can change it in the closed days form.
+- **Daily duties** (Menu → Daily duties): everyday operations without job
+  cards. A duty list has the team in order and the duties; each day the
+  duties move one step round the team (Geri reads the meters today,
+  Nyasha tomorrow), or a duty can always be one person's. Anyone off or on
+  leave in the roster is left out. Tick duties done, even without signal.
+  **No notifications**: your duties show on Home under Needs you.
+- The KPI generator is planned for later (GitHub issue #39).
+
 ### Everyday jobs, taking turns and the Christmas shutdown
 - **Planned maintenance** can now repeat **every day**, on **weekdays
   (Monday to Friday)**, weekly, monthly, every 3 months or yearly.

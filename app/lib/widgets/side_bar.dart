@@ -204,6 +204,7 @@ class _SideBar extends ConsumerWidget {
             one('/requests', 'Requests', CupertinoIcons.tray_arrow_down),
           if (session.can('req.submit'))
             one('/my-requests', 'My requests', CupertinoIcons.paperplane),
+          one('/duties', 'Daily duties', Icons.task_alt_rounded),
           one('/checklists', 'Checklists', CupertinoIcons.checkmark_rectangle),
           one('/reports', 'Daily report', CupertinoIcons.doc_chart),
           if (session.can('jobs.assign'))

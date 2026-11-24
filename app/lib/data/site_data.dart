@@ -138,7 +138,7 @@ final recurrencesProvider =
           .select()
           .eq('is_archived', false);
       if (site != null) q = q.eq('site_id', site);
-      final rows = await q.order('next_run');
+      final rows = await q.order('next_run', ascending: true);
       return [for (final r in rows) Map<String, dynamic>.from(r)];
     });
 

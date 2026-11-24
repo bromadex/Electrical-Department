@@ -130,6 +130,13 @@ class MoreScreen extends ConsumerWidget {
               onTap: () => context.push('/meetings'),
             ),
             ShortcutTile(
+              icon: Icons.task_alt_rounded,
+              title: 'Daily duties',
+              subtitle: 'Who does what today',
+              colors: const [BrandColors.info, Color(0xFF6E9BEA)],
+              onTap: () => context.push('/duties'),
+            ),
+            ShortcutTile(
               icon: Icons.fact_check_outlined,
               title: 'Checklists',
               subtitle: 'Daily rounds',
