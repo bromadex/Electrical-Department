@@ -19,6 +19,7 @@ import '../ui/surfaces.dart';
 import 'report_pdf.dart';
 import 'reports_repository.dart';
 import '../widgets/app_back_button.dart';
+import '../widgets/site_picker.dart';
 
 enum _Range { day, week, month }
 
@@ -45,7 +46,9 @@ class _DailyReportScreenState extends ConsumerState<DailyReportScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final site = ref.watch(currentSiteProvider);
+    final site = ref
+        .watch(sessionProvider)
+        .siteById(ref.watch(reportSiteProvider));
     final top = MediaQuery.paddingOf(context).top + kToolbarHeight;
     final dates = MaterialLocalizations.of(context);
     final date = reportDate(_day);
@@ -56,9 +59,14 @@ class _DailyReportScreenState extends ConsumerState<DailyReportScreen> {
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         leading: const AppBackButton(),
-        title: Text('Daily report · ${site?.code ?? ''}'),
+        title: const Text('Daily report'),
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
         actions: [
+          SiteFilterChip(
+            value: site?.id,
+            allowAll: false,
+            onChanged: (v) => ref.read(reportSiteProvider.notifier).set(v),
+          ),
           IconButton(
             tooltip: 'Archive and search',
             icon: const Icon(CupertinoIcons.archivebox),

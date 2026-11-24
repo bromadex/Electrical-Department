@@ -11,6 +11,7 @@ import '../theme/tokens.dart';
 import '../ui/bits.dart';
 import '../ui/surfaces.dart';
 import '../widgets/app_back_button.dart';
+import '../widgets/site_picker.dart';
 import 'store_repository.dart';
 
 /// Inventory and project numbers (API.md section 20): what went out most,
@@ -51,17 +52,12 @@ class StockStatsScreen extends ConsumerStatefulWidget {
 
 class _StockStatsScreenState extends ConsumerState<StockStatsScreen> {
   int _days = 30;
-  bool _allSites = false;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final site = ref.watch(currentSiteProvider);
-    final manySites =
-        ref.watch(sessionProvider.select((s) => s.mySites.length)) > 1;
-    final stats = ref.watch(
-      stockStatsProvider((site: _allSites ? null : site?.id, days: _days)),
-    );
+    final site = ref.watch(siteFilterProvider);
+    final stats = ref.watch(stockStatsProvider((site: site, days: _days)));
     final top = MediaQuery.paddingOf(context).top + kToolbarHeight;
 
     Widget chip(String label, bool selected, VoidCallback onTap) => Padding(
@@ -78,11 +74,7 @@ class _StockStatsScreenState extends ConsumerState<StockStatsScreen> {
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         leading: const AppBackButton(fallback: '/inventory'),
-        title: Text(
-          _allSites
-              ? 'Inventory stats · all sites'
-              : 'Inventory stats · ${site?.code ?? ''}',
-        ),
+        title: const Text('Inventory stats'),
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
       ),
       body: MeshBackground(
@@ -110,12 +102,7 @@ class _StockStatsScreenState extends ConsumerState<StockStatsScreen> {
                               _days == d,
                               () => setState(() => _days = d),
                             ),
-                          if (manySites)
-                            chip(
-                              'All my sites',
-                              _allSites,
-                              () => setState(() => _allSites = !_allSites),
-                            ),
+                          const SiteFilterChip(),
                         ],
                       ),
                     ),

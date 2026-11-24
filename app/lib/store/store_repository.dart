@@ -162,13 +162,18 @@ class StockMove {
 
 String _cacheKey(String site) => 'store_stock_$site';
 
-/// The current site's items (or every site's, with All my sites), by name.
+/// Every site's items (or one site's, with the site filter), by name.
 /// Online it saves a copy on the device; without signal it shows that copy.
-final storeItemsProvider = FutureProvider<StoreStock>((ref) async {
-  final filter = ref.watch(siteFilterProvider);
-  if (filter == null && !ref.watch(allSitesProvider)) {
-    return const StoreStock([]);
-  }
+final storeItemsProvider = FutureProvider<StoreStock>(
+  (ref) => _loadStock(ref, ref.watch(siteFilterProvider)),
+);
+
+/// One site's items, for forms (a request or purchase is for one site,
+/// whatever the page filter shows).
+final storeItemsAtProvider = FutureProvider.autoDispose
+    .family<StoreStock, String>((ref, site) => _loadStock(ref, site));
+
+Future<StoreStock> _loadStock(Ref ref, String? filter) async {
   final site = filter ?? 'all';
   try {
     var q = ref
@@ -198,7 +203,7 @@ final storeItemsProvider = FutureProvider<StoreStock>((ref) async {
     if (saved == null) rethrow;
     return saved;
   }
-});
+}
 
 final storeItemProvider = FutureProvider.autoDispose.family<StoreItem?, String>(
   (ref, id) async {
@@ -234,12 +239,12 @@ final stockMovesProvider = FutureProvider.autoDispose
       return [for (final r in rows) StockMove.fromJson(r)];
     });
 
-/// Open job cards at the current site, to issue stock to.
-final openJobCardsProvider =
-    FutureProvider.autoDispose<
-      List<({String id, String number, String title})>
-    >((ref) async {
-      final site = ref.watch(currentSiteProvider.select((s) => s?.id));
+/// Open job cards at a site, to issue stock to or link to a project.
+final openJobCardsProvider = FutureProvider.autoDispose
+    .family<List<({String id, String number, String title})>, String?>((
+      ref,
+      site,
+    ) async {
       if (site == null) return const [];
       final rows = await ref
           .watch(supabaseProvider)
@@ -477,7 +482,6 @@ typedef StockCountLine = ({
 final stockCountsProvider = FutureProvider.autoDispose<List<StockCountSummary>>(
   (ref) async {
     final filter = ref.watch(siteFilterProvider);
-    if (filter == null && !ref.watch(allSitesProvider)) return const [];
     var q = ref
         .watch(supabaseProvider)
         .from('stock_counts')

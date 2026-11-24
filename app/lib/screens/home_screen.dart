@@ -113,7 +113,6 @@ class _Greeting extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final site = ref.watch(currentSiteProvider);
     final now = harareNow();
     final first = (session.profile?.fullName ?? '').split(' ').first;
     final hello = now.hour < 12
@@ -133,12 +132,20 @@ class _Greeting extends ConsumerWidget {
               fontWeight: FontWeight.w700,
             ),
           ),
-          Text(
-            '${_days[now.weekday - 1]} ${now.day} ${_months[now.month - 1]}'
-            '${site == null ? '' : ' · ${site.name}'}',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${_days[now.weekday - 1]} ${now.day} '
+                  '${_months[now.month - 1]}',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              // Home shows every site; this narrows it to one.
+              const SiteFilterChip(),
+            ],
           ),
         ],
       ),
@@ -154,13 +161,12 @@ class _ToDo extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(sessionProvider);
-    final site = ref.watch(currentSiteProvider);
     final me = ref.watch(authUserIdProvider);
     final tools = ref.watch(siteToolsProvider).value ?? const <LocalTool>[];
     final templates = ref.watch(checklistTemplatesProvider).value ?? const [];
     final status = ref.watch(checklistStatusProvider).value ?? const {};
     final toSign = ref.watch(toSignCountProvider);
-    bool can(String code) => site != null && session.can(code, siteId: site.id);
+    bool can(String code) => session.canAnywhere(code);
     final now = DateTime.now();
 
     final extra = <NeedsYouItem>[
@@ -308,26 +314,24 @@ class _MyRequests extends ConsumerWidget {
   }
 }
 
-/// The four job card numbers for the site.
+/// The four job card numbers, for every site or the filtered one.
 class _SiteNumbers extends ConsumerWidget {
   const _SiteNumbers();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final site = ref.watch(currentSiteProvider);
     final session = ref.watch(sessionProvider);
-    if (site == null || !session.can('jc.view', siteId: site.id)) {
-      return const SizedBox.shrink();
-    }
+    if (!session.canAnywhere('jc.view')) return const SizedBox.shrink();
+    final filter = ref.watch(siteFilterProvider);
     final data = ref.watch(
-      dashboardProvider((
-        ref.watch(siteFilterProvider),
-        ref.watch(dashRangeProvider),
-      )),
+      dashboardProvider((filter, ref.watch(dashRangeProvider))),
     );
     final d = data.value;
     if (d == null) return const SizedBox.shrink();
-    return JobCardNumbers(data: d, siteName: site.name);
+    return JobCardNumbers(
+      data: d,
+      siteName: filter == null ? null : session.siteById(filter)?.name,
+    );
   }
 }
 
@@ -338,9 +342,8 @@ class _Shortcuts extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(sessionProvider);
-    final site = ref.watch(currentSiteProvider);
     final unreadChat = ref.watch(chatUnreadProvider);
-    bool can(String code) => site != null && session.can(code, siteId: site.id);
+    bool can(String code) => session.canAnywhere(code);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

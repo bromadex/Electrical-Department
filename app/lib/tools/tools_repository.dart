@@ -95,25 +95,21 @@ final toolsSyncProvider = NotifierProvider<ToolsSyncNotifier, AppError?>(
 class ToolsSyncNotifier extends Notifier<AppError?> {
   LocalDb get _db => ref.read(localDbProvider);
   SupabaseClient get _client => ref.read(supabaseProvider);
-  String? _siteId;
+  String? _userId;
 
   @override
   AppError? build() {
     final userId = ref.watch(authUserIdProvider);
-    final site = ref.watch(currentSiteProvider.select((s) => s?.id));
-    _siteId = site;
-    if (userId == null || site == null) return null;
+    _userId = userId;
+    if (userId == null) return null;
+    // Every site's tools (people work at every site; lists filter on the
+    // device).
     final channel = _client
-        .channel('tools:$site')
+        .channel('tools:all')
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'tools',
-          filter: PostgresChangeFilter(
-            type: PostgresChangeFilterType.eq,
-            column: 'site_id',
-            value: site,
-          ),
           callback: (_) => unawaited(refresh()),
         )
         .subscribe();
@@ -123,24 +119,22 @@ class ToolsSyncNotifier extends Notifier<AppError?> {
   }
 
   Future<void> refresh() async {
-    final site = _siteId;
-    if (site == null) return;
+    final user = _userId;
+    if (user == null) return;
     try {
       final rows = await _client
           .from('tools')
           .select()
-          .eq('site_id', site)
           .eq('is_archived', false)
           .order('code');
-      if (!ref.mounted || _siteId != site) return;
+      if (!ref.mounted || _userId != user) return;
       final pending = (await (_db.select(
         _db.localTools,
       )..where((t) => t.pending.equals(true))).get()).map((t) => t.id).toSet();
       await _db.transaction(() async {
-        await (_db.delete(_db.localTools)
-              ..where((t) => t.siteId.equals(site))
-              ..where((t) => t.pending.equals(false)))
-            .go();
+        await (_db.delete(
+          _db.localTools,
+        )..where((t) => t.pending.equals(false))).go();
         await _db.batch((b) {
           b.insertAllOnConflictUpdate(_db.localTools, [
             for (final r in rows)
@@ -161,16 +155,30 @@ class ToolsSyncNotifier extends Notifier<AppError?> {
   }
 }
 
-/// Tools at the current site, from the device cache, by code.
+/// Tools (every site, or the site filter's), from the device cache, by
+/// code.
 final siteToolsProvider = StreamProvider<List<LocalTool>>((ref) {
   ref.watch(toolsSyncProvider.select((_) => null));
-  final site = ref.watch(currentSiteProvider.select((s) => s?.id));
-  if (site == null) return Stream.value(const []);
+  final site = ref.watch(siteFilterProvider);
   final db = ref.watch(localDbProvider);
-  return (db.select(db.localTools)
-        ..where((t) => t.siteId.equals(site))
-        ..orderBy([(t) => OrderingTerm(expression: t.code)]))
-      .watch();
+  final q = db.select(db.localTools)
+    ..orderBy([(t) => OrderingTerm(expression: t.code)]);
+  if (site != null) q.where((t) => t.siteId.equals(site));
+  return q.watch();
+});
+
+/// Tools at one site (null: every site), whatever the page filter shows:
+/// for forms such as the issue form.
+final toolsAtProvider = StreamProvider.family<List<LocalTool>, String?>((
+  ref,
+  site,
+) {
+  ref.watch(toolsSyncProvider.select((_) => null));
+  final db = ref.watch(localDbProvider);
+  final q = db.select(db.localTools)
+    ..orderBy([(t) => OrderingTerm(expression: t.code)]);
+  if (site != null) q.where((t) => t.siteId.equals(site));
+  return q.watch();
 });
 
 final toolProvider = StreamProvider.family<LocalTool?, String>((ref, id) {

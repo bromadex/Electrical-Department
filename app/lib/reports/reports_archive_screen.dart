@@ -29,7 +29,6 @@ typedef ArchivedReport = ({
 final reportsArchiveProvider = FutureProvider.autoDispose
     .family<List<ArchivedReport>, String>((ref, query) async {
       final site = ref.watch(siteFilterProvider);
-      if (site == null && !ref.watch(allSitesProvider)) return const [];
       final q = query.trim();
       final db = ref.watch(supabaseProvider);
       var select = db
@@ -103,7 +102,7 @@ class _ReportsArchiveScreenState extends ConsumerState<ReportsArchiveScreen> {
     final theme = Theme.of(context);
     final reports = ref.watch(reportsArchiveProvider(_query));
     final session = ref.watch(sessionProvider);
-    final all = ref.watch(allSitesProvider);
+    final all = (ref.watch(siteFilterProvider) == null);
     final dates = MaterialLocalizations.of(context);
     final top = MediaQuery.paddingOf(context).top + kToolbarHeight;
     return Scaffold(
@@ -142,7 +141,7 @@ class _ReportsArchiveScreenState extends ConsumerState<ReportsArchiveScreen> {
                     const SizedBox(height: Space.sm),
                     const Align(
                       alignment: Alignment.centerLeft,
-                      child: AllSitesChip(),
+                      child: SiteFilterChip(),
                     ),
                     const SizedBox(height: Space.sm),
                     ...reports.when(

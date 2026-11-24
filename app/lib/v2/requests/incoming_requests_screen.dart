@@ -67,7 +67,7 @@ class _IncomingRequestsScreenState
       title: 'Incoming Requests',
       subtitle: 'Faults and work requested by other departments, waiting to be registered',
       actions: [
-        const AllSitesChip(),
+        const SiteFilterChip(),
         FilterChip(
           label: const Text('Show returned'),
           selected: _includeReturned,

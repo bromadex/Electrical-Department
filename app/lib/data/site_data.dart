@@ -41,38 +41,32 @@ final siteDataProvider = NotifierProvider<SiteDataNotifier, SiteDataState>(
 class SiteDataNotifier extends Notifier<SiteDataState> {
   LocalDb get _db => ref.read(localDbProvider);
   SupabaseClient get _client => ref.read(supabaseProvider);
-  String? _siteId;
+  String? _userId;
 
   @override
   SiteDataState build() {
     final userId = ref.watch(authUserIdProvider);
-    final site = ref.watch(currentSiteProvider.select((s) => s?.id));
-    _siteId = site;
-    if (userId == null || site == null) return const SiteDataState();
+    _userId = userId;
+    if (userId == null) return const SiteDataState();
     Future.microtask(refresh);
     return const SiteDataState(loading: true);
   }
 
+  /// Every site's equipment register and everyone's names (people work at
+  /// every site; lists filter on the device).
   Future<void> refresh() async {
-    final site = _siteId;
-    if (site == null) return;
+    final user = _userId;
+    if (user == null) return;
     state = SiteDataState(loading: true, synced: state.synced);
     try {
       final results = await Future.wait<dynamic>([
         _client.from('profiles').select('id, full_name'),
-        _client
-            .from('assets')
-            .select()
-            .eq('site_id', site)
-            .eq('is_archived', false)
-            .order('tag'),
+        _client.from('assets').select().eq('is_archived', false).order('tag'),
       ]);
-      if (!ref.mounted || _siteId != site) return;
+      if (!ref.mounted || _userId != user) return;
       await _db.transaction(() async {
-        // The register is small: replace this site's copy outright.
-        await (_db.delete(
-          _db.localAssets,
-        )..where((a) => a.siteId.equals(site))).go();
+        // The register is small: replace the copy outright.
+        await _db.delete(_db.localAssets).go();
         await _db.batch((b) {
           b.insertAll(_db.localAssets, [
             for (final r in results[1] as List) assetFromRow(r),
@@ -103,9 +97,22 @@ final peopleProvider = StreamProvider<Map<String, String>>((ref) {
       .map((rows) => {for (final p in rows) p.id: p.fullName});
 });
 
-/// The equipment register at the current site, from the device copy.
+/// The equipment register (every site, or the site filter's), from the
+/// device copy.
 final siteAssetsProvider = StreamProvider<List<LocalAsset>>((ref) {
-  final site = ref.watch(currentSiteProvider.select((s) => s?.id));
+  final site = ref.watch(siteFilterProvider);
+  final db = ref.watch(localDbProvider);
+  final q = db.select(db.localAssets)
+    ..orderBy([(a) => OrderingTerm(expression: a.tag)]);
+  if (site != null) q.where((a) => a.siteId.equals(site));
+  return q.watch();
+});
+
+/// The equipment at one site (forms, whatever the page filter shows).
+final assetsAtProvider = StreamProvider.family<List<LocalAsset>, String?>((
+  ref,
+  site,
+) {
   if (site == null) return Stream.value(const []);
   final db = ref.watch(localDbProvider);
   return (db.select(db.localAssets)
@@ -121,18 +128,17 @@ final assetProvider = StreamProvider.family<LocalAsset?, String>((ref, id) {
   )..where((a) => a.id.equals(id))).watchSingleOrNull();
 });
 
-/// Planned maintenance plans at the current site (online).
+/// Planned maintenance plans (every site, or the site filter's; online).
 final recurrencesProvider =
     FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
-      final site = ref.watch(currentSiteProvider.select((s) => s?.id));
-      if (site == null) return const [];
-      final rows = await ref
+      final site = ref.watch(siteFilterProvider);
+      var q = ref
           .watch(supabaseProvider)
           .from('job_recurrences')
           .select()
-          .eq('site_id', site)
-          .eq('is_archived', false)
-          .order('next_run');
+          .eq('is_archived', false);
+      if (site != null) q = q.eq('site_id', site);
+      final rows = await q.order('next_run');
       return [for (final r in rows) Map<String, dynamic>.from(r)];
     });
 

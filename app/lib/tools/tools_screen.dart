@@ -17,6 +17,7 @@ import '../assets/assets_screen.dart' show CardColumns;
 import 'issue_forms_repository.dart';
 import 'tools_repository.dart';
 import '../widgets/app_back_button.dart';
+import '../widgets/site_picker.dart';
 
 /// Narrows the tools side of the Equipment & tools page.
 enum ToolFilter { all, store, out, mine, overdue, calibration, attention }
@@ -88,9 +89,7 @@ class ToolList extends ConsumerWidget {
     final people = ref.watch(peopleProvider).value ?? const {};
     final me = ref.watch(authUserIdProvider);
     final session = ref.watch(sessionProvider);
-    final site = ref.watch(currentSiteProvider);
-    final canIssue =
-        site != null && session.can('tools.issue', siteId: site.id);
+    final canIssue = session.canAnywhere('tools.issue');
     final q = query.trim().toLowerCase();
     final shown = [
       for (final t in tools)
@@ -539,6 +538,8 @@ class _ToolFormState extends ConsumerState<ToolForm> {
   late final _serial = TextEditingController(text: widget.tool?.serialNo);
   late final _notes = TextEditingController(text: widget.tool?.notes);
   late DateTime? _calibration = widget.tool?.calibrationDue;
+  late String? _siteId =
+      widget.tool?.siteId ?? ref.read(currentSiteProvider)?.id;
   late ToolCondition _condition = ToolCondition.parse(
     widget.tool?.condition ?? 'good',
   );
@@ -554,7 +555,7 @@ class _ToolFormState extends ConsumerState<ToolForm> {
   }
 
   Future<void> _save({bool archive = false}) async {
-    final site = ref.read(currentSiteProvider);
+    final site = _siteId;
     if (site == null) return;
     if (_name.text.trim().length < 2) {
       setState(() => _error = 'Name the tool');
@@ -569,7 +570,7 @@ class _ToolFormState extends ConsumerState<ToolForm> {
         .read(toolActionsProvider)
         .save(
           tool: widget.tool,
-          siteId: widget.tool?.siteId ?? site.id,
+          siteId: site,
           name: _name.text,
           kind: _kind.text,
           serialNo: _serial.text,
@@ -606,6 +607,13 @@ class _ToolFormState extends ConsumerState<ToolForm> {
                 : 'Edit ${widget.tool!.code ?? 'tool'}',
             style: theme.textTheme.headlineSmall,
           ),
+          if (widget.tool == null) ...[
+            const SizedBox(height: Space.md),
+            SiteField(
+              value: _siteId,
+              onChanged: (v) => setState(() => _siteId = v),
+            ),
+          ],
           label('Name'),
           TextField(
             controller: _name,
@@ -729,11 +737,15 @@ class _ToolCountScreenState extends ConsumerState<ToolCountScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // A count is of one site's store: the filtered site, else home.
+    final site = ref.watch(currentSiteProvider);
     final tools = (ref.watch(siteToolsProvider).value ?? const [])
-        .where((t) => t.condition != ToolCondition.lost.value)
+        .where(
+          (t) =>
+              t.siteId == site?.id && t.condition != ToolCondition.lost.value,
+        )
         .toList();
     final people = ref.watch(peopleProvider).value ?? const {};
-    final site = ref.watch(currentSiteProvider);
     final theme = Theme.of(context);
     final top = MediaQuery.paddingOf(context).top + kToolbarHeight;
 
@@ -742,7 +754,7 @@ class _ToolCountScreenState extends ConsumerState<ToolCountScreen> {
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         leading: const AppBackButton(),
-        title: const Text('Tool count'),
+        title: Text('Tool count · ${site?.code ?? ''}'),
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
       ),
       floatingActionButton: FloatingActionButton.extended(

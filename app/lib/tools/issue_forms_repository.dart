@@ -124,38 +124,34 @@ const _formSelect =
     'lines:tool_issues(tool_id, qty, issue_condition, returned_at, '
     'return_condition, return_note, tool:tools(code, name, serial_no))';
 
-/// The current site's forms, newest first, kept live (online).
+/// Forms (every site, or the site filter's), newest first, kept live
+/// (online).
 final issueFormsProvider = StreamProvider.autoDispose<List<IssueForm>>((
   ref,
 ) async* {
-  final site = ref.watch(currentSiteProvider.select((s) => s?.id));
-  if (site == null) {
-    yield const [];
-    return;
-  }
+  final site = ref.watch(siteFilterProvider);
   final client = ref.watch(supabaseProvider);
   Future<List<IssueForm>> load() async {
-    final rows = await client
-        .from('tool_issue_forms')
-        .select(_formSelect)
-        .eq('site_id', site)
-        .order('issued_at', ascending: false)
-        .limit(200);
+    var q = client.from('tool_issue_forms').select(_formSelect);
+    if (site != null) q = q.eq('site_id', site);
+    final rows = await q.order('issued_at', ascending: false).limit(200);
     return [for (final r in rows) IssueForm.fromJson(r)];
   }
 
   final changes = StreamController<void>();
   final channel = client
-      .channel('tool-forms:$site')
+      .channel('tool-forms:${site ?? 'all'}')
       .onPostgresChanges(
         event: PostgresChangeEvent.all,
         schema: 'public',
         table: 'tool_issue_forms',
-        filter: PostgresChangeFilter(
-          type: PostgresChangeFilterType.eq,
-          column: 'site_id',
-          value: site,
-        ),
+        filter: site == null
+            ? null
+            : PostgresChangeFilter(
+                type: PostgresChangeFilterType.eq,
+                column: 'site_id',
+                value: site,
+              ),
         callback: (_) => changes.add(null),
       )
       .subscribe();

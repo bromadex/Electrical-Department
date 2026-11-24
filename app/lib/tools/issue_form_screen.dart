@@ -14,6 +14,7 @@ import '../ui/form_sheet.dart';
 import '../ui/signature_pad.dart';
 import '../ui/surfaces.dart';
 import '../widgets/app_back_button.dart';
+import '../widgets/site_picker.dart';
 import 'issue_forms_repository.dart';
 import 'tools_repository.dart';
 import 'tools_screen.dart';
@@ -62,6 +63,10 @@ class _IssueFormScreenState extends ConsumerState<IssueFormScreen> {
   bool _busy = false;
   bool _seeded = false;
 
+  /// The site issuing: tools picked first (from a job card) set it;
+  /// otherwise the filtered site or your home site.
+  late String? _siteId = ref.read(currentSiteProvider)?.id;
+
   @override
   void dispose() {
     for (final c in [_name, _role, _company, _lead, _location, _remarks]) {
@@ -78,6 +83,7 @@ class _IssueFormScreenState extends ConsumerState<IssueFormScreen> {
     _seeded = true;
     for (final id in widget.toolIds) {
       final t = tools.where((t) => t.id == id).firstOrNull;
+      if (t != null) _siteId = t.siteId;
       if (t != null && issuable(t) == null) _lines.add(_Line(t));
     }
   }
@@ -100,7 +106,10 @@ class _IssueFormScreenState extends ConsumerState<IssueFormScreen> {
   }
 
   Future<void> _newTool() async {
-    final id = await showFormSheet<String>(context, const _QuickToolSheet());
+    final id = await showFormSheet<String>(
+      context,
+      _QuickToolSheet(siteId: _siteId),
+    );
     if (id == null || !mounted) return;
     final db = ref.read(localDbProvider);
     final t = await (db.select(
@@ -110,7 +119,7 @@ class _IssueFormScreenState extends ConsumerState<IssueFormScreen> {
   }
 
   Future<void> _submit() async {
-    final site = ref.read(currentSiteProvider);
+    final site = ref.read(sessionProvider).siteById(_siteId);
     if (site == null) return;
     String? fail;
     if (_who == _Who.app && _userId == null) {
@@ -167,10 +176,11 @@ class _IssueFormScreenState extends ConsumerState<IssueFormScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final site = ref.watch(currentSiteProvider);
     final session = ref.watch(sessionProvider);
-    final tools = ref.watch(siteToolsProvider).value ?? const <LocalTool>[];
-    _seed(tools);
+    _seed(ref.watch(toolsAtProvider(null)).value ?? const <LocalTool>[]);
+    final site = session.siteById(_siteId);
+    final tools =
+        ref.watch(toolsAtProvider(_siteId)).value ?? const <LocalTool>[];
     final top = MediaQuery.paddingOf(context).top + kToolbarHeight;
     final dates = MaterialLocalizations.of(context);
     final canIssue =
@@ -252,6 +262,17 @@ class _IssueFormScreenState extends ConsumerState<IssueFormScreen> {
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
                           ),
+                          if (_lines.isEmpty) ...[
+                            const SizedBox(height: Space.sm),
+                            SiteField(
+                              label: 'Issuing from the store at',
+                              value: _siteId,
+                              onChanged: (v) => setState(() {
+                                _siteId = v;
+                                _userId = null;
+                              }),
+                            ),
+                          ],
                           const SectionHeader('Issued to'),
                           SurfaceCard(
                             child: Column(
@@ -705,7 +726,9 @@ class _ToolPickerSheetState extends State<ToolPickerSheet> {
 
 /// Adds a tool to the register from the form: name and serial number.
 class _QuickToolSheet extends ConsumerStatefulWidget {
-  const _QuickToolSheet();
+  const _QuickToolSheet({required this.siteId});
+
+  final String? siteId;
 
   @override
   ConsumerState<_QuickToolSheet> createState() => _QuickToolSheetState();
@@ -724,7 +747,7 @@ class _QuickToolSheetState extends ConsumerState<_QuickToolSheet> {
   }
 
   Future<void> _add() async {
-    final site = ref.read(currentSiteProvider);
+    final site = ref.read(sessionProvider).siteById(widget.siteId);
     if (site == null) return;
     if (_name.text.trim().length < 2) {
       setState(() => _error = 'Name the tool');

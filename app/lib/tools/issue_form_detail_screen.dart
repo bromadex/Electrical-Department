@@ -16,6 +16,7 @@ import '../ui/form_sheet.dart';
 import '../ui/signature_pad.dart';
 import '../ui/surfaces.dart';
 import '../widgets/app_back_button.dart';
+import '../widgets/site_picker.dart';
 import 'issue_form_pdf.dart';
 import 'issue_forms_repository.dart';
 import 'tools_repository.dart';
@@ -55,10 +56,8 @@ class _IssueFormsScreenState extends ConsumerState<IssueFormsScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final site = ref.watch(currentSiteProvider);
     final session = ref.watch(sessionProvider);
-    final canIssue =
-        site != null && session.can('tools.issue', siteId: site.id);
+    final canIssue = session.canAnywhere('tools.issue');
     final forms = ref.watch(issueFormsProvider);
     final dates = MaterialLocalizations.of(context);
     final top = MediaQuery.paddingOf(context).top + kToolbarHeight;
@@ -70,6 +69,10 @@ class _IssueFormsScreenState extends ConsumerState<IssueFormsScreen> {
       appBar: AppBar(
         leading: const AppBackButton(fallback: '/equipment?side=tools'),
         title: const Text('Tool issue forms'),
+        actions: const [
+          SiteFilterChip(),
+          SizedBox(width: Space.sm),
+        ],
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
       ),
       floatingActionButton: canIssue

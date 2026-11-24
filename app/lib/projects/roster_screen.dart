@@ -11,6 +11,7 @@ import '../theme/tokens.dart';
 import '../ui/bits.dart';
 import '../ui/surfaces.dart';
 import '../widgets/app_back_button.dart';
+import '../widgets/site_picker.dart';
 import 'projects_repository.dart';
 
 const _days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -49,6 +50,10 @@ class RosterScreen extends ConsumerStatefulWidget {
 
 class _RosterScreenState extends ConsumerState<RosterScreen> {
   late DateTime _monday = mondayOf(widget.day ?? DateTime.now());
+
+  /// A roster is one site's week: this page's own site choice, starting
+  /// at the site filter's site or your home site.
+  late String? _siteId = ref.read(currentSiteProvider)?.id;
 
   /// Changes not saved yet: user → day → (shift, standby); shift null clears.
   final _edits = <String, Map<DateTime, ({String? shift, bool standby})>>{};
@@ -105,7 +110,7 @@ class _RosterScreenState extends ConsumerState<RosterScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final site = ref.watch(currentSiteProvider);
+    final site = ref.watch(sessionProvider).siteById(_siteId);
     final me = ref.watch(authUserIdProvider);
     final canEdit = ref
         .watch(sessionProvider)
@@ -144,7 +149,21 @@ class _RosterScreenState extends ConsumerState<RosterScreen> {
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         leading: const AppBackButton(),
-        title: Text('Roster · ${site?.code ?? ''}'),
+        title: const Text('Roster'),
+        actions: [
+          SiteFilterChip(
+            value: _siteId,
+            allowAll: false,
+            onChanged: (v) {
+              if (v == null || v == _siteId) return;
+              setState(() {
+                _siteId = v;
+                _edits.clear();
+              });
+            },
+          ),
+          const SizedBox(width: Space.sm),
+        ],
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
       ),
       // The glass background runs under the button bar.

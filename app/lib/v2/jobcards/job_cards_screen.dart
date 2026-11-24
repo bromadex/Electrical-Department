@@ -93,7 +93,7 @@ class JobCardsScreen extends ConsumerWidget {
       title: 'Job Cards',
       leading: leading,
       actions: [
-        const AllSitesChip(),
+        const SiteFilterChip(),
         // Phones start a job card from the + in the bottom bar.
         if (perms.can('jc.register') && width >= Breakpoints.phone)
           FilledButton.icon(

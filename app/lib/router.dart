@@ -144,6 +144,7 @@ GoRouter buildRouter(WidgetRef ref) {
         builder: (_, s) => MaterialRequestForm(
           jobCardId: s.uri.queryParameters['job'],
           projectId: s.uri.queryParameters['project'],
+          siteId: s.uri.queryParameters['site'],
         ),
       ),
       GoRoute(

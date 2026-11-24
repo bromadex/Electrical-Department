@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../data/import_sheet.dart';
 import '../data/local_db.dart';
 import '../data/site_data.dart';
+import '../widgets/site_picker.dart';
 import '../services/core_providers.dart';
 import '../services/session_controller.dart';
 import '../theme/tokens.dart';
@@ -135,14 +136,11 @@ class _EquipmentScreenState extends ConsumerState<EquipmentScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final session = ref.watch(sessionProvider);
-    final site = ref.watch(currentSiteProvider);
-    final canAsset =
-        site != null && session.can('jobs.assign', siteId: site.id);
-    final canTool = site != null && session.can('tools.issue', siteId: site.id);
-    final seesTools =
-        site != null && session.can('tools.view', siteId: site.id);
+    final site = ref.watch(siteFilterProvider);
+    final canAsset = session.canAnywhere('jobs.assign');
+    final canTool = session.canAnywhere('tools.issue');
+    final seesTools = session.canAnywhere('tools.view');
     final side = seesTools
         ? ref.watch(equipmentSideProvider)
         : EquipmentSide.equipment;
@@ -152,10 +150,9 @@ class _EquipmentScreenState extends ConsumerState<EquipmentScreen> {
     final tools = seesTools
         ? ref.watch(siteToolsProvider).value ?? const <LocalTool>[]
         : const <LocalTool>[];
-    final openByAsset = site == null
-        ? const <String, int>{}
-        : ref.watch(openJobCardsByAssetProvider(site.id)).value ??
-              const <String, int>{};
+    final openByAsset =
+        ref.watch(openJobCardsByAssetProvider(site)).value ??
+        const <String, int>{};
     final people = ref.watch(peopleProvider).value ?? const {};
     final areaNames = {for (final a in session.areas) a.id: a.name};
     final q = _search.text.trim().toLowerCase();
@@ -287,7 +284,8 @@ class _EquipmentScreenState extends ConsumerState<EquipmentScreen> {
                         .rpc(
                           'fn_import_tools',
                           params: {
-                            'p_site': site.id,
+                            // Into the filtered site, else your home site.
+                            'p_site': ref.read(currentSiteProvider)?.id,
                             'p_rows': [
                               for (final r in rows)
                                 {
@@ -376,16 +374,13 @@ class _EquipmentScreenState extends ConsumerState<EquipmentScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      if (site != null)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: Space.sm),
-                          child: Text(
-                            site.name,
-                            style: theme.textTheme.labelLarge?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: Space.sm),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: SiteFilterChip(),
                         ),
+                      ),
                       if (seesTools) ...[
                         GlassSegmented<EquipmentSide>(
                           value: side,

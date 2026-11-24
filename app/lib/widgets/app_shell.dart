@@ -21,7 +21,6 @@ import 'brand_logo.dart';
 import 'create_sheet.dart';
 import 'notifications_button.dart';
 import 'side_bar.dart';
-import 'site_picker.dart';
 import 'sync_banner.dart';
 import 'theme_toggle.dart';
 import 'sign_out.dart';
@@ -266,7 +265,6 @@ class _PhoneTopBar extends StatelessWidget {
                 ),
               ),
               const SearchButton(),
-              const SitePicker(),
               const ThemeToggle(),
               const NotificationsButton(),
             ],
@@ -301,8 +299,6 @@ class _WindowHeader extends ConsumerWidget {
             ),
           ),
           const SearchButton(glass: true),
-          const SizedBox(width: Space.sm),
-          const SitePicker(large: true),
           const SizedBox(width: Space.sm),
           const ThemeToggle(glass: true),
           const SizedBox(width: Space.sm),

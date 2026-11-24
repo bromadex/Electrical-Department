@@ -15,6 +15,7 @@ import '../ui/motion.dart';
 import '../ui/surfaces.dart';
 import 'checklists_repository.dart';
 import '../widgets/app_back_button.dart';
+import '../widgets/site_picker.dart';
 
 /// Rounds at the current site: what is due, what is done, and (for
 /// supervisors) building the templates.
@@ -26,9 +27,9 @@ class ChecklistsScreen extends ConsumerWidget {
     final templates = ref.watch(checklistTemplatesProvider);
     final status = ref.watch(checklistStatusProvider).value ?? const {};
     final session = ref.watch(sessionProvider);
-    final site = ref.watch(currentSiteProvider);
-    final canManage =
-        site != null && session.can('checklists.manage', siteId: site.id);
+    final canManage = session.mySites.any(
+      (s) => session.can('checklists.manage', siteId: s.id),
+    );
     final top = MediaQuery.paddingOf(context).top + kToolbarHeight;
 
     return Scaffold(
@@ -36,7 +37,11 @@ class ChecklistsScreen extends ConsumerWidget {
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         leading: const AppBackButton(),
-        title: Text('Checklists · ${site?.code ?? ''}'),
+        title: const Text('Checklists'),
+        actions: const [
+          SiteFilterChip(),
+          SizedBox(width: Space.sm),
+        ],
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
       ),
       floatingActionButton: canManage
@@ -177,6 +182,12 @@ class ChecklistTile extends ConsumerWidget {
                 Text(template.name, style: theme.textTheme.titleSmall),
                 Text(
                   [
+                    if (ref.watch(siteFilterProvider) == null)
+                      ref
+                              .watch(sessionProvider)
+                              .siteById(template.siteId)
+                              ?.code ??
+                          '',
                     frequencyLabels[template.frequency] ?? template.frequency,
                     '${template.items.length} items',
                     if (s?.done ?? false)
@@ -231,6 +242,8 @@ class _ChecklistTemplateFormState extends ConsumerState<ChecklistTemplateForm> {
   late String _frequency = widget.template?.frequency ?? 'daily';
   late String? _areaId = widget.template?.areaId;
   late String? _assigneeId = widget.template?.assigneeId;
+  late String? _siteId =
+      widget.template?.siteId ?? ref.read(currentSiteProvider)?.id;
   late final List<ChecklistItem> _items = [
     for (final i in widget.template?.items ?? const <ChecklistItem>[])
       ChecklistItem(
@@ -253,7 +266,7 @@ class _ChecklistTemplateFormState extends ConsumerState<ChecklistTemplateForm> {
   }
 
   Future<void> _save({bool archive = false}) async {
-    final site = ref.read(currentSiteProvider);
+    final site = _siteId;
     if (site == null) return;
     if (_name.text.trim().length < 3) {
       setState(() => _error = 'Name the checklist');
@@ -270,7 +283,7 @@ class _ChecklistTemplateFormState extends ConsumerState<ChecklistTemplateForm> {
           .read(checklistActionsProvider)
           .saveTemplate(
             id: widget.template?.id,
-            siteId: widget.template?.siteId ?? site.id,
+            siteId: site,
             areaId: _areaId,
             name: _name.text,
             description: _description.text,
@@ -289,11 +302,11 @@ class _ChecklistTemplateFormState extends ConsumerState<ChecklistTemplateForm> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final session = ref.watch(sessionProvider);
-    final site = ref.watch(currentSiteProvider);
-    final areas = site == null ? <LocalArea>[] : session.areasAt(site.id);
+    final site = _siteId;
+    final areas = site == null ? <LocalArea>[] : session.areasAt(site);
     final people = site == null
         ? const AsyncValue<List<Assignee>>.data([])
-        : ref.watch(assigneesProvider(site.id));
+        : ref.watch(assigneesProvider(site));
     Widget label(String t) => Padding(
       padding: const EdgeInsets.only(top: Space.md, bottom: Space.xs),
       child: Text(t, style: theme.textTheme.labelLarge),
@@ -330,6 +343,17 @@ class _ChecklistTemplateFormState extends ConsumerState<ChecklistTemplateForm> {
               hintText: 'Instructions (optional)',
             ),
           ),
+          if (widget.template == null) ...[
+            const SizedBox(height: Space.md),
+            SiteField(
+              value: _siteId,
+              onChanged: (v) => setState(() {
+                _siteId = v;
+                _areaId = null;
+                _assigneeId = null;
+              }),
+            ),
+          ],
           label('How often'),
           Wrap(
             spacing: Space.xs,

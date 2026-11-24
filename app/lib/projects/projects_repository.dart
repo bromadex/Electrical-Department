@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../services/core_providers.dart';
-import '../v2/site_filter.dart';
+import '../services/session_controller.dart';
 
 /// Projects, the roster and the calendar (API.md section 18).
 
@@ -61,11 +61,10 @@ class Project {
       open && targetDate != null && targetDate!.isBefore(today);
 }
 
-/// The current site's projects (or every site's, with All my sites), open
+/// The current site's projects (or one site's, with the site filter), open
 /// ones first, then by target date.
 final projectsProvider = FutureProvider.autoDispose<List<Project>>((ref) async {
   final site = ref.watch(siteFilterProvider);
-  if (site == null && !ref.watch(allSitesProvider)) return const [];
   var q = ref.watch(supabaseProvider).from('project_overview').select();
   if (site != null) q = q.eq('site_id', site);
   final rows = await q.order('target_date', ascending: true, nullsFirst: false);
@@ -155,23 +154,35 @@ class CalendarEvent {
   final String? link;
 }
 
-typedef CalendarQuery = ({String site, DateTime from, DateTime to});
+/// [site] null: every site, merged.
+typedef CalendarQuery = ({String? site, DateTime from, DateTime to});
 
 final calendarProvider = FutureProvider.autoDispose
     .family<List<CalendarEvent>, CalendarQuery>((ref, q) async {
-      final rows = await ref
-          .watch(supabaseProvider)
-          .rpc(
+      final db = ref.watch(supabaseProvider);
+      final sites = q.site != null
+          ? [q.site!]
+          : [for (final s in ref.watch(sessionProvider).mySites) s.id];
+      final all = await Future.wait([
+        for (final site in sites)
+          db.rpc(
             'fn_calendar',
             params: {
-              'p_site': q.site,
+              'p_site': site,
               'p_from': isoDay(q.from),
               'p_to': isoDay(q.to),
             },
-          );
+          ),
+      ]);
+      // Something shared by every site (a meeting) shows once.
+      final seen = <String>{};
       return [
-        for (final r in rows as List)
-          CalendarEvent.fromJson(Map<String, dynamic>.from(r as Map)),
+        for (final rows in all)
+          for (final r in rows as List)
+            if (seen.add(
+              '${r['kind']}|${r['ref_id']}|${r['day']}|${r['title']}',
+            ))
+              CalendarEvent.fromJson(Map<String, dynamic>.from(r as Map)),
       ];
     });
 

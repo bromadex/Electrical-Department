@@ -119,9 +119,9 @@ test('Test 5: a P1 job updates the critical dashboard and sends notifications', 
   await expectShown(manager, `CRITICAL ${number} (P1)`);
   await shot(manager, '05-manager-notifications');
 
-  // The manager's home site is Harare; the P1 job is at Kamativi.
+  // The manager's home site is Harare; the P1 job is at Kamativi, and the
+  // statistics show every site unless filtered.
   await open(manager, '/job-stats');
-  await tap(manager, 'All my sites', true);
   await tap(manager, /critical job cards?/);
   await expectShown(manager, number);
   await shot(manager, '05-manager-dashboard');

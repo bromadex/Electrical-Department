@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../data/local_db.dart';
 import '../data/site_data.dart';
+import '../widgets/site_picker.dart';
 import '../v2/jobcards/repository.dart' show openJobCardsByAssetProvider;
 import '../services/session_controller.dart';
 import '../theme/tokens.dart';
@@ -69,13 +70,13 @@ class AssetList extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final assets = ref.watch(siteAssetsProvider).value ?? const [];
     final session = ref.watch(sessionProvider);
-    final site = ref.watch(currentSiteProvider);
-    final canEdit = site != null && session.can('jobs.assign', siteId: site.id);
+    final canEdit = session.canAnywhere('jobs.assign');
     final areaNames = {for (final a in session.areas) a.id: a.name};
-    final openByAsset = site == null
-        ? const <String, int>{}
-        : ref.watch(openJobCardsByAssetProvider(site.id)).value ??
-              const <String, int>{};
+    final openByAsset =
+        ref
+            .watch(openJobCardsByAssetProvider(ref.watch(siteFilterProvider)))
+            .value ??
+        const <String, int>{};
     final q = query.trim().toLowerCase();
     final shown = [
       for (final a in assets)
@@ -242,6 +243,8 @@ class _AssetFormState extends ConsumerState<AssetForm> {
   late final _serial = TextEditingController(text: widget.asset?.serialNo);
   late final _notes = TextEditingController(text: widget.asset?.notes);
   late String? _areaId = widget.asset?.areaId;
+  late String? _siteId =
+      widget.asset?.siteId ?? ref.read(currentSiteProvider)?.id;
   String? _error;
 
   @override
@@ -253,7 +256,7 @@ class _AssetFormState extends ConsumerState<AssetForm> {
   }
 
   Future<void> _save({bool archive = false}) async {
-    final site = ref.read(currentSiteProvider);
+    final site = _siteId;
     if (site == null) return;
     final tag = _tag.text.trim().toUpperCase();
     if (tag.isEmpty) {
@@ -264,7 +267,7 @@ class _AssetFormState extends ConsumerState<AssetForm> {
       setState(() => _error = 'Name the equipment');
       return;
     }
-    final clash = (ref.read(siteAssetsProvider).value ?? const []).any(
+    final clash = (ref.read(assetsAtProvider(site)).value ?? const []).any(
       (a) => a.tag == tag && a.id != widget.asset?.id,
     );
     if (clash && !archive) {
@@ -276,7 +279,7 @@ class _AssetFormState extends ConsumerState<AssetForm> {
         .read(siteActionsProvider)
         .saveAsset(
           id: widget.asset?.id,
-          siteId: widget.asset?.siteId ?? site.id,
+          siteId: site,
           areaId: _areaId,
           tag: tag,
           name: _name.text,
@@ -294,8 +297,8 @@ class _AssetFormState extends ConsumerState<AssetForm> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final session = ref.watch(sessionProvider);
-    final site = ref.watch(currentSiteProvider);
-    final areas = site == null ? <LocalArea>[] : session.areasAt(site.id);
+    final site = _siteId;
+    final areas = site == null ? <LocalArea>[] : session.areasAt(site);
     Widget label(String t) => Padding(
       padding: const EdgeInsets.only(top: Space.md, bottom: Space.xs),
       child: Text(t, style: theme.textTheme.labelLarge),
@@ -318,6 +321,16 @@ class _AssetFormState extends ConsumerState<AssetForm> {
                 : 'Edit ${widget.asset!.tag}',
             style: theme.textTheme.headlineSmall,
           ),
+          if (widget.asset == null) ...[
+            const SizedBox(height: Space.md),
+            SiteField(
+              value: _siteId,
+              onChanged: (v) => setState(() {
+                _siteId = v;
+                _areaId = null;
+              }),
+            ),
+          ],
           label('Tag and name'),
           Row(
             children: [

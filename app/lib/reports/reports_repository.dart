@@ -68,11 +68,25 @@ class ReportUpdate {
 
 typedef ReportDay = ({DailyReport report, List<ReportUpdate> updates});
 
-/// Builds (or refreshes) the day's report at the current site, with the
+/// The site whose daily report is open: a report is one site's day, so the
+/// page keeps its own site (starting at the filtered site or your home
+/// site) and switches it with the chip in its header.
+final reportSiteProvider = NotifierProvider<ReportSiteNotifier, String?>(
+  ReportSiteNotifier.new,
+);
+
+class ReportSiteNotifier extends Notifier<String?> {
+  @override
+  String? build() => ref.watch(currentSiteProvider.select((s) => s?.id));
+
+  void set(String? site) => state = site;
+}
+
+/// Builds (or refreshes) the day's report at the report's site, with the
 /// updates people added. Online: reports need the server's figures.
 final dailyReportProvider = FutureProvider.autoDispose
     .family<ReportDay?, String>((ref, date) async {
-      final site = ref.watch(currentSiteProvider.select((s) => s?.id));
+      final site = ref.watch(reportSiteProvider);
       if (site == null) return null;
       final db = ref.watch(supabaseProvider);
       final row = await db.rpc(
@@ -108,7 +122,7 @@ class ReportTotals {
 
 final reportTotalsProvider = FutureProvider.autoDispose
     .family<ReportTotals, ({String from, String to})>((ref, range) async {
-      final site = ref.watch(currentSiteProvider.select((s) => s?.id));
+      final site = ref.watch(reportSiteProvider);
       final t = ReportTotals();
       if (site == null) return t;
       final rows = await ref

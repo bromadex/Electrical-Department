@@ -204,18 +204,20 @@ const _mrSelect =
 const _poSelect =
     '*, supplier:suppliers(name), lines:po_lines(*, item:store_items(code))';
 
-/// Requests at the current site, newest first; with [projectId], only that
-/// project's.
+/// Requests (every site, or the site filter's), newest first; with
+/// [projectId], only that project's (whatever the filter).
 final materialRequestsProvider = FutureProvider.autoDispose
     .family<List<MaterialRequest>, String?>((ref, projectId) async {
-      final site = ref.watch(currentSiteProvider.select((s) => s?.id));
-      if (site == null) return const [];
+      final site = ref.watch(siteFilterProvider);
       var q = ref
           .watch(supabaseProvider)
           .from('material_requests')
-          .select(_mrSelect)
-          .eq('site_id', site);
-      if (projectId != null) q = q.eq('project_id', projectId);
+          .select(_mrSelect);
+      if (projectId != null) {
+        q = q.eq('project_id', projectId);
+      } else if (site != null) {
+        q = q.eq('site_id', site);
+      }
       final rows = await q.order('created_at', ascending: false).limit(200);
       return [for (final r in rows) MaterialRequest.fromJson(r)];
     });
@@ -234,15 +236,10 @@ final materialRequestProvider = FutureProvider.autoDispose
 final purchasesProvider = FutureProvider.autoDispose<List<PurchaseOrder>>((
   ref,
 ) async {
-  final site = ref.watch(currentSiteProvider.select((s) => s?.id));
-  if (site == null) return const [];
-  final rows = await ref
-      .watch(supabaseProvider)
-      .from('purchase_orders')
-      .select(_poSelect)
-      .eq('site_id', site)
-      .order('created_at', ascending: false)
-      .limit(200);
+  final site = ref.watch(siteFilterProvider);
+  var q = ref.watch(supabaseProvider).from('purchase_orders').select(_poSelect);
+  if (site != null) q = q.eq('site_id', site);
+  final rows = await q.order('created_at', ascending: false).limit(200);
   return [for (final r in rows) PurchaseOrder.fromJson(r)];
 });
 

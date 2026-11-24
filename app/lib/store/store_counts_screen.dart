@@ -21,7 +21,7 @@ class StoreCountsScreen extends ConsumerWidget {
     final theme = Theme.of(context);
     final counts = ref.watch(stockCountsProvider);
     final session = ref.watch(sessionProvider);
-    final all = ref.watch(allSitesProvider);
+    final all = (ref.watch(siteFilterProvider) == null);
     final dates = MaterialLocalizations.of(context);
     final top = MediaQuery.paddingOf(context).top + kToolbarHeight;
     return Scaffold(
@@ -51,7 +51,7 @@ class StoreCountsScreen extends ConsumerWidget {
                     children: [
                       const Align(
                         alignment: Alignment.centerLeft,
-                        child: AllSitesChip(),
+                        child: SiteFilterChip(),
                       ),
                       const SizedBox(height: Space.sm),
                       ...counts.when(

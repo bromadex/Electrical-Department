@@ -4,6 +4,22 @@
 
 ## 24 November 2026
 
+### One team, every site
+- The **site picker is gone** from the top of the app. Every list shows
+  **all sites** by default: Home, job cards, equipment, tools, checklists,
+  projects, calendar, inventory, materials, documents, reports and stats.
+- Each page has an **"All sites ▾"** filter to show one site (Harare,
+  Selous…). The choice carries to the other pages until you set it back to
+  All sites.
+- Home says "Job cards" for every site, not "Job cards at Harare".
+- Forms that add something (equipment, a tool, a checklist, a project, a
+  stock item, a planned job, a material request or purchase) have a
+  **Site** field, starting at the filtered site or your home site.
+- The roster and the daily report are one site's, so they keep a site
+  switch of their own in the header.
+- Equipment and tools for every site are kept on the phone for working
+  without signal.
+
 ### Updates tell you they are out (Android)
 - The app looks for a newer version when it opens, when you come back to
   it and every 6 hours. When there is one, **"Update available"** pops up

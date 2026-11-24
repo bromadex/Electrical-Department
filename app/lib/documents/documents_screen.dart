@@ -202,11 +202,7 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
     });
   }
 
-  bool get _canUpload {
-    final site = ref.read(currentSiteProvider);
-    return site != null &&
-        ref.read(sessionProvider).can('docs.manage', siteId: site.id);
-  }
+  bool get _canUpload => ref.read(sessionProvider).canAnywhere('docs.manage');
 
   bool _loadGrid() {
     try {
@@ -229,14 +225,15 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
       _query.isNotEmpty ||
       _category != null ||
       _show != _Show.all ||
-      ref.read(allSitesProvider);
+      (ref.read(siteFilterProvider) == null);
 
   Future<void> _folderSheet({DocFolder? folder}) async {
-    final site = ref.read(currentSiteProvider);
+    // Inside a folder: its site; at the top: the filtered or home site.
+    final site = folder?.siteId ?? _siteFor(ref, _folder);
     if (site == null) return;
     await showFormSheet<void>(
       context,
-      _FolderForm(siteId: site.id, folder: folder, parentId: _folder),
+      _FolderForm(siteId: site, folder: folder, parentId: _folder),
     );
   }
 
@@ -413,14 +410,12 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final docs = ref.watch(documentsProvider);
-    ref.watch(allSitesProvider);
+    (ref.watch(siteFilterProvider) == null);
     ref.watch(offlineRefreshProvider);
     final folders = ref.watch(foldersProvider).value ?? const <DocFolder>[];
     final session = ref.watch(sessionProvider);
-    final site = ref.watch(currentSiteProvider);
     final me = ref.watch(authUserIdProvider);
-    final canManage =
-        site != null && session.can('docs.manage', siteId: site.id);
+    final canManage = session.canAnywhere('docs.manage');
     final toSign = ref.watch(toSignCountProvider);
     final top = MediaQuery.paddingOf(context).top + kToolbarHeight;
     final folder = folders.where((f) => f.id == _folder).firstOrNull;
@@ -467,7 +462,7 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
           title: Text(
             _selecting
                 ? '${_selected.length} selected'
-                : folder?.name ?? 'Documents · ${site?.code ?? ''}',
+                : folder?.name ?? 'Documents',
             overflow: TextOverflow.ellipsis,
           ),
           flexibleSpace: const GlassSurface(
@@ -592,7 +587,7 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
                               child: Row(
                                 children: [
                                   if (_folder == null) ...[
-                                    const AllSitesChip(),
+                                    const SiteFilterChip(),
                                     const SizedBox(width: Space.xs),
                                   ],
                                   chip(
@@ -1381,7 +1376,7 @@ class DocTile extends ConsumerWidget {
                 Row(
                   children: [
                     RecordCode(doc.code),
-                    if (ref.watch(allSitesProvider)) ...[
+                    if ((ref.watch(siteFilterProvider) == null)) ...[
                       const SizedBox(width: Space.xs),
                       Pill(
                         label:
@@ -2333,7 +2328,7 @@ class _UploadSheetState extends ConsumerState<UploadSheet> {
   }
 
   Future<void> _upload() async {
-    final site = ref.read(currentSiteProvider);
+    final site = _siteFor(ref, _folder);
     if (site == null) return;
     if (_files.isEmpty) {
       setState(() => _error = 'Choose the files to upload');
@@ -2348,7 +2343,7 @@ class _UploadSheetState extends ConsumerState<UploadSheet> {
       await ref
           .read(documentActionsProvider)
           .uploadMany(
-            siteId: site.id,
+            siteId: site,
             files: List.of(_files),
             category: _category,
             needsAck: _needsAck,
@@ -2594,7 +2589,7 @@ class _DocumentFormState extends ConsumerState<DocumentForm> {
   }
 
   Future<void> _save({bool archive = false}) async {
-    final site = ref.read(currentSiteProvider);
+    final site = widget.doc?.siteId ?? _siteFor(ref, null);
     if (site == null) return;
     if (_title.text.trim().length < 3) {
       setState(() => _error = 'Give the document a title');
@@ -2611,7 +2606,7 @@ class _DocumentFormState extends ConsumerState<DocumentForm> {
           .read(documentActionsProvider)
           .save(
             doc: widget.doc,
-            siteId: widget.doc?.siteId ?? site.id,
+            siteId: site,
             title: _title.text,
             category: _category,
             needsAck: _needsAck,
@@ -2734,3 +2729,11 @@ class _DocumentFormState extends ConsumerState<DocumentForm> {
     );
   }
 }
+
+/// Where something new goes: [folder]'s site, else the filtered or home
+/// site.
+String? _siteFor(WidgetRef ref, String? folder) => siteForFolder(
+  ref.read(foldersProvider).value ?? const <DocFolder>[],
+  folder,
+  ref.read(currentSiteProvider)?.id,
+);

@@ -10,6 +10,7 @@ import '../theme/tokens.dart';
 import '../ui/bits.dart';
 import '../ui/surfaces.dart';
 import '../widgets/app_back_button.dart';
+import '../widgets/site_picker.dart';
 import 'projects_repository.dart';
 
 /// How each kind of calendar entry looks.
@@ -90,16 +91,16 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final site = ref.watch(currentSiteProvider);
+    final site = ref.watch(siteFilterProvider);
     final top = MediaQuery.paddingOf(context).top + kToolbarHeight;
     final dates = MaterialLocalizations.of(context);
     // The grid runs Monday to Sunday, whole weeks.
     final first = mondayOf(_month);
     final lastOfMonth = DateTime(_month.year, _month.month + 1, 0);
     final last = mondayOf(lastOfMonth).add(const Duration(days: 6));
-    final events = site == null
-        ? const AsyncValue<List<CalendarEvent>>.data([])
-        : ref.watch(calendarProvider((site: site.id, from: first, to: last)));
+    final events = ref.watch(
+      calendarProvider((site: site, from: first, to: last)),
+    );
     final byDay = <DateTime, List<CalendarEvent>>{};
     for (final e in events.value ?? const <CalendarEvent>[]) {
       (byDay[e.day] ??= []).add(e);
@@ -113,9 +114,10 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         leading: const AppBackButton(),
-        title: Text('Calendar · ${site?.code ?? ''}'),
+        title: const Text('Calendar'),
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
         actions: [
+          const SiteFilterChip(),
           TextButton(
             onPressed: () => setState(() {
               _day = todayDay;

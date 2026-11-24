@@ -684,16 +684,17 @@ final assetJobCardsProvider = FutureProvider.autoDispose
 
 /// Open job cards per piece of equipment at a site, for the register.
 final openJobCardsByAssetProvider = FutureProvider.autoDispose
-    .family<Map<String, int>, String>((ref, siteId) async {
+    .family<Map<String, int>, String?>((ref, siteId) async {
       ref.watch(jobCardsLiveProvider);
-      final rows = await ref
+      var q = ref
           .watch(supabaseProvider)
           .from('job_cards')
           .select('asset_id')
-          .eq('site_id', siteId)
           .eq('is_archived', false)
-          .not('asset_id', 'is', null)
-          .not('status', 'in', '(closed,cancelled)');
+          .not('asset_id', 'is', null);
+      // Null: every site.
+      if (siteId != null) q = q.eq('site_id', siteId);
+      final rows = await q.not('status', 'in', '(closed,cancelled)');
       final counts = <String, int>{};
       for (final r in rows) {
         final id = r['asset_id'] as String;

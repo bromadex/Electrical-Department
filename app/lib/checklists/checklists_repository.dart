@@ -109,26 +109,25 @@ extension on List<({int pos, ChecklistItem item})> {
   ]..sort((a, b) => a.pos.compareTo(b.pos))).map((e) => e.item).toList();
 }
 
-/// Templates at the current site. Kept on the device so rounds can be done
-/// where there is no signal.
+/// Templates at every site, or the site filter's. Kept on the device so
+/// rounds can be done where there is no signal.
 final checklistTemplatesProvider = FutureProvider<List<ChecklistTemplate>>((
   ref,
 ) async {
-  final site = ref.watch(currentSiteProvider.select((s) => s?.id));
-  if (site == null) return const [];
+  final site = ref.watch(siteFilterProvider);
   final prefs = ref.watch(sharedPrefsProvider);
-  final key = 'checklists:$site';
+  final key = 'checklists:${site ?? 'all'}';
   List<ChecklistTemplate> parse(List rows) => [
     for (final r in rows) ChecklistTemplate.fromJson(r as Map<String, dynamic>),
   ];
   try {
-    final rows = await ref
+    var q = ref
         .watch(supabaseProvider)
         .from('checklist_templates')
         .select('*, checklist_items(*)')
-        .eq('site_id', site)
-        .eq('is_archived', false)
-        .order('name');
+        .eq('is_archived', false);
+    if (site != null) q = q.eq('site_id', site);
+    final rows = await q.order('name');
     await prefs.setString(key, jsonEncode(rows));
     return parse(rows);
   } catch (_) {
@@ -166,18 +165,24 @@ class ChecklistStatus {
   bool get done => doneAt != null;
 }
 
-/// This period's state of each checklist at the current site (online).
+/// This period's state of each checklist (every site, or the site
+/// filter's; online).
 final checklistStatusProvider = FutureProvider<Map<String, ChecklistStatus>>((
   ref,
 ) async {
-  final site = ref.watch(currentSiteProvider.select((s) => s?.id));
-  if (site == null) return const {};
-  final rows = await ref
-      .watch(supabaseProvider)
-      .rpc('fn_site_checklists', params: {'p_site': site});
+  final filter = ref.watch(siteFilterProvider);
+  final sites = filter != null
+      ? [filter]
+      : [for (final s in ref.watch(sessionProvider).mySites) s.id];
+  final db = ref.watch(supabaseProvider);
+  final all = await Future.wait([
+    for (final site in sites)
+      db.rpc('fn_site_checklists', params: {'p_site': site}),
+  ]);
   return {
-    for (final r in rows as List)
-      r['id'] as String: ChecklistStatus.fromJson(r as Map<String, dynamic>),
+    for (final rows in all)
+      for (final r in rows as List)
+        r['id'] as String: ChecklistStatus.fromJson(r as Map<String, dynamic>),
   };
 });
 

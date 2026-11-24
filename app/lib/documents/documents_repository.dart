@@ -9,7 +9,6 @@ import 'package:uuid/uuid.dart';
 import '../data/local_db.dart';
 import '../services/core_providers.dart';
 import '../services/session_controller.dart';
-import '../v2/site_filter.dart';
 
 /// A folder in a site's document library (API.md section 12b).
 class DocFolder {
@@ -157,7 +156,7 @@ final documentsProvider = FutureProvider<List<Doc>>((ref) async {
   // The current site, or every site with All my sites.
   final site = ref.watch(siteFilterProvider);
   final me = ref.watch(authUserIdProvider);
-  if ((site == null && !ref.watch(allSitesProvider)) || me == null) {
+  if (me == null) {
     return const [];
   }
   final session = ref.read(sessionProvider);
@@ -244,22 +243,34 @@ final documentsProvider = FutureProvider<List<Doc>>((ref) async {
   ];
 });
 
-/// Folders at the current site, by name (online).
+/// The site something made in [folderId] belongs to: the folder's site,
+/// else (at the top) the filtered site or your home site.
+String? siteForFolder(
+  List<DocFolder> folders,
+  String? folderId,
+  String? fallback,
+) {
+  for (final f in folders) {
+    if (f.id == folderId) return f.siteId;
+  }
+  return fallback;
+}
+
+/// Folders (every site's, or the site filter's), by name. A folder belongs
+/// to a site: what is made inside it goes to its site.
 final foldersProvider = FutureProvider<List<DocFolder>>((ref) async {
-  final site = ref.watch(currentSiteProvider.select((s) => s?.id));
-  if (site == null) return const [];
+  final site = ref.watch(siteFilterProvider);
   final local = ref.read(localDbProvider);
-  final key = 'document_folders:$site';
+  final key = 'document_folders:${site ?? 'all'}';
   List rows;
   try {
-    rows = await ref
+    var q = ref
         .watch(supabaseProvider)
         .from('document_folders')
         .select('id, site_id, name, parent_id')
-        .eq('site_id', site)
-        .eq('is_archived', false)
-        .order('name')
-        .timeout(const Duration(seconds: 15));
+        .eq('is_archived', false);
+    if (site != null) q = q.eq('site_id', site);
+    rows = await q.order('name').timeout(const Duration(seconds: 15));
     unawaited(local.saveJson(key, jsonEncode(rows)).catchError((_) {}));
   } catch (_) {
     final kept = await local.readJson(key);

@@ -1,70 +1,52 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/local_db.dart';
 import '../services/session_controller.dart';
 import '../theme/tokens.dart';
 import '../ui/motion.dart';
-import '../ui/surfaces.dart';
 
-/// Chip showing the current site; opens a sheet to switch site.
-class SitePicker extends ConsumerWidget {
-  const SitePicker({super.key, this.large = false});
+/// "Site: All ▾" inside a page: filters the page's list to one site, or
+/// shows every site (the default). The choice carries to the other pages
+/// until you change it. Hidden when there is only one site.
+///
+/// A page that needs one site (the roster) passes [value] and [onChanged]
+/// with [allowAll] off, and keeps the choice itself.
+class SiteFilterChip extends ConsumerWidget {
+  const SiteFilterChip({
+    super.key,
+    this.value,
+    this.onChanged,
+    this.allowAll = true,
+  });
 
-  /// Desktop header style: a 48 px glass button with the site name.
-  final bool large;
+  final String? value;
+  final ValueChanged<String?>? onChanged;
+  final bool allowAll;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final sites = ref.watch(sessionProvider.select((s) => s.mySites));
-    final current = ref.watch(currentSiteProvider);
-    if (current == null) return const SizedBox.shrink();
-    final scheme = Theme.of(context).colorScheme;
-    final canSwitch = sites.length > 1;
+    if (sites.length < 2) return const SizedBox.shrink();
+    final id = onChanged != null ? value : ref.watch(siteFilterProvider);
+    LocalSite? picked;
+    for (final s in sites) {
+      if (s.id == id) picked = s;
+    }
     final narrow = MediaQuery.sizeOf(context).width < 380;
-    final g = Glass.of(context);
-
-    return Pressable(
-      onTap: canSwitch ? () => _open(context, ref) : null,
-      child: AnimatedContainer(
-        duration: Motion.of(context, Motion.medium),
-        height: large ? 48 : null,
-        padding: large
-            ? const EdgeInsets.symmetric(horizontal: 14)
-            : const EdgeInsets.fromLTRB(10, 7, 8, 7),
-        decoration: BoxDecoration(
-          color: g.fill,
-          border: Border.all(color: g.border),
-          borderRadius: BorderRadius.circular(large ? Radii.md : Radii.pill),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.place_rounded,
-              size: large ? 20 : 16,
-              color: scheme.primary,
-            ),
-            const SizedBox(width: 4),
-            AnimatedSwitcher(
-              duration: Motion.of(context, Motion.medium),
-              child: Text(
-                narrow ? current.code : current.name,
-                key: ValueKey(current.id),
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: large ? 14 : 13,
-                ),
-              ),
-            ),
-            if (canSwitch)
-              Icon(
-                Icons.expand_more_rounded,
-                size: 18,
-                color: scheme.onSurfaceVariant,
-              ),
-          ],
-        ),
+    return FilterChip(
+      avatar: Icon(
+        picked == null ? Icons.public_rounded : Icons.place_rounded,
+        size: 18,
       ),
+      label: Text(
+        picked == null ? 'All sites' : (narrow ? picked.code : picked.name),
+      ),
+      selected: picked != null,
+      showCheckmark: false,
+      onSelected: (_) => _open(context, ref),
+      deleteIcon: const Icon(Icons.expand_more_rounded, size: 18),
+      onDeleted: () => _open(context, ref),
     );
   }
 
@@ -72,13 +54,25 @@ class SitePicker extends ConsumerWidget {
     showModalBottomSheet<void>(
       context: context,
       useSafeArea: true,
+      isScrollControlled: true,
       constraints: const BoxConstraints(maxWidth: 520),
       builder: (context) => Consumer(
         builder: (context, ref, _) {
           final theme = Theme.of(context);
           final session = ref.watch(sessionProvider);
-          final current = ref.watch(currentSiteProvider);
-          return Padding(
+          final current = onChanged != null
+              ? value
+              : ref.watch(siteFilterProvider);
+          void pick(String? id) {
+            if (onChanged != null) {
+              onChanged!(id);
+            } else {
+              ref.read(siteFilterProvider.notifier).set(id);
+            }
+            Navigator.pop(context);
+          }
+
+          return SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(Space.md, 0, Space.md, Space.lg),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -86,20 +80,26 @@ class SitePicker extends ConsumerWidget {
               children: [
                 Padding(
                   padding: const EdgeInsets.only(left: 4, bottom: Space.sm),
-                  child: Text('Switch site', style: theme.textTheme.titleLarge),
+                  child: Text('Show', style: theme.textTheme.titleLarge),
                 ),
+                if (allowAll)
+                  _SiteRow(
+                    code: 'ALL',
+                    name: 'All sites',
+                    detail: 'Everything, from every site',
+                    selected: current == null,
+                    onTap: () => pick(null),
+                  ).entrance(context, index: 0),
                 for (final (i, s) in session.mySites.indexed)
                   _SiteRow(
                     code: s.code,
                     name: s.name,
-                    areas: session.areasAt(s.id).length,
-                    viewOnly: !session.worksAt(s.id),
-                    selected: s.id == current?.id,
-                    onTap: () {
-                      ref.read(pickedSiteIdProvider.notifier).pick(s.id);
-                      Navigator.pop(context);
-                    },
-                  ).entrance(context, index: i),
+                    detail: session.areasAt(s.id).length == 1
+                        ? '1 area'
+                        : '${session.areasAt(s.id).length} areas',
+                    selected: s.id == current,
+                    onTap: () => pick(s.id),
+                  ).entrance(context, index: i + 1),
               ],
             ),
           );
@@ -113,18 +113,14 @@ class _SiteRow extends StatelessWidget {
   const _SiteRow({
     required this.code,
     required this.name,
-    required this.areas,
-    required this.viewOnly,
+    required this.detail,
     required this.selected,
     required this.onTap,
   });
 
   final String code;
   final String name;
-  final int areas;
-
-  /// The user can look at this site but has no role there.
-  final bool viewOnly;
+  final String detail;
   final bool selected;
   final VoidCallback onTap;
 
@@ -159,12 +155,7 @@ class _SiteRow extends StatelessWidget {
             ),
           ),
           title: Text(name, style: theme.textTheme.titleMedium),
-          subtitle: Text(
-            [
-              areas == 1 ? '1 area' : '$areas areas',
-              if (viewOnly) 'view only',
-            ].join(' · '),
-          ),
+          subtitle: Text(detail),
           trailing: AnimatedScale(
             scale: selected ? 1 : 0,
             duration: Motion.of(context, Motion.medium),
@@ -173,6 +164,42 @@ class _SiteRow extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// The "Site" field in forms that create something: every site, starting at
+/// [value]. Hidden when there is only one site.
+class SiteField extends ConsumerWidget {
+  const SiteField({
+    super.key,
+    required this.value,
+    required this.onChanged,
+    this.label = 'Site',
+  });
+
+  final String? value;
+  final ValueChanged<String> onChanged;
+  final String label;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final sites = ref.watch(sessionProvider.select((s) => s.mySites));
+    if (sites.length < 2) return const SizedBox.shrink();
+    return DropdownButtonFormField<String>(
+      initialValue: sites.any((s) => s.id == value) ? value : null,
+      isExpanded: true,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: const Icon(Icons.place_rounded),
+      ),
+      items: [
+        for (final s in sites)
+          DropdownMenuItem(value: s.id, child: Text('${s.name} (${s.code})')),
+      ],
+      onChanged: (v) {
+        if (v != null) onChanged(v);
+      },
     );
   }
 }

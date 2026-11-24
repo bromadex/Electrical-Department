@@ -38,6 +38,11 @@ class SessionState {
 
   bool can(String code, {String? siteId}) => perms.can(code, siteId: siteId);
 
+  /// Allowed at one site at least: pages that show every site offer the
+  /// action, and the form's site list decides where.
+  bool canAnywhere(String code) =>
+      sites.any((s) => !s.isArchived && perms.can(code, siteId: s.id));
+
   /// Has a role at the site; other sites are view only.
   bool worksAt(String? siteId) => siteId != null && perms.worksAt(siteId);
 
@@ -207,28 +212,31 @@ class SessionNotifier extends Notifier<SessionState> {
   }
 }
 
-/// The site the user picked in the site picker, or null for the default.
-final pickedSiteIdProvider = NotifierProvider<PickedSiteNotifier, String?>(
-  PickedSiteNotifier.new,
+/// The site filter shown inside pages ("Site: All"): null shows every
+/// site, which is the default. There is no site you are "in": everyone
+/// works at every site, and lists filter by site only when you ask.
+final siteFilterProvider = NotifierProvider<SiteFilterNotifier, String?>(
+  SiteFilterNotifier.new,
 );
 
-class PickedSiteNotifier extends Notifier<String?> {
+class SiteFilterNotifier extends Notifier<String?> {
   @override
   String? build() {
     ref.watch(authUserIdProvider);
     return null;
   }
 
-  void pick(String siteId) => state = siteId;
+  /// Null for all sites.
+  void set(String? siteId) => state = siteId;
 }
 
-/// The site screens work in: the picked site, else the home site, else the
-/// first site the user has access to.
+/// The site new records start at (a form still lets you change it): the
+/// site you filtered to, else your home site, else the first site.
 final currentSiteProvider = Provider<LocalSite?>((ref) {
   final session = ref.watch(sessionProvider);
   final mine = session.mySites;
   if (mine.isEmpty) return null;
-  final picked = ref.watch(pickedSiteIdProvider);
+  final picked = ref.watch(siteFilterProvider);
   final homeId = session.profile?.homeSiteId;
   for (final id in [picked, homeId]) {
     for (final s in mine) {

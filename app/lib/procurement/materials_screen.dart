@@ -16,6 +16,7 @@ import '../ui/form_sheet.dart';
 import '../ui/motion.dart';
 import '../ui/surfaces.dart';
 import '../widgets/app_back_button.dart';
+import '../widgets/site_picker.dart';
 import 'procurement_repository.dart';
 
 void _say(BuildContext context, String text) =>
@@ -61,9 +62,8 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final site = ref.watch(currentSiteProvider);
     final session = ref.watch(sessionProvider);
-    final seePo = canSeePurchases(session, site?.id);
+    final seePo = session.mySites.any((s) => canSeePurchases(session, s.id));
     final showPo = _purchases && seePo;
     final top = MediaQuery.paddingOf(context).top + kToolbarHeight;
     final dates = MaterialLocalizations.of(context);
@@ -209,14 +209,14 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
     }
 
     final fab = showPo
-        ? (session.can('po.manage', siteId: site?.id)
+        ? (session.canAnywhere('po.manage')
               ? FloatingActionButton.extended(
                   onPressed: () => context.push('/purchases/new'),
                   icon: const Icon(CupertinoIcons.add),
                   label: const Text('New purchase'),
                 )
               : null)
-        : (session.can('mr.create', siteId: site?.id)
+        : (session.canAnywhere('mr.create')
               ? FloatingActionButton.extended(
                   onPressed: () => context.push('/materials/new'),
                   icon: const Icon(CupertinoIcons.add),
@@ -229,7 +229,11 @@ class _MaterialsScreenState extends ConsumerState<MaterialsScreen> {
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         leading: const AppBackButton(),
-        title: Text('Materials · ${site?.code ?? ''}'),
+        title: const Text('Materials'),
+        actions: const [
+          SiteFilterChip(),
+          SizedBox(width: Space.sm),
+        ],
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
       ),
       floatingActionButton: fab,
@@ -800,9 +804,16 @@ class _Draft {
 /// Lines with quantities (and prices on purchases), added from inventory
 /// or typed for things not stocked.
 class _LinesEditor extends ConsumerStatefulWidget {
-  const _LinesEditor({required this.lines, this.prices = false});
+  const _LinesEditor({
+    required this.lines,
+    required this.siteId,
+    this.prices = false,
+  });
 
   final List<_Draft> lines;
+
+  /// Whose store the lines come from.
+  final String? siteId;
   final bool prices;
 
   @override
@@ -811,7 +822,9 @@ class _LinesEditor extends ConsumerStatefulWidget {
 
 class _LinesEditorState extends ConsumerState<_LinesEditor> {
   Future<void> _addFromInventory() async {
-    final stock = await ref.read(storeItemsProvider.future);
+    final site = widget.siteId;
+    if (site == null) return;
+    final stock = await ref.read(storeItemsAtProvider(site).future);
     if (!mounted) return;
     final item = await showFormSheet<StoreItem>(
       context,
@@ -1018,10 +1031,18 @@ class _ItemPickerState extends State<_ItemPicker> {
 
 /// A new material request, from a job card, a project or for the site.
 class MaterialRequestForm extends ConsumerStatefulWidget {
-  const MaterialRequestForm({super.key, this.jobCardId, this.projectId});
+  const MaterialRequestForm({
+    super.key,
+    this.jobCardId,
+    this.projectId,
+    this.siteId,
+  });
 
   final String? jobCardId;
   final String? projectId;
+
+  /// The job card's or project's site; otherwise the form asks.
+  final String? siteId;
 
   @override
   ConsumerState<MaterialRequestForm> createState() =>
@@ -1033,6 +1054,7 @@ class _MaterialRequestFormState extends ConsumerState<MaterialRequestForm> {
   final _note = TextEditingController();
   late String? _job = widget.jobCardId;
   late String? _project = widget.projectId;
+  late String? _siteId = widget.siteId ?? ref.read(currentSiteProvider)?.id;
   DateTime? _needed;
   bool _busy = false;
   String? _error;
@@ -1047,7 +1069,7 @@ class _MaterialRequestFormState extends ConsumerState<MaterialRequestForm> {
   }
 
   Future<void> _save() async {
-    final site = ref.read(currentSiteProvider);
+    final site = _siteId;
     if (site == null) return;
     if (_lines.isEmpty) {
       setState(() => _error = 'Add what you need');
@@ -1063,7 +1085,7 @@ class _MaterialRequestFormState extends ConsumerState<MaterialRequestForm> {
       final id = await ref
           .read(procurementActionsProvider)
           .createRequest(
-            siteId: site.id,
+            siteId: site,
             jobCardId: _job,
             projectId: _project,
             neededBy: _needed,
@@ -1082,7 +1104,7 @@ class _MaterialRequestFormState extends ConsumerState<MaterialRequestForm> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final jobs = ref.watch(openJobCardsProvider).value ?? const [];
+    final jobs = ref.watch(openJobCardsProvider(_siteId)).value ?? const [];
     final projects = ref.watch(projectsProvider).value ?? const <Project>[];
     final top = MediaQuery.paddingOf(context).top + kToolbarHeight;
     final dates = MaterialLocalizations.of(context);
@@ -1177,7 +1199,18 @@ class _MaterialRequestFormState extends ConsumerState<MaterialRequestForm> {
                       const SizedBox(height: Space.md),
                       Text('What you need', style: theme.textTheme.labelLarge),
                       const SizedBox(height: Space.xs),
-                      _LinesEditor(lines: _lines),
+                      if (widget.siteId == null) ...[
+                        SiteField(
+                          value: _siteId,
+                          onChanged: (v) => setState(() {
+                            _siteId = v;
+                            // Store items belong to a site.
+                            _lines.removeWhere((d) => d.itemId != null);
+                          }),
+                        ),
+                        const SizedBox(height: Space.sm),
+                      ],
+                      _LinesEditor(lines: _lines, siteId: _siteId),
                       const SizedBox(height: Space.sm),
                       TextField(
                         controller: _note,
@@ -1438,6 +1471,7 @@ class _PurchaseFormState extends ConsumerState<PurchaseForm> {
   final _number = TextEditingController();
   final _note = TextEditingController();
   String? _supplier;
+  late String? _siteId = ref.read(currentSiteProvider)?.id;
   DateTime? _expected;
   bool _busy = false;
   bool _filled = false;
@@ -1456,6 +1490,7 @@ class _PurchaseFormState extends ConsumerState<PurchaseForm> {
   void _fillFrom(MaterialRequest r) {
     if (_filled) return;
     _filled = true;
+    _siteId = r.siteId;
     for (final l in r.lines) {
       if (l.left <= 0) continue;
       _lines.add(
@@ -1473,7 +1508,7 @@ class _PurchaseFormState extends ConsumerState<PurchaseForm> {
   }
 
   Future<void> _newSupplier() async {
-    final site = ref.read(currentSiteProvider);
+    final site = _siteId;
     if (site == null) return;
     final name = TextEditingController();
     final phone = TextEditingController();
@@ -1516,7 +1551,7 @@ class _PurchaseFormState extends ConsumerState<PurchaseForm> {
     try {
       final id = await ref
           .read(procurementActionsProvider)
-          .saveSupplier(site.id, n, phone: ph);
+          .saveSupplier(site, n, phone: ph);
       setState(() => _supplier = id);
     } catch (e) {
       if (mounted) _say(context, _err(e));
@@ -1524,7 +1559,7 @@ class _PurchaseFormState extends ConsumerState<PurchaseForm> {
   }
 
   Future<void> _save() async {
-    final site = ref.read(currentSiteProvider);
+    final site = _siteId;
     if (site == null) return;
     if (_lines.isEmpty) {
       setState(() => _error = 'Add what you are buying');
@@ -1539,7 +1574,7 @@ class _PurchaseFormState extends ConsumerState<PurchaseForm> {
       final id = await ref
           .read(procurementActionsProvider)
           .createPurchase(
-            siteId: site.id,
+            siteId: site,
             supplierId: _supplier,
             poNumber: _number.text,
             expected: _expected,
@@ -1654,7 +1689,21 @@ class _PurchaseFormState extends ConsumerState<PurchaseForm> {
                         style: theme.textTheme.labelLarge,
                       ),
                       const SizedBox(height: Space.xs),
-                      _LinesEditor(lines: _lines, prices: true),
+                      if (widget.mrId == null) ...[
+                        SiteField(
+                          value: _siteId,
+                          onChanged: (v) => setState(() {
+                            _siteId = v;
+                            _lines.removeWhere((d) => d.itemId != null);
+                          }),
+                        ),
+                        const SizedBox(height: Space.sm),
+                      ],
+                      _LinesEditor(
+                        lines: _lines,
+                        siteId: _siteId,
+                        prices: true,
+                      ),
                       const SizedBox(height: Space.sm),
                       TextField(
                         controller: _note,

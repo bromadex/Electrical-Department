@@ -18,6 +18,11 @@ in `API.md`.
   to icons; screens check `SideBarScope.shownOf` instead of drawing their
   own tab rail. It lists every page of the Menu tab in groups and has no
   Menu entry: a new Menu page goes in both `more_screen.dart` and the bar.
+- Sites: no site picker and no current site. Lists show every site, with
+  the "All sites ▾" chip (`SiteFilterChip`, `siteFilterProvider`, null =
+  all) inside each page; forms creating something have `SiteField`
+  (default `currentSiteProvider`: the filtered or home site). A new list
+  page adds the chip and treats a null filter as every site.
 - Job cards are the one job system: code in `app/lib/v2/`, screens at
   `/jobs` (list, the Jobs tab), `/jobs/<number>`, `/jobs/mine`, `/jobs/new`,
   `/requests`, `/my-requests`, `/job-stats` (see `app/lib/v2/routes.dart`).

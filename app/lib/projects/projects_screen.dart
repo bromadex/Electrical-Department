@@ -75,10 +75,10 @@ class ProjectsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final site = ref.watch(currentSiteProvider);
-    final canManage = ref
-        .watch(sessionProvider)
-        .can('projects.manage', siteId: site?.id);
+    final session = ref.watch(sessionProvider);
+    final canManage = session.mySites.any(
+      (s) => session.can('projects.manage', siteId: s.id),
+    );
     final projects = ref.watch(projectsProvider);
     final top = MediaQuery.paddingOf(context).top + kToolbarHeight;
     final now = DateTime.now();
@@ -90,7 +90,7 @@ class ProjectsScreen extends ConsumerWidget {
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         leading: const AppBackButton(),
-        title: Text('Projects · ${site?.code ?? ''}'),
+        title: const Text('Projects'),
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
       ),
       floatingActionButton: canManage
@@ -132,7 +132,7 @@ class ProjectsScreen extends ConsumerWidget {
                       data: (list) => [
                         const Align(
                           alignment: Alignment.centerLeft,
-                          child: AllSitesChip(),
+                          child: SiteFilterChip(),
                         ),
                         const SizedBox(height: Space.sm),
                         if (list.isEmpty)
@@ -160,9 +160,8 @@ class ProjectsScreen extends ConsumerWidget {
                                         Row(
                                           children: [
                                             RecordCode(p.code),
-                                            if (ref.watch(
-                                              allSitesProvider,
-                                            )) ...[
+                                            if (ref.watch(siteFilterProvider) ==
+                                                null) ...[
                                               const SizedBox(width: Space.xs),
                                               Pill(
                                                 label:
@@ -399,7 +398,7 @@ class _ProjectJobs extends ConsumerWidget {
   final bool canLink;
 
   Future<void> _add(BuildContext context, WidgetRef ref) async {
-    final jobs = await ref.read(openJobCardsProvider.future);
+    final jobs = await ref.read(openJobCardsProvider(project.siteId).future);
     if (!context.mounted) return;
     final pick = await showFormSheet<String>(context, _JobPicker(jobs: jobs));
     if (pick == null || !context.mounted) return;
@@ -550,8 +549,10 @@ class _ProjectMaterials extends ConsumerWidget {
       actions: [
         if (canRequest)
           TextButton.icon(
-            onPressed: () =>
-                context.push('/materials/new?project=${project.id}'),
+            onPressed: () => context.push(
+              '/materials/new?project=${project.id}'
+              '&site=${project.siteId}',
+            ),
             icon: const Icon(CupertinoIcons.add, size: 18),
             label: const Text('Request'),
           ),
@@ -875,6 +876,8 @@ class _ProjectFormState extends ConsumerState<ProjectForm> {
   late DateTime? _target = widget.project?.targetDate;
   late String? _owner = widget.project?.ownerId;
   late String _status = widget.project?.status ?? 'active';
+  late String? _siteId =
+      widget.project?.siteId ?? ref.read(currentSiteProvider)?.id;
   late final Set<String> _members = {...?widget.project?.memberIds};
   bool _busy = false;
   String? _error;
@@ -887,7 +890,7 @@ class _ProjectFormState extends ConsumerState<ProjectForm> {
   }
 
   Future<void> _save() async {
-    final site = ref.read(currentSiteProvider);
+    final site = _siteId;
     if (site == null) return;
     if (_name.text.trim().length < 3) {
       setState(() => _error = 'Name the project');
@@ -900,7 +903,7 @@ class _ProjectFormState extends ConsumerState<ProjectForm> {
           .read(projectActionsProvider)
           .save(
             project: widget.project,
-            siteId: widget.project?.siteId ?? site.id,
+            siteId: site,
             name: _name.text,
             description: _description.text,
             targetDate: _target,
@@ -964,6 +967,13 @@ class _ProjectFormState extends ConsumerState<ProjectForm> {
             textCapitalization: TextCapitalization.sentences,
             decoration: const InputDecoration(labelText: 'What it covers'),
           ),
+          if (widget.project == null) ...[
+            const SizedBox(height: Space.sm),
+            SiteField(
+              value: _siteId,
+              onChanged: (v) => setState(() => _siteId = v),
+            ),
+          ],
           const SizedBox(height: Space.sm),
           OutlinedButton.icon(
             onPressed: () async {

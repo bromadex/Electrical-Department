@@ -34,9 +34,9 @@ class _StoreScreenState extends ConsumerState<StoreScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final site = ref.watch(currentSiteProvider);
     final session = ref.watch(sessionProvider);
-    final canAdd = session.can('store.adjust', siteId: site?.id);
+    final canAdd = session.canAnywhere('store.adjust');
+    final importSite = ref.watch(currentSiteProvider);
     final items = ref.watch(storeItemsProvider);
     final top = MediaQuery.paddingOf(context).top + kToolbarHeight;
 
@@ -54,7 +54,7 @@ class _StoreScreenState extends ConsumerState<StoreScreen> {
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         leading: const AppBackButton(),
-        title: Text('Inventory · ${site?.code ?? ''}'),
+        title: const Text('Inventory'),
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
         actions: [
           IconButton(
@@ -73,12 +73,15 @@ class _StoreScreenState extends ConsumerState<StoreScreen> {
               icon: const Icon(CupertinoIcons.number_square),
               onPressed: () => context.push('/inventory/count'),
             ),
-          if (canAdd && site != null)
+          if (canAdd && importSite != null)
             IconButton(
-              tooltip: 'Import from Excel',
+              // Into the filtered site, else your home site.
+              tooltip: 'Import from Excel into ${importSite.code}',
               icon: const Icon(CupertinoIcons.arrow_down_doc),
-              onPressed: () =>
-                  showFormSheet<void>(context, itemsImportSheet(ref, site.id)),
+              onPressed: () => showFormSheet<void>(
+                context,
+                itemsImportSheet(ref, importSite.id),
+              ),
             ),
         ],
       ),
@@ -116,7 +119,7 @@ class _StoreScreenState extends ConsumerState<StoreScreen> {
                         scrollDirection: Axis.horizontal,
                         child: Row(
                           children: [
-                            const AllSitesChip(),
+                            const SiteFilterChip(),
                             const SizedBox(width: Space.xs),
                             chip(
                               'All',
@@ -232,7 +235,8 @@ class _StoreScreenState extends ConsumerState<StoreScreen> {
                                 ),
                                 child: _ItemTile(
                                   item: i,
-                                  siteCode: ref.watch(allSitesProvider)
+                                  siteCode:
+                                      (ref.watch(siteFilterProvider) == null)
                                       ? session.siteById(i.siteId)?.code
                                       : null,
                                 ),
@@ -723,7 +727,7 @@ class _StockSheetState extends ConsumerState<StockSheet> {
     final theme = Theme.of(context);
     final i = widget.item;
     final jobs = _withWho
-        ? ref.watch(openJobCardsProvider).value ?? const []
+        ? ref.watch(openJobCardsProvider(i.siteId)).value ?? const []
         : const <({String id, String number, String title})>[];
     final people = ref.watch(peopleProvider).value ?? const {};
     final names = people.entries.toList()
@@ -881,6 +885,8 @@ class _ItemFormState extends ConsumerState<ItemForm> {
   );
   late String _unit = widget.item?.unit ?? 'pcs';
   late String _category = widget.item?.category ?? 'cable';
+  late String? _siteId =
+      widget.item?.siteId ?? ref.read(currentSiteProvider)?.id;
   String? _error;
   bool _busy = false;
 
@@ -893,7 +899,7 @@ class _ItemFormState extends ConsumerState<ItemForm> {
   }
 
   Future<void> _save({bool archive = false}) async {
-    final site = ref.read(currentSiteProvider);
+    final site = _siteId;
     if (site == null) return;
     if (_name.text.trim().length < 2) {
       setState(() => _error = 'Name the item');
@@ -912,7 +918,7 @@ class _ItemFormState extends ConsumerState<ItemForm> {
           .read(storeActionsProvider)
           .saveItem(
             item: widget.item,
-            siteId: widget.item?.siteId ?? site.id,
+            siteId: site,
             name: _name.text,
             unit: _unit,
             category: _category,
@@ -954,6 +960,13 @@ class _ItemFormState extends ConsumerState<ItemForm> {
             style: theme.textTheme.headlineSmall,
           ),
           const SizedBox(height: Space.md),
+          if (widget.item == null) ...[
+            SiteField(
+              value: _siteId,
+              onChanged: (v) => setState(() => _siteId = v),
+            ),
+            const SizedBox(height: Space.sm),
+          ],
           TextField(
             controller: _name,
             textCapitalization: TextCapitalization.sentences,

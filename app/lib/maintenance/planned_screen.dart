@@ -13,6 +13,7 @@ import '../ui/surfaces.dart';
 import '../ui/form_sheet.dart';
 import '../data/site_data.dart';
 import '../widgets/app_back_button.dart';
+import '../widgets/site_picker.dart';
 
 const _everyLabels = {
   'daily': 'Daily',
@@ -30,7 +31,6 @@ class RecurringScreen extends ConsumerWidget {
     final list = ref.watch(recurrencesProvider);
     final people = ref.watch(peopleProvider).value ?? const {};
     final session = ref.watch(sessionProvider);
-    final site = ref.watch(currentSiteProvider);
     final areaNames = {for (final a in session.areas) a.id: a.name};
     final assetTags = {
       for (final a in ref.watch(siteAssetsProvider).value ?? const [])
@@ -43,7 +43,11 @@ class RecurringScreen extends ConsumerWidget {
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         leading: const AppBackButton(fallback: '/jobs'),
-        title: Text('Planned maintenance · ${site?.code ?? ''}'),
+        title: const Text('Planned maintenance'),
+        actions: const [
+          SiteFilterChip(),
+          SizedBox(width: Space.sm),
+        ],
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -190,6 +194,9 @@ class _RecurrenceFormState extends ConsumerState<_RecurrenceForm> {
   );
   late String _every = (widget.existing?['every'] as String?) ?? 'weekly';
   late String? _areaId = widget.existing?['area_id'] as String?;
+  late String? _siteId =
+      widget.existing?['site_id'] as String? ??
+      ref.read(currentSiteProvider)?.id;
   late String? _assigneeId = widget.existing?['assignee_id'] as String?;
   late int _dueDays = (widget.existing?['due_days'] as num?)?.toInt() ?? 1;
   late String? _assetId = widget.existing?['asset_id'] as String?;
@@ -212,14 +219,14 @@ class _RecurrenceFormState extends ConsumerState<_RecurrenceForm> {
       setState(() => _error = 'Describe the job in a few words');
       return;
     }
-    final site = ref.read(currentSiteProvider);
+    final site = _siteId;
     if (site == null) return;
     HapticFeedback.mediumImpact();
     await ref
         .read(siteActionsProvider)
         .saveRecurrence(
           id: widget.existing?['id'] as String?,
-          siteId: site.id,
+          siteId: site,
           areaId: _areaId,
           title: _title.text,
           description: _description.text,
@@ -242,12 +249,12 @@ class _RecurrenceFormState extends ConsumerState<_RecurrenceForm> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final session = ref.watch(sessionProvider);
-    final site = ref.watch(currentSiteProvider);
-    final areas = site == null ? <LocalArea>[] : session.areasAt(site.id);
+    final site = _siteId;
+    final areas = site == null ? <LocalArea>[] : session.areasAt(site);
     final people = site == null
         ? const AsyncValue<List<Assignee>>.data([])
-        : ref.watch(assigneesProvider(site.id));
-    final assets = ref.watch(siteAssetsProvider).value ?? const [];
+        : ref.watch(assigneesProvider(site));
+    final assets = ref.watch(assetsAtProvider(site)).value ?? const [];
     Widget label(String t) => Padding(
       padding: const EdgeInsets.only(top: Space.md, bottom: Space.xs),
       child: Text(t, style: theme.textTheme.labelLarge),
@@ -268,6 +275,18 @@ class _RecurrenceFormState extends ConsumerState<_RecurrenceForm> {
             widget.existing == null ? 'New planned job' : 'Edit planned job',
             style: theme.textTheme.headlineSmall,
           ),
+          if (widget.existing == null) ...[
+            const SizedBox(height: Space.md),
+            SiteField(
+              value: _siteId,
+              onChanged: (v) => setState(() {
+                _siteId = v;
+                _areaId = null;
+                _assigneeId = null;
+                _assetId = null;
+              }),
+            ),
+          ],
           label('What needs doing?'),
           TextField(
             controller: _title,

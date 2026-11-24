@@ -209,7 +209,10 @@ class _StoreCountScreenState extends ConsumerState<StoreCountScreen> {
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         leading: const AppBackButton(fallback: '/inventory'),
-        title: const Text('Count stock'),
+        // A count is of one site's shelves: the filtered site, else home.
+        title: Text(
+          'Count stock · ${ref.watch(currentSiteProvider)?.code ?? ''}',
+        ),
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
         actions: [
           IconButton(
