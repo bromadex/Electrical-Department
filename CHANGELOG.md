@@ -4,6 +4,24 @@
 
 ## 24 November 2026
 
+### Everyday jobs, taking turns and the Christmas shutdown
+- **Planned maintenance** can now repeat **every day**, on **weekdays
+  (Monday to Friday)**, weekly, monthly, every 3 months or yearly.
+- **Who does it**: by hand (it waits on the board), **one person**, or
+  **take turns**: tap the technicians in order and each new job goes to
+  the next one. Anyone the roster has **off or on leave** that day is
+  skipped.
+- A planned job with a person is now **really assigned** to them (before,
+  they were only told it was due).
+- **Shutdowns and holidays** (the moon button on Planned maintenance):
+  while work is closed no planned jobs are raised. Everyday ones are
+  skipped; weekly and monthly ones wait for the day work starts again.
+  Checklist alerts and the evening daily reports pause when every site is
+  closed.
+- The **Christmas shutdown is in: 19 December to 3 January** (last day of
+  work Friday 18 December, back Monday 4 January). Home shows it from a
+  month before, and the calendar marks the days.
+
 ### One team, every site
 - The **site picker is gone** from the top of the app. Every list shows
   **all sites** by default: Home, job cards, equipment, tools, checklists,

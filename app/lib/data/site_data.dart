@@ -252,6 +252,7 @@ class SiteActions {
     bool archived = false,
     String? assetId,
     bool isolationRequired = false,
+    List<String> rotation = const [],
   }) async {
     final ref = id ?? _uuid.v4();
     final d = nextRun;
@@ -270,6 +271,8 @@ class SiteActions {
       'p_archived': archived,
       'p_asset': assetId,
       'p_isolation_required': isolationRequired,
+      // People who take turns (migration 0058); empty: one person or none.
+      'p_rotation': rotation,
     });
   }
 }

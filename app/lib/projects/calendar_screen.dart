@@ -11,6 +11,7 @@ import '../ui/bits.dart';
 import '../ui/surfaces.dart';
 import '../widgets/app_back_button.dart';
 import '../widgets/site_picker.dart';
+import '../maintenance/closures.dart';
 import 'projects_repository.dart';
 
 /// How each kind of calendar entry looks.
@@ -227,6 +228,20 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                       style: theme.textTheme.titleMedium,
                     ),
                     const SizedBox(height: Space.sm),
+                    // Shutdowns and holidays on the day picked.
+                    for (final c
+                        in ref.watch(closuresProvider).value ??
+                            const <Closure>[])
+                      if (c.covers(_day) && c.at(site))
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: Space.xs),
+                          child: Text(
+                            'Closed: ${c.reason}',
+                            style: theme.textTheme.labelLarge?.copyWith(
+                              color: BrandColors.warning,
+                            ),
+                          ),
+                        ),
                     if (events.hasError)
                       EmptyState(
                         icon: CupertinoIcons.wifi_slash,

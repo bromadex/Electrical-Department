@@ -24,6 +24,7 @@ import '../v2/my_jobs/my_jobs_screen.dart' show myJobsProvider;
 import '../v2/requests/models.dart';
 import '../v2/requests/repository.dart';
 import '../v2/requests/request_tile.dart';
+import '../maintenance/closures.dart';
 import '../v2/site_filter.dart';
 import '../widgets/push_prompt.dart';
 
@@ -54,6 +55,8 @@ class HomeScreen extends ConsumerWidget {
         const PushPrompt(),
         _Greeting(session: session).entrance(context),
         const SizedBox(height: Space.md),
+        // A shutdown or holiday on now or within a month.
+        ClosureNotice(site: ref.watch(siteFilterProvider)),
         LayoutBuilder(
           builder: (context, c) {
             if (c.maxWidth < 900) {

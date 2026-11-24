@@ -35,6 +35,7 @@ import 'checklists/checklist_run_screen.dart';
 import 'checklists/checklists_screen.dart';
 import 'documents/document_detail_screen.dart';
 import 'documents/documents_screen.dart';
+import 'maintenance/closures.dart';
 import 'maintenance/planned_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
@@ -200,6 +201,8 @@ GoRouter buildRouter(WidgetRef ref) {
         path: '/jobs/recurring',
         builder: (_, _) => const RecurringScreen(),
       ),
+      // Shutdowns and holidays (migration 0058).
+      GoRoute(path: '/closures', builder: (_, _) => const ClosuresScreen()),
       ...jobCardRoutes,
       jobCardDetailRoute,
       GoRoute(

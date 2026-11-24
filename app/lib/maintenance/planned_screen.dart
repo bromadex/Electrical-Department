@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../data/local_db.dart';
 import '../services/session_controller.dart';
@@ -14,12 +15,28 @@ import '../ui/form_sheet.dart';
 import '../data/site_data.dart';
 import '../widgets/app_back_button.dart';
 import '../widgets/site_picker.dart';
+import 'closures.dart';
 
-const _everyLabels = {
-  'daily': 'Daily',
+const everyLabels = {
+  'daily': 'Every day',
+  'weekdays': 'Weekdays (Mon–Fri)',
   'weekly': 'Weekly',
   'monthly': 'Monthly',
+  'quarterly': 'Every 3 months',
+  'yearly': 'Yearly',
 };
+
+/// Who does a planned job: nobody in particular (assigned by hand), one
+/// person, or people taking turns.
+enum _Who { anyone, one, turns }
+
+/// "Takes turns: Tendai → Farai → Kuda (next: Farai)".
+String turnsText(List<String> ids, int next, Map<String, String> people) {
+  if (ids.isEmpty) return '';
+  String name(String id) => (people[id] ?? 'someone').split(' ').first;
+  final who = ids.map(name).join(' → ');
+  return 'turns: $who (next ${name(ids[next % ids.length])})';
+}
 
 /// Supervisors manage jobs that repeat (e.g. weekly lighting check). The
 /// database creates each job at 06:00 Harare time on its next run date.
@@ -44,9 +61,14 @@ class RecurringScreen extends ConsumerWidget {
       appBar: AppBar(
         leading: const AppBackButton(fallback: '/jobs'),
         title: const Text('Planned maintenance'),
-        actions: const [
-          SiteFilterChip(),
-          SizedBox(width: Space.sm),
+        actions: [
+          const SiteFilterChip(),
+          IconButton(
+            tooltip: 'Shutdowns and holidays',
+            icon: const Icon(CupertinoIcons.moon_zzz),
+            onPressed: () => context.push('/closures'),
+          ),
+          const SizedBox(width: Space.xs),
         ],
         flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
       ),
@@ -82,6 +104,15 @@ class RecurringScreen extends ConsumerWidget {
                 120,
               ),
               children: [
+                Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 720),
+                    child: ClosureNotice(
+                      site: ref.watch(siteFilterProvider),
+                      planned: true,
+                    ),
+                  ),
+                ),
                 if (rows.isEmpty)
                   const Padding(
                     padding: EdgeInsets.only(top: Space.xl),
@@ -131,11 +162,25 @@ class RecurringScreen extends ConsumerWidget {
                                     ),
                                     Text(
                                       [
-                                        _everyLabels[r['every']] ?? r['every'],
+                                        everyLabels[r['every']] ?? r['every'],
                                         'next ${r['next_run']}',
                                         ?areaNames[r['area_id']],
                                         ?assetTags[r['asset_id']],
-                                        if (r['assignee_id'] != null)
+                                        if ((r['rotation'] as List?)
+                                                ?.isNotEmpty ??
+                                            false)
+                                          turnsText(
+                                            [
+                                              for (final u
+                                                  in r['rotation'] as List)
+                                                '$u',
+                                            ],
+                                            (r['rotation_next'] as num?)
+                                                    ?.toInt() ??
+                                                0,
+                                            people,
+                                          )
+                                        else if (r['assignee_id'] != null)
                                           'to ${people[r['assignee_id']] ?? 'someone'}',
                                       ].join(' · '),
                                       style: Theme.of(context)
@@ -198,6 +243,16 @@ class _RecurrenceFormState extends ConsumerState<_RecurrenceForm> {
       widget.existing?['site_id'] as String? ??
       ref.read(currentSiteProvider)?.id;
   late String? _assigneeId = widget.existing?['assignee_id'] as String?;
+
+  /// People taking turns, in order.
+  late final List<String> _turns = [
+    for (final u in (widget.existing?['rotation'] as List?) ?? const []) '$u',
+  ];
+  late _Who _who = _turns.isNotEmpty
+      ? _Who.turns
+      : _assigneeId != null
+      ? _Who.one
+      : _Who.anyone;
   late int _dueDays = (widget.existing?['due_days'] as num?)?.toInt() ?? 1;
   late String? _assetId = widget.existing?['asset_id'] as String?;
   late bool _isolation =
@@ -219,6 +274,14 @@ class _RecurrenceFormState extends ConsumerState<_RecurrenceForm> {
       setState(() => _error = 'Describe the job in a few words');
       return;
     }
+    if (!archive && _who == _Who.one && _assigneeId == null) {
+      setState(() => _error = 'Pick who does it');
+      return;
+    }
+    if (!archive && _who == _Who.turns && _turns.length < 2) {
+      setState(() => _error = 'Pick at least two people to take turns');
+      return;
+    }
     final site = _siteId;
     if (site == null) return;
     HapticFeedback.mediumImpact();
@@ -234,10 +297,11 @@ class _RecurrenceFormState extends ConsumerState<_RecurrenceForm> {
           every: _every,
           nextRun: _nextRun,
           dueDays: _dueDays,
-          assigneeId: _assigneeId,
+          assigneeId: _who == _Who.one ? _assigneeId : null,
           archived: archive,
           assetId: _assetId,
           isolationRequired: _isolation,
+          rotation: _who == _Who.turns ? _turns : const [],
         );
     // Give the queued save a moment to reach the server, then reload.
     await Future<void>.delayed(const Duration(milliseconds: 800));
@@ -283,6 +347,7 @@ class _RecurrenceFormState extends ConsumerState<_RecurrenceForm> {
                 _siteId = v;
                 _areaId = null;
                 _assigneeId = null;
+                _turns.clear();
                 _assetId = null;
               }),
             ),
@@ -303,13 +368,27 @@ class _RecurrenceFormState extends ConsumerState<_RecurrenceForm> {
             decoration: const InputDecoration(hintText: 'Details (optional)'),
           ),
           label('Repeats'),
-          Center(
-            child: GlassSegmented<String>(
-              value: _every,
-              segments: _everyLabels,
-              onChanged: (v) => setState(() => _every = v),
-            ),
+          Wrap(
+            spacing: Space.xs,
+            runSpacing: Space.xs,
+            children: [
+              for (final e in everyLabels.entries)
+                ChoiceChip(
+                  label: Text(e.value),
+                  selected: _every == e.key,
+                  onSelected: (_) => setState(() => _every = e.key),
+                ),
+            ],
           ),
+          if (_every == 'daily' || _every == 'weekdays')
+            Padding(
+              padding: const EdgeInsets.only(top: Space.xs),
+              child: Text(
+                'Skipped on shutdowns and holidays'
+                '${_every == 'weekdays' ? ' and at weekends' : ''}.',
+                style: theme.textTheme.labelSmall,
+              ),
+            ),
           label('Priority'),
           Center(
             child: GlassSegmented<PlanPriority>(
@@ -401,26 +480,84 @@ class _RecurrenceFormState extends ConsumerState<_RecurrenceForm> {
             value: _isolation,
             onChanged: (v) => setState(() => _isolation = v),
           ),
-          label('Assign to'),
-          people.when(
-            loading: () => const LinearProgressIndicator(),
-            error: (_, _) => const Text('Connect to pick someone.'),
-            data: (list) => DropdownButtonFormField<String?>(
-              initialValue: _assigneeId,
-              items: [
-                const DropdownMenuItem(
-                  value: null,
-                  child: Text('Leave on the board'),
-                ),
-                for (final p in list)
-                  DropdownMenuItem(
-                    value: p.id,
-                    child: Text(p.name.isEmpty ? 'Unnamed' : p.name),
-                  ),
-              ],
-              onChanged: (v) => setState(() => _assigneeId = v),
+          label('Who does it'),
+          Center(
+            child: GlassSegmented<_Who>(
+              value: _who,
+              segments: const {
+                _Who.anyone: 'By hand',
+                _Who.one: 'One person',
+                _Who.turns: 'Take turns',
+              },
+              onChanged: (w) => setState(() => _who = w),
             ),
           ),
+          const SizedBox(height: Space.sm),
+          if (_who == _Who.anyone)
+            Text(
+              'Each job waits on the board for a supervisor to assign.',
+              style: theme.textTheme.labelSmall,
+            )
+          else
+            people.when(
+              loading: () => const LinearProgressIndicator(),
+              error: (_, _) => const Text('Connect to pick people.'),
+              data: (list) => _who == _Who.one
+                  ? DropdownButtonFormField<String?>(
+                      initialValue: list.any((p) => p.id == _assigneeId)
+                          ? _assigneeId
+                          : null,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Assigned to',
+                      ),
+                      items: [
+                        for (final p in list)
+                          DropdownMenuItem(
+                            value: p.id,
+                            child: Text(p.name.isEmpty ? 'Unnamed' : p.name),
+                          ),
+                      ],
+                      onChanged: (v) => setState(() => _assigneeId = v),
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          'Tap people in the order they take turns. Each job '
+                          'goes to the next one; anyone off or on leave in '
+                          'the roster that day is skipped.',
+                          style: theme.textTheme.labelSmall,
+                        ),
+                        const SizedBox(height: Space.xs),
+                        Wrap(
+                          spacing: Space.xs,
+                          runSpacing: Space.xs,
+                          children: [
+                            for (final p in list)
+                              FilterChip(
+                                avatar: _turns.contains(p.id)
+                                    ? CircleAvatar(
+                                        child: Text(
+                                          '${_turns.indexOf(p.id) + 1}',
+                                          style: const TextStyle(fontSize: 11),
+                                        ),
+                                      )
+                                    : null,
+                                showCheckmark: false,
+                                label: Text(
+                                  p.name.isEmpty ? 'Unnamed' : p.name,
+                                ),
+                                selected: _turns.contains(p.id),
+                                onSelected: (on) => setState(() {
+                                  on ? _turns.add(p.id) : _turns.remove(p.id);
+                                }),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+            ),
           if (_error != null)
             Padding(
               padding: const EdgeInsets.only(top: Space.sm),

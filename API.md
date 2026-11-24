@@ -193,7 +193,7 @@ meetings (section 16); until then nobody can read or write them.
 | `jobs` | `id`, `site_id`, `area_id`, `code` (J-0001, unique per site), `title`, `description`, `priority` (low/normal/urgent), `status` (open/taken/in_progress/waiting/done/cancelled), `waiting_reason`, `due_at`, `lat`, `lng`, `created_by`, `assignee_id`, `taken_at`, `closed_at`, `closed_by`, `close_note`, `recurrence_id`, `overdue_notified_at` | `jobs.view` at the site |
 | `job_photos` | `id`, `job_id`, `kind` (before/after), `path` | job readers |
 | `job_comments` | `id`, `job_id`, `author_id`, `body` | job readers |
-| `job_recurrences` | `id`, `site_id`, `area_id`, `title`, `priority`, `every` (daily/weekly/monthly), `next_run`, `due_days`, `assignee_id` | `jobs.view` at the site |
+| `job_recurrences` | `id`, `site_id`, `area_id`, `title`, `priority`, `every` (daily/weekly/monthly; more in 10b), `next_run`, `due_days`, `assignee_id` | `jobs.view` at the site |
 
 ### Functions
 
@@ -272,6 +272,15 @@ A light asset register; jobs can point at an asset, so each asset has a job hist
 - `fn_create_job(..., p_asset, p_maintenance_type, p_isolation_required)` and `fn_edit_job(..., p_asset, p_maintenance_type, p_isolation_required)`: new trailing parameters with defaults, so calls from older apps still work. In `fn_edit_job` a null `p_maintenance_type` leaves the asset, type and isolation unchanged.
 - `job_recurrences` gains `asset_id` and `isolation_required`; `fn_save_recurrence(..., p_asset, p_isolation_required)`. Planned maintenance = a recurring job on an asset: `fn_run_recurrences` marks those jobs `preventive`.
 - App: Board → Assets (`/assets`), asset page (`/assets/<id>`) with open/done counts, planned maintenance and job history, "Job on this asset". The job form has Asset, "Isolation (lock-out) required" and "Planned maintenance"; jobs needing isolation show a lock and a LOTO warning. Assets are cached on the device with the jobs (drift schema v3).
+
+## 10b. Everyday plans, taking turns and shutdowns (migration 0058)
+
+- `job_recurrences.every`: `daily`, `weekdays` (Monday to Friday), `weekly`, `monthly`, `quarterly`, `yearly`. `_recurrence_after(every, day)` gives the next run.
+- `job_recurrences.rotation uuid[]` (people taking turns, in order) and `rotation_next` (whose turn). `fn_save_recurrence(..., p_rotation uuid[] default null)` keeps each person once, needs `jc.execute` at the site for each, and clears `assignee_id` when people take turns; a changed list starts again at its first person.
+- `fn_run_recurrences`: the job goes to the next person in turn who is not `off` or `leave` in that day's roster, else the plan's one person. The plan stands for the assessment, so the job card goes from registered to awaiting assignment and `fn_assign_job_card` assigns it as the planner (the person gets the usual "assigned" alert). If that cannot be done the job waits for assignment and the person is told it is due. Nobody available: it waits for assignment.
+- `work_closures` (`site_id` null = every site, `starts_on`, `ends_on` inclusive, `reason`): everyone reads; `fn_save_closure(p_id, p_site, p_starts, p_ends, p_reason, p_archived)` needs `jobs.assign` at the site (at every site for a null site). `_closed_on(site, day)` and `_next_open_day` are for the scheduler only. On a closed day (or a weekend, for `weekdays`) nothing is raised: `daily`/`weekdays` plans skip to the next open run, the others move to the day work reopens. The cron jobs `checklists-reminder`, `checklists-missed` and `daily-reports` do nothing while every site is closed.
+- Seeded: the Christmas shutdown, 19 December 2026 to 3 January 2027 (every site; the last working day is 18 December, work starts again on 4 January).
+- App: Planned maintenance (`/jobs/recurring`) has the frequencies as chips and "Who does it": by hand, one person, or take turns (tap people in order); the moon button opens Shutdowns and holidays (`/closures`, `lib/maintenance/closures.dart`). Home and Planned maintenance show a closure on now or starting within a month; the calendar names closed days.
 
 ## 11. Tools register (migration 0006)
 

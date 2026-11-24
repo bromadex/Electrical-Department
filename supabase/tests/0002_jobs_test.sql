@@ -151,7 +151,8 @@ select public.fn_save_recurrence(gen_random_uuid(), (select kam from t), null, '
   null, 'low', 'weekly', current_date, 2, '20000000-0000-0000-0000-000000000001', false);
 reset role;
 select pg_temp.check(public.fn_run_recurrences() >= 1, 'recurrence runs');
--- Since 0015 recurrences raise job cards, and the planned person is told.
+-- Since 0015 recurrences raise job cards; since 0058 the planned person is
+-- assigned (or, if that cannot be done, told it is due).
 select pg_temp.check(exists (
   select 1 from public.job_cards where title = 'Weekly lighting check' and source = 'preventive'
     and priority = 'P4'
@@ -159,7 +160,7 @@ select pg_temp.check(exists (
 select pg_temp.check(exists (
   select 1 from public.notifications
   where user_id = '20000000-0000-0000-0000-000000000001' and link like 'jobcard:%'
-    and title like '% is due (planned maintenance)'
+    and type = 'assigned'
 ), 'the planned person is told');
 select pg_temp.check((select next_run from public.job_recurrences where title = 'Weekly lighting check')
   > current_date, 'next run moves forward');
