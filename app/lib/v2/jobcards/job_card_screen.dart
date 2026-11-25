@@ -1,3 +1,5 @@
+import 'register_screen.dart' show workTypeLabel;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -674,6 +676,9 @@ class _Header extends StatelessWidget {
                 if (job.isCriticalOpen) const CriticalFlag(),
                 StatusPill(job.status),
                 if (job.targetCompletionAt != null) SlaChip(job.sla),
+                // Planned work says what kind (migration 0060).
+                if (workTypeLabel(job.maintenanceType) case final kind?)
+                  Pill(label: kind, color: AppColors.info, dense: true),
                 if (job.legacyCode != null)
                   Pill(
                     label: 'Migrated from ${job.legacyCode}',

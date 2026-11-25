@@ -291,6 +291,11 @@ A light asset register; jobs can point at an asset, so each asset has a job hist
 - `fn_mark_duty(p_task, p_day, p_done, p_note)` (anyone who works at the site; the day itself or up to 7 days after). Queued offline (outbox allow-list).
 - No notifications: the app shows "Your duty today" in Home's Needs you. Page: `/duties` (`lib/duties/duties.dart`), in the Menu and the side bar.
 
+## 10d. Faults and planned work (migration 0060)
+
+- Not every job is a fault. The ➕ sheet has **Report a fault** (`/jobs/new?kind=fault`) and **New job** (`/jobs/new?kind=work`); the register form asks "Kind of job": a fault, or planned work with a type (installation, change or upgrade = `improvement`, inspection or testing, maintenance = `preventive`). Planned work starts at No impact and P4, and says "Requested by".
+- After `fn_register_job_card` the app calls `fn_set_job_kind(p_job, p_type)` (the registrar, or `jc.assess` at the site; ignored once assessed), which fills `job_cards.maintenance_type` (`reactive` for a fault). The assessment prefills from it and can change it; the job card shows the kind of planned work as a tag.
+
 ## 11. Tools register (migration 0006)
 
 Who holds which tool, when it is due back, and when calibration is due.

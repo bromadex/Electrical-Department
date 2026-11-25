@@ -2,6 +2,19 @@
 
 
 
+
+## 25 November 2026
+
+### Not every job is a fault
+- The **➕** sheet has **New job** beside **Report a fault**, for planned
+  work: installations, changes and upgrades, inspections and testing,
+  maintenance.
+- The job card form asks **what kind of job** it is. Planned work asks the
+  type of work, says "Requested by", and starts at No impact and P4 Low
+  (change them if needed). The job card shows the type (e.g.
+  Installation), and the engineer can still change it when assessing.
+- Faults and planned work are told apart in the data, ready for the KPI
+  report (issue #39).
 ## 24 November 2026
 
 ### Public holidays, holiday messages and daily duties

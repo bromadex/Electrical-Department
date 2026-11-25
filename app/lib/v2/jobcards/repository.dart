@@ -334,6 +334,7 @@ class JobCardActions {
     required String priority,
     DateTime? requestedCompletionAt,
     List<PickedFile> files = const [],
+    String? workType,
   }) async {
     final id = _uuid.v4();
     final row = await _call('fn_register_job_card', {
@@ -356,6 +357,13 @@ class JobCardActions {
       'p_priority': priority,
       'p_requested_completion_at': _time(requestedCompletionAt),
     });
+    // A fault or planned work (migration 0060); the assessment can change
+    // it. The job card is registered either way.
+    if (workType != null) {
+      try {
+        await _call('fn_set_job_kind', {'p_job': id, 'p_type': workType});
+      } catch (_) {}
+    }
     if (files.isNotEmpty) {
       await addFiles(
         jobId: id,

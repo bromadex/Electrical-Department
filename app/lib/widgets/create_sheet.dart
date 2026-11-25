@@ -77,15 +77,23 @@ class _CreateSheet extends ConsumerWidget {
     }
 
     final actions = <_Action>[
-      if (can('jc.register'))
+      if (can('jc.register')) ...[
         (
           icon: CupertinoIcons.exclamationmark_triangle_fill,
           title: 'Report a fault',
-          hint: 'New job card',
+          hint: 'Something broken',
           colors: const [BrandColors.maroon, BrandColors.coral],
-          run: (c) => then(c, (h) => h.push('/jobs/new')),
-        )
-      else if (can('req.submit'))
+          run: (c) => then(c, (h) => h.push('/jobs/new?kind=fault')),
+        ),
+        // Not every job is a fault: installations, changes, inspections.
+        (
+          icon: CupertinoIcons.hammer_fill,
+          title: 'New job',
+          hint: 'Install, change, inspect',
+          colors: const [BrandColors.info, BrandColors.blush],
+          run: (c) => then(c, (h) => h.push('/jobs/new?kind=work')),
+        ),
+      ] else if (can('req.submit'))
         (
           icon: CupertinoIcons.paperplane_fill,
           title: 'Request work',

@@ -28,9 +28,14 @@ class RegisterJobCardScreen extends ConsumerWidget {
     this.title,
     this.description,
     this.assetId,
+    this.kind,
   });
 
   final String? requestId;
+
+  /// 'fault' or 'work' (planned work), from the ➕ sheet; the form asks
+  /// when it is not given.
+  final String? kind;
 
   /// Prefill for a new job card started elsewhere (a chat message, an
   /// equipment page).
@@ -50,6 +55,7 @@ class RegisterJobCardScreen extends ConsumerWidget {
           title: title,
           description: description,
           assetId: assetId,
+          kind: kind,
         ),
       );
     }
@@ -60,7 +66,7 @@ class RegisterJobCardScreen extends ConsumerWidget {
       data: (data) => AsyncView(
         value: request,
         onRetry: () => ref.invalidate(serviceRequestProvider(requestId!)),
-        data: (r) => _RegisterForm(reference: data, request: r),
+        data: (r) => _RegisterForm(reference: data, request: r, kind: kind),
       ),
     );
   }
@@ -73,9 +79,11 @@ class _RegisterForm extends ConsumerStatefulWidget {
     this.title,
     this.description,
     this.assetId,
+    this.kind,
   });
 
   final ReferenceData reference;
+  final String? kind;
   final ServiceRequest? request;
   final String? title;
   final String? description;
@@ -115,6 +123,19 @@ class _RegisterFormState extends ConsumerState<_RegisterForm> {
   List<PickedFile> _files = const [];
   bool _busy = false;
 
+  /// A fault (something broken or not working) or planned work.
+  late bool _work = widget.kind == 'work';
+
+  /// job_cards.maintenance_type: for a fault 'reactive', for work the kind
+  /// picked below.
+  String? _workType;
+
+  /// Planned work disrupts nothing and is seldom urgent.
+  void _workDefaults() {
+    _impact ??= 'none';
+    _priority ??= 'P4';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -123,6 +144,7 @@ class _RegisterFormState extends ConsumerState<_RegisterForm> {
     _areaId = r?.areaId;
     _departmentId = r?.departmentId;
     _impact = r?.impact?.db;
+    if (_work) _workDefaults();
     final assetId = widget.assetId;
     if (assetId != null) {
       ref.read(assetProvider(assetId).future).then((a) {
@@ -158,6 +180,10 @@ class _RegisterFormState extends ConsumerState<_RegisterForm> {
       showSnack(context, 'Choose the operational impact and the priority.');
       return;
     }
+    if (_work && _workType == null) {
+      showSnack(context, 'Choose the type of work.');
+      return;
+    }
     if (_areaId == null &&
         _asset == null &&
         _location.text.trim().isEmpty &&
@@ -191,6 +217,7 @@ class _RegisterFormState extends ConsumerState<_RegisterForm> {
             priority: _priority!,
             requestedCompletionAt: _requestedCompletion,
             files: _files,
+            workType: _work ? _workType : 'reactive',
           );
       if (!mounted) return;
       showSnack(context, 'Registered $number');
@@ -226,9 +253,14 @@ class _RegisterFormState extends ConsumerState<_RegisterForm> {
     final priority = _priority == null ? null : data.priority(_priority!);
 
     return AppPage(
-      title: request == null ? 'New job card' : 'Register ${request.requestNo}',
+      title: request == null
+          ? (_work ? 'New job' : 'Report a fault')
+          : 'Register ${request.requestNo}',
       subtitle: request == null
-          ? 'Receive and register an electrical fault or maintenance job'
+          ? (_work
+                ? 'Planned work: an installation, a change, an inspection '
+                      'or maintenance'
+                : 'Something broken or not working')
           : 'Submitted by ${request.requesterName ?? request.reporterName} · ${fmtDateTime(request.submittedAt)}',
       maxWidth: 1000,
       child: Form(
@@ -252,6 +284,47 @@ class _RegisterFormState extends ConsumerState<_RegisterForm> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  FormSection(
+                    title: 'What is it?',
+                    children: [
+                      FullWidth(
+                        child: ChoiceField<bool>(
+                          label: 'Kind of job *',
+                          value: _work,
+                          onChanged: (v) => setState(() {
+                            _work = v;
+                            if (_work) _workDefaults();
+                          }),
+                          options: const [
+                            (
+                              false,
+                              'A fault',
+                              Icons.report_problem_outlined,
+                              AppColors.critical,
+                            ),
+                            (
+                              true,
+                              'Planned work',
+                              Icons.construction_rounded,
+                              AppColors.info,
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (_work)
+                        FullWidth(
+                          child: ChoiceField<String>(
+                            label: 'Type of work *',
+                            value: _workType,
+                            onChanged: (v) => setState(() => _workType = v),
+                            options: [
+                              for (final (k, label, icon) in workTypes)
+                                (k, label, icon, AppColors.info),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
                   FormSection(
                     title: 'Reception',
                     children: [
@@ -283,8 +356,8 @@ class _RegisterFormState extends ConsumerState<_RegisterForm> {
                         ),
                       TextFormField(
                         controller: _reporter,
-                        decoration: const InputDecoration(
-                          labelText: 'Reported by *',
+                        decoration: InputDecoration(
+                          labelText: _work ? 'Requested by *' : 'Reported by *',
                         ),
                         validator: Valid.length(
                           2,
@@ -356,14 +429,16 @@ class _RegisterFormState extends ConsumerState<_RegisterForm> {
                     ],
                   ),
                   FormSection(
-                    title: 'Fault or work',
+                    title: _work ? 'The work' : 'The fault',
                     children: [
                       FullWidth(
                         child: TextFormField(
                           controller: _title,
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             labelText: 'Short title *',
-                            hintText: 'e.g. MCC-2 isolator handle broken',
+                            hintText: _work
+                                ? 'e.g. Install a 12-way DB in Block C'
+                                : 'e.g. MCC-2 isolator handle broken',
                           ),
                           validator: Valid.length(3, 120, 'The title'),
                         ),
@@ -373,8 +448,12 @@ class _RegisterFormState extends ConsumerState<_RegisterForm> {
                           controller: _description,
                           minLines: 3,
                           maxLines: 8,
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             labelText: 'Detailed description *',
+                            hintText: _work
+                                ? 'What to do, where, and anything to '
+                                      'prepare'
+                                : 'What happened, what is affected',
                           ),
                           validator: Valid.length(5, 4000, 'The description'),
                         ),
@@ -501,4 +580,20 @@ class _RegisterFormState extends ConsumerState<_RegisterForm> {
       ),
     );
   }
+}
+
+/// Kinds of planned work (job_cards.maintenance_type).
+const workTypes = <(String, String, IconData)>[
+  ('installation', 'Installation', Icons.electrical_services_rounded),
+  ('improvement', 'Change or upgrade', Icons.upgrade_rounded),
+  ('inspection', 'Inspection or testing', Icons.fact_check_outlined),
+  ('preventive', 'Maintenance', Icons.build_circle_outlined),
+];
+
+/// The label of a kind of planned work, or null for faults and unknowns.
+String? workTypeLabel(String? type) {
+  for (final (k, label, _) in workTypes) {
+    if (k == type) return label;
+  }
+  return null;
 }

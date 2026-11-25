@@ -20,12 +20,15 @@ final jobCardRoutes = <RouteBase>[
   GoRoute(
     path: '/jobs/new',
     builder: (_, s) => JobPage(
-      title: 'New job card',
+      title: s.uri.queryParameters['kind'] == 'work'
+          ? 'New job'
+          : 'New job card',
       child: RegisterJobCardScreen(
         requestId: s.uri.queryParameters['request'],
         title: s.uri.queryParameters['title'],
         description: s.uri.queryParameters['description'],
         assetId: s.uri.queryParameters['asset'],
+        kind: s.uri.queryParameters['kind'],
       ),
     ),
   ),
