@@ -72,7 +72,7 @@ class JobCardsScreen extends ConsumerWidget {
   final Map<String, String> keepQuery;
 
   /// Below this window width the list shows cards instead of a table.
-  static const tableFrom = 1100.0;
+  static const tableFrom = 960.0;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

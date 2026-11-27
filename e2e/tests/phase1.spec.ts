@@ -23,7 +23,7 @@ async function jobByTitle(api: Api, title: string) {
 test('Test 1: a new job card gets a unique number and receipt time', async ({ browser }) => {
   const page = await signIn(browser, people.engineer);
   await open(page, '/jobs/new');
-  await expectShown(page, /Receive and register an electrical fault/);
+  await expectShown(page, /Something broken or not working/);
   const title = `MCC-4 isolator handle broken (${stamp})`;
   await fill(page, /Reported by/, 'Shift foreman');
   await fill(page, /Location details/, 'MCC-4, feeder 2');
